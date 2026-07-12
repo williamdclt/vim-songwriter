@@ -48,9 +48,9 @@ syn match songwriterTabDash '-' contained
 " === Highlighting ===
 hi def songwriterChord gui=bold cterm=bold guifg=#aa00ff ctermfg=Magenta
 hi def songwriterTabLine gui=none cterm=none guifg=NONE ctermfg=NONE
-hi def songwriterTabPrefix gui=none cterm=none guifg=#888888 ctermfg=DarkGray
+hi def songwriterTabPrefix gui=none cterm=none guifg=#888888 ctermfg=Blue
 hi def songwriterTabFret gui=none cterm=none guifg=#ffffff ctermfg=White
-hi def songwriterTabDash gui=none cterm=none guifg=#888888 ctermfg=DarkGray
+hi def songwriterTabDash gui=none cterm=none guifg=#888888 ctermfg=Blue
 hi def songwriterTabBar gui=none cterm=none guifg=#ffffff ctermfg=White
 hi def songwriterSection gui=bold cterm=bold guifg=#ffff00 ctermfg=Yellow
 
