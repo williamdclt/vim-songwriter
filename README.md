@@ -4,20 +4,25 @@ Design constraint: this is (as much as possible) not a custom file format. Someo
 
 ## Features
 
-- interleave freeform prose, lyrics, chord progressions, tabs... as a sort of notebook.
-- Syntax highlighting of tablature, chord progressions
+- [x] interleave freeform prose, lyrics, chord progressions, tabs... as a sort of notebook.
+- [ ] Syntax highlighting of tablature, chord progressions
 - Tab edit:
-  - add bar
-  - add space (dashes) on all strings simulateously
-  - insert a chord with a : command (eg `:whateverthecommandis Am7`)
-  - move whole chord up or down chromatically with ctrl+A and ctrl+X
+  - [x] add bar (`:SongwriterAddBar`)
+  - [x] add space (dashes) on all strings simultaneously (`:SongwriterAddDashes`)
+  - [x] insert a chord with a command (`:SongwriterTabChord Am7`)
+  - [x] move whole chord up or down chromatically with ctrl+A and ctrl+X
 - Chord edit:
-  - move whole chord up or down chromatically with ctrl+A and ctrl+X
-  - change the nature of the chord with a command (eg `:whateverthecommandis maj7`)
-  - change the nature of the chord between minor and major with a key (does not handle 7, sus4, etc)
+  - [x] move whole chord up or down chromatically with ctrl+A and ctrl+X
+  - [x] change the nature of the chord with a command (`:SongwriterChordQuality maj7`)
+  - [x] change the nature of the chord between minor and major with a key
 - Chord + lyrics edit:
-  - Insert a chord above the current position of the cursor
-    - automatically insert whatever space is needed before the chord for alignment
+  - [x] Insert a chord above the current position of the cursor
+    - automatically insert whatever space is needed before the chord for alignment (`:SongwriterChordAbove Am7`)
+
+## Key Mappings
+
+- [ ] `<Ctrl-A>` / `<Ctrl-X>` — transpose chord under cursor up/down
+- [ ] Key to toggle minor/major
 
 ## Contribute
 
@@ -28,4 +33,3 @@ Use https://github.com/junegunn/vader.vim for testing.
 https://github.com/matt-snider/vim-guitar-tab
 
 chordpro format and https://github.com/vim-scripts/chordpro.vim? But I don't like that it's a separate format for displaying, I want the text version to be maximally readable.
-
