@@ -22,17 +22,17 @@ syn match songwriterChord '\v\<[A-G][796][0-9A-Za-z/]*'
 syn match songwriterChord '\v\<[A-G][b#][mM7dimaug5]|[69]|sus[24]|maj7][0-9A-Za-z/]*'
 syn match songwriterChord '\v\<[A-G]\>'
 
-" Tab lines: string prefix + pipe + fret content to end of line
-syn region songwriterTabLine start='\v\%(\s\|\^\)\@<=\a\|' end='\$' contains=songwriterTabPrefix,songwriterTabFret,songwriterTabBar
+" Tab line: entire line from string prefix to end
+syn match songwriterTabLine '^\s*[a-g]|.*'
 
 " Tab string prefix letter (e.g. "e" in "e|")
-syn match songwriterTabPrefix '\v\%(\s\|\^\)\@<=\a\+\zs\%' contained
+syn match songwriterTabPrefix '^\s\+[a-g]\ze|'
 
-" Tab fret numbers
-syn match songwriterTabFret '\v\d\+' contained
+" Tab fret numbers (after the pipe)
+syn match songwriterTabFret '\v([a-g]|\s)*\@<=\d\+'
 
 " Tab bar separator
-syn match songwriterTabBar '\v|' contained
+syn match songwriterTabBar '[a-g]\@<=|'
 
 hi def link songwriterChord Identifier
 hi def link songwriterTabLine Normal
