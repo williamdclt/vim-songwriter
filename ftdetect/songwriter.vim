@@ -1,3 +1,4 @@
 " ftdetect/songwriter.vim - Detect songwriter files
-autocmd BufRead,BufNewFile *.song.txt setfiletype songwriter
-autocmd BufRead,BufNewFile *.tab.txt setfiletype songwriter
+" Use BufReadPost + force set to override Vim's built-in *.txt -> text detection
+autocmd BufReadPost,BufNewFile *.song.txt set filetype=songwriter
+autocmd BufReadPost,BufNewFile *.tab.txt set filetype=songwriter
