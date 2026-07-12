@@ -43,11 +43,11 @@ syn match songwriterTabFret '\d\+' contained
 syn match songwriterTabBar '|' contained
 
 " === Highlighting ===
-hi def songwriterChord gui=bold cterm=bold guifg=#5555ff ctermfg=Blue
+hi def songwriterChord gui=bold cterm=bold guifg=#aa00ff ctermfg=Purple
 hi def songwriterTabLine gui=none cterm=none guifg=NONE ctermfg=NONE
 hi def songwriterTabPrefix gui=none cterm=none guifg=#888888 ctermfg=DarkGray
-hi def songwriterTabFret gui=none cterm=none guifg=#888888 ctermfg=DarkGray
-hi def songwriterTabBar gui=none cterm=none guifg=#cccccc ctermfg=White
+hi def songwriterTabFret gui=none cterm=none guifg=#ffffff ctermfg=White
+hi def songwriterTabBar gui=none cterm=none guifg=#888888 ctermfg=DarkGray
 hi def songwriterSection gui=bold cterm=bold guifg=#ffff00 ctermfg=Yellow
 
 let b:current_syntax = 'songwriter'
