@@ -5,24 +5,24 @@ Design constraint: this is (as much as possible) not a custom file format. Someo
 ## Features
 
 - [x] interleave freeform prose, lyrics, chord progressions, tabs... as a sort of notebook.
-- [ ] Syntax highlighting of tablature, chord progressions
+- [x] Syntax highlighting of tablature, chord progressions
 - Tab edit:
   - [x] add bar (`:SongwriterAddBar`)
   - [x] add space (dashes) on all strings simultaneously (`:SongwriterAddDashes`)
   - [x] insert a chord with a command (`:SongwriterTabChord Am7`)
-  - [x] move whole chord up or down chromatically with ctrl+A and ctrl+X
+  - [x] move whole chord up or down chromatically (`<Ctrl-A>`/`<Ctrl-X>`)
 - Chord edit:
-  - [x] move whole chord up or down chromatically with ctrl+A and ctrl+X
+  - [x] move whole chord up or down chromatically (`<Ctrl-A>`/`<Ctrl-X>`)
   - [x] change the nature of the chord with a command (`:SongwriterChordQuality maj7`)
-  - [x] change the nature of the chord between minor and major with a key
+  - [x] change the nature of the chord between minor and major (`<leader>m`)
 - Chord + lyrics edit:
   - [x] Insert a chord above the current position of the cursor
     - automatically insert whatever space is needed before the chord for alignment (`:SongwriterChordAbove Am7`)
 
 ## Key Mappings
 
-- [ ] `<Ctrl-A>` / `<Ctrl-X>` — transpose chord under cursor up/down
-- [ ] Key to toggle minor/major
+- `<Ctrl-A>` / `<Ctrl-X>` — transpose chord under cursor up/down
+- `<leader>m` — toggle minor/major
 
 ## Contribute
 
