@@ -1,0 +1,59 @@
+" Test: transpose chord up chromatically
+
+Execute:
+  enew!
+  call setline(1, '             Am7')
+  call cursor(1, 14)
+  call SongwriterTransposeChord(1)
+Then:
+  AssertEqual '             A#m7', getline(1)
+
+" Test: transpose chord down chromatically
+
+Execute:
+  enew!
+  call setline(1, '             Am7')
+  call cursor(1, 14)
+  call SongwriterTransposeChord(-1)
+Then:
+  AssertEqual '             G#m7', getline(1)
+
+" Test: transpose chord wraps B -> C
+
+Execute:
+  enew!
+  call setline(1, 'Bm')
+  call cursor(1, 1)
+  call SongwriterTransposeChord(1)
+Then:
+  AssertEqual 'Cm', getline(1)
+
+" Test: transpose chord wraps C -> B (down)
+
+Execute:
+  enew!
+  call setline(1, 'C')
+  call cursor(1, 1)
+  call SongwriterTransposeChord(-1)
+Then:
+  AssertEqual 'B', getline(1)
+
+" Test: transpose chord with sharp root
+
+Execute:
+  enew!
+  call setline(1, 'C#maj7')
+  call cursor(1, 1)
+  call SongwriterTransposeChord(1)
+Then:
+  AssertEqual 'Dmaj7', getline(1)
+
+" Test: no-op on non-chord text
+
+Execute:
+  enew!
+  call setline(1, 'hello world')
+  call cursor(1, 1)
+  call SongwriterTransposeChord(1)
+Then:
+  AssertEqual 'hello world', getline(1)
