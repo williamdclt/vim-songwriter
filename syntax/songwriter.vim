@@ -7,27 +7,27 @@ if exists('b:current_syntax')
 endif
 
 " Section markers: [Intro], [Verse 1], [Chorus], etc.
-syn match songwriterSection '\v\[\s*[A-Za-z][A-Za-z0-9 -]*\s*\]'
+syn match songwriterSection '\[\s*[A-Za-z][A-Za-z0-9 -]*\s*\]'
 
-" === Chords (ordered most-specific to least-specific; first match wins) ===
+" === Chords (ordered most-specific to least-specific) ===
 
 " Root + accidental + quality suffix (Bbm, C#m7, Bbmaj7)
-syn match songwriterChord '\v\<[A-G][b#](m|maj7|dim|aug|sus[24]|[5679])[0-9A-Za-z/]*'
+syn match songwriterChord '\m\<[A-G][b#]\(m\|maj7\|dim\|aug\|sus[24]\|[5679]\)[0-9A-Za-z/]*'
 
 " Root + accidental + 7/9/6 + extended (F#7, Bb9, Db6)
-syn match songwriterChord '\v\<[A-G][b#][796][0-9A-Za-z/]*'
+syn match songwriterChord '\m\<[A-G][b#][796][0-9A-Za-z/]*'
 
 " Bare accidental root (Bb, C#)
-syn match songwriterChord '\v\<[A-G][b#]\>'
+syn match songwriterChord '\m\<[A-G][b#]\>'
 
 " Root + quality suffix (Am, Dm7, Gmaj7, D5)
-syn match songwriterChord '\v\<[A-G](m|maj7|dim|aug|sus[24]|5)[0-9A-Za-z/]*'
+syn match songwriterChord '\m\<[A-G]\(m\|maj7\|dim\|aug\|sus[24]\|5\)[0-9A-Za-z/]*'
 
 " Root + 7/9/6 + extended (D7, E9, G6, A7sus4)
-syn match songwriterChord '\v\<[A-G][796][0-9A-Za-z/]*'
+syn match songwriterChord '\m\<[A-G][796][0-9A-Za-z/]*'
 
 " Bare root (A, G, E)
-syn match songwriterChord '\v\<[A-G]\>'
+syn match songwriterChord '\m\<[A-G]\>'
 
 " === Tab lines ===
 " Tab line region: string prefix + pipe + content to end of line
@@ -45,9 +45,9 @@ syn match songwriterTabBar '|' contained
 " === Highlighting ===
 hi def songwriterChord gui=bold cterm=bold guifg=#5555ff ctermfg=Blue
 hi def songwriterTabLine gui=none cterm=none guifg=NONE ctermfg=NONE
-hi def songwriterTabPrefix gui=bold cterm=bold guifg=#ffaa00 ctermfg=Yellow
-hi def songwriterTabFret gui=none cterm=none guifg=#aaaaaa ctermfg=LightGray
-hi def songwriterTabBar gui=none cterm=none guifg=#666666 ctermfg=DarkGray
+hi def songwriterTabPrefix gui=none cterm=none guifg=#888888 ctermfg=DarkGray
+hi def songwriterTabFret gui=none cterm=none guifg=#888888 ctermfg=DarkGray
+hi def songwriterTabBar gui=none cterm=none guifg=#cccccc ctermfg=White
 hi def songwriterSection gui=bold cterm=bold guifg=#ffff00 ctermfg=Yellow
 
 let b:current_syntax = 'songwriter'
