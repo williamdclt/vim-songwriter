@@ -31,7 +31,7 @@ syn match songwriterChord '\m\<[A-G]\>'
 
 " === Tab lines ===
 " Tab line region: string prefix + pipe + content to end of line
-syn region songwriterTabLine start='^\s*[A-Ga-g]|' end='$' contains=songwriterTabPrefix,songwriterTabFret,songwriterTabBar
+syn region songwriterTabLine start='^\s*[A-Ga-g]|' end='$' contains=songwriterTabPrefix,songwriterTabFret,songwriterTabBar,songwriterTabDash
 
 " Tab string prefix letter (e.g. "e" in "e|")
 syn match songwriterTabPrefix '^\s*[A-Ga-g]\ze|' contained
@@ -42,12 +42,16 @@ syn match songwriterTabFret '\d\+' contained
 " Tab bar separator
 syn match songwriterTabBar '|' contained
 
+" Tab dash (empty string)
+syn match songwriterTabDash '-' contained
+
 " === Highlighting ===
 hi def songwriterChord gui=bold cterm=bold guifg=#aa00ff ctermfg=Magenta
 hi def songwriterTabLine gui=none cterm=none guifg=NONE ctermfg=NONE
 hi def songwriterTabPrefix gui=none cterm=none guifg=#888888 ctermfg=DarkGray
 hi def songwriterTabFret gui=none cterm=none guifg=#ffffff ctermfg=White
-hi def songwriterTabBar gui=none cterm=none guifg=#888888 ctermfg=DarkGray
+hi def songwriterTabDash gui=none cterm=none guifg=#888888 ctermfg=DarkGray
+hi def songwriterTabBar gui=none cterm=none guifg=#ffffff ctermfg=White
 hi def songwriterSection gui=bold cterm=bold guifg=#ffff00 ctermfg=Yellow
 
 let b:current_syntax = 'songwriter'
