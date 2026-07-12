@@ -71,3 +71,29 @@ function! SongwriterAddBar()
     call setline(l:ln, l:newline)
   endfor
 endfunction
+
+function! SongwriterTabChord(chord)
+  " A tab line: starts with a letter immediately followed by |
+  let l:tab_pat = '^\a[|]'
+
+  " Check if current line is a tab line
+  if !(getline('.') =~# tab_pat)
+    return
+  endif
+
+  " Find start of contiguous tab block (scan up)
+  let l:start = line('.')
+  while l:start > 1 && (getline(l:start - 1) =~# tab_pat)
+    let l:start -= 1
+  endwhile
+
+  " Get cursor column (1-indexed)
+  let l:col = col('.')
+
+  " Build chord line: spaces to align chord start at cursor column, then chord name
+  let l:spaces = repeat(' ', l:col - 1)
+  let l:chord_line = l:spaces . a:chord
+
+  " Insert chord line above the tab block
+  call append(l:start - 1, l:chord_line)
+endfunction

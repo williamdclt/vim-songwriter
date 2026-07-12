@@ -1,0 +1,59 @@
+" Test: insert chord above tab block at cursor column
+
+Execute:
+  enew!
+  call setline(1, 'e|-----------4--|--1-----------|')
+  call append(1, 'B|--------1-----|-----2-----2--|')
+  call append(2, 'G|--3-----0--0--|-----1--0--0--|')
+  call append(3, 'D|--------1-----|-----1--------|')
+  call append(4, 'A|--4--3--------|--1-----1-----|')
+  call append(5, 'E|--3-----------|--1-----------|')
+  call cursor(1, 14)
+  call SongwriterTabChord('Am7')
+Then:
+  AssertEqual '             Am7', getline(1)
+  AssertEqual 'e|-----------4--|--1-----------|', getline(2)
+  AssertEqual 'B|--------1-----|-----2-----2--|', getline(3)
+
+" Test: insert chord at column 1 (start of tab)
+
+Execute:
+  enew!
+  call setline(1, 'e|--4--|--1--|')
+  call append(1, 'B|------|-----|')
+  call append(2, 'G|------|-----|')
+  call append(3, 'D|------|-----|')
+  call append(4, 'A|------|-----|')
+  call append(5, 'E|------|-----|')
+  call cursor(1, 1)
+  call SongwriterTabChord('C')
+Then:
+  AssertEqual 'C', getline(1)
+  AssertEqual 'e|--4--|--1--|', getline(2)
+
+" Test: insert chord in middle of tab block
+
+Execute:
+  enew!
+  call setline(1, 'e|--4--|--1--|')
+  call append(1, 'B|------|-----|')
+  call append(2, 'G|------|-----|')
+  call append(3, 'D|------|-----|')
+  call append(4, 'A|------|-----|')
+  call append(5, 'E|------|-----|')
+  call cursor(3, 8)
+  call SongwriterTabChord('Dm')
+Then:
+  AssertEqual '       Dm', getline(1)
+  AssertEqual 'e|--4--|--1--|', getline(2)
+
+" Test: no-op on non-tab lines
+
+Execute:
+  enew!
+  call setline(1, 'this is prose')
+  call cursor(1, 1)
+  call SongwriterTabChord('Am')
+Then:
+  AssertEqual 'this is prose', getline(1)
+  AssertEqual 1, line('$')
