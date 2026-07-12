@@ -209,3 +209,65 @@ function! SongwriterTransposeChord(direction)
   let l:new_line = strpart(l:line, 0, l:start) . l:new_chord . strpart(l:line, l:end + 1)
   call setline('.', l:new_line)
 endfunction
+
+function! SongwriterChordAbove(chord)
+  " Insert chord above cursor with alignment for lyrics
+  let l:col = col('.')
+  let l:spaces = repeat(' ', l:col - 1)
+  call append(line('.') - 1, l:spaces . a:chord)
+endfunction
+
+function! SongwriterChordQuality(quality)
+  " Change quality of chord under cursor (e.g. Am7 -> Amaj7)
+  let l:line = getline('.')
+  let l:c = col('.') - 1
+
+  let l:result = s:find_chord_at_cursor(l:line, l:c)
+  let l:start = l:result[0]
+  let l:end = l:result[1]
+  let l:chord = l:result[2]
+
+  if empty(l:chord)
+    return
+  endif
+
+  let l:root = matchstr(l:chord, '[A-G][#b]\=')
+  if empty(l:root)
+    return
+  endif
+
+  let l:new_chord = l:root . a:quality
+  let l:new_line = strpart(l:line, 0, l:start) . l:new_chord . strpart(l:line, l:end + 1)
+  call setline('.', l:new_line)
+endfunction
+
+function! SongwriterToggleMinorMajor()
+  " Toggle chord between major and minor (A <-> Am)
+  let l:line = getline('.')
+  let l:c = col('.') - 1
+
+  let l:result = s:find_chord_at_cursor(l:line, l:c)
+  let l:start = l:result[0]
+  let l:end = l:result[1]
+  let l:chord = l:result[2]
+
+  if empty(l:chord)
+    return
+  endif
+
+  let l:root = matchstr(l:chord, '[A-G][#b]\=')
+  if empty(l:root)
+    return
+  endif
+
+  let l:quality = strpart(l:chord, len(l:root))
+  if strpart(l:quality, 0, 1) ==# 'm'
+    let l:new_quality = strpart(l:quality, 1)
+  else
+    let l:new_quality = 'm' . l:quality
+  endif
+
+  let l:new_chord = l:root . l:new_quality
+  let l:new_line = strpart(l:line, 0, l:start) . l:new_chord . strpart(l:line, l:end + 1)
+  call setline('.', l:new_line)
+endfunction
