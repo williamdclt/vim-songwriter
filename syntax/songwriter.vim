@@ -9,36 +9,45 @@ endif
 " Section markers: [Intro], [Verse 1], [Chorus], etc.
 syn match songwriterSection '\v\[\s*[A-Za-z][A-Za-z0-9 -]*\s*\]'
 
-" Chords (standalone, anywhere in text)
-" Five branches:
-"   1. Root + accidental (e.g. Bb, C#, Ebb) with optional suffix
-"   2. Root + minor/maj7/dim/aug/5/sus/m7 etc. (e.g. Am, Dm7, Gmaj7, Bsus4)
-"   3. Root + 7/9/6 power/seventh suffix (e.g. D7, E9, G6)
-"   4. Root + accidental + suffix (e.g. D#m7, Bbmaj7)
-"   5. Bare root (major chord, e.g. A, G, E)
-syn match songwriterChord '\v\<[A-G][b#]+\+[0-9A-Za-z/]*'
-syn match songwriterChord '\v\<[A-G][mM7dimaug5]|[69]|sus[24]|maj7][0-9A-Za-z/]*'
+" === Chords (ordered most-specific to least-specific; first match wins) ===
+
+" Root + accidental + quality suffix (Bbm, C#m7, Bbmaj7)
+syn match songwriterChord '\v\<[A-G][b#](m|maj7|dim|aug|sus[24]|[5679])[0-9A-Za-z/]*'
+
+" Root + accidental + 7/9/6 + extended (F#7, Bb9, Db6)
+syn match songwriterChord '\v\<[A-G][b#][796][0-9A-Za-z/]*'
+
+" Bare accidental root (Bb, C#)
+syn match songwriterChord '\v\<[A-G][b#]\>'
+
+" Root + quality suffix (Am, Dm7, Gmaj7, D5)
+syn match songwriterChord '\v\<[A-G](m|maj7|dim|aug|sus[24]|5)[0-9A-Za-z/]*'
+
+" Root + 7/9/6 + extended (D7, E9, G6, A7sus4)
 syn match songwriterChord '\v\<[A-G][796][0-9A-Za-z/]*'
-syn match songwriterChord '\v\<[A-G][b#][mM7dimaug5]|[69]|sus[24]|maj7][0-9A-Za-z/]*'
+
+" Bare root (A, G, E)
 syn match songwriterChord '\v\<[A-G]\>'
 
-" Tab line: entire line from string prefix to end
-syn match songwriterTabLine '^\s*[a-g]|.*'
+" === Tab lines ===
+" Tab line region: string prefix + pipe + content to end of line
+syn region songwriterTabLine start='^\s*[A-Ga-g]|' end='$' contains=songwriterTabPrefix,songwriterTabFret,songwriterTabBar
 
 " Tab string prefix letter (e.g. "e" in "e|")
-syn match songwriterTabPrefix '^\s\+[a-g]\ze|'
+syn match songwriterTabPrefix '^\s*[A-Ga-g]\ze|' contained
 
-" Tab fret numbers (after the pipe)
-syn match songwriterTabFret '\v([a-g]|\s)*\@<=\d\+'
+" Tab fret numbers
+syn match songwriterTabFret '\d\+' contained
 
 " Tab bar separator
-syn match songwriterTabBar '[a-g]\@<=|'
+syn match songwriterTabBar '|' contained
 
-hi def link songwriterChord Identifier
-hi def link songwriterTabLine Normal
-hi def link songwriterTabPrefix Type
-hi def link songwriterTabFret Number
-hi def link songwriterTabBar Special
-hi def link songwriterSection Title
+" === Highlighting ===
+hi def songwriterChord gui=bold cterm=bold guifg=#5555ff ctermfg=Blue
+hi def songwriterTabLine gui=none cterm=none guifg=NONE ctermfg=NONE
+hi def songwriterTabPrefix gui=bold cterm=bold guifg=#ffaa00 ctermfg=Yellow
+hi def songwriterTabFret gui=none cterm=none guifg=#aaaaaa ctermfg=LightGray
+hi def songwriterTabBar gui=none cterm=none guifg=#666666 ctermfg=DarkGray
+hi def songwriterSection gui=bold cterm=bold guifg=#ffff00 ctermfg=Yellow
 
 let b:current_syntax = 'songwriter'
