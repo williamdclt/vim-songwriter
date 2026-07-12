@@ -271,3 +271,13 @@ function! SongwriterToggleMinorMajor()
   let l:new_line = strpart(l:line, 0, l:start) . l:new_chord . strpart(l:line, l:end + 1)
   call setline('.', l:new_line)
 endfunction
+
+" === Ex commands ===
+
+command! -nargs=0 SongwriterAddBar call SongwriterAddBar()
+command! -nargs=0 SongwriterAddDashes call SongwriterAddDashes()
+command! -nargs=1 SongwriterTabChord call SongwriterTabChord(<q-args>)
+command! -nargs=1 SongwriterChordAbove call SongwriterChordAbove(<q-args>)
+command! -nargs=1 SongwriterChordQuality call SongwriterChordQuality(<q-args>)
+command! -nargs=1 SongwriterTransposeChord call SongwriterTransposeChord(<q-args>)
+command! -nargs=0 SongwriterToggleMinorMajor call SongwriterToggleMinorMajor()
