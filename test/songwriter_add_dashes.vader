@@ -1,0 +1,57 @@
+" Test: SongwriterAddDashes appends -- to all tab lines in the block
+
+Execute:
+  enew!
+  call setline(1, 'e|-----------4--|--1-----------|')
+  call append(1, 'B|--------1-----|-----2-----2--|')
+  call append(2, 'G|--3-----0--0--|-----1--0--0--|')
+  call append(3, 'D|--------1-----|-----1--------|')
+  call append(4, 'A|--4--3--------|--1-----1-----|')
+  call append(5, 'E|--3-----------|--1-----------|')
+  call cursor(6, 1)
+  call SongwriterAddDashes()
+Then:
+  AssertEqual 'e|-----------4--|--1-----------|--', getline(1)
+  AssertEqual 'B|--------1-----|-----2-----2--|--', getline(2)
+  AssertEqual 'G|--3-----0--0--|-----1--0--0--|--', getline(3)
+  AssertEqual 'D|--------1-----|-----1--------|--', getline(4)
+  AssertEqual 'A|--4--3--------|--1-----1-----|--', getline(5)
+  AssertEqual 'E|--3-----------|--1-----------|--', getline(6)
+
+" Test: works when cursor is on any string line
+
+Execute:
+  enew!
+  call setline(1, 'e|---------|')
+  call append(1, 'B|---------|')
+  call append(2, 'G|---------|')
+  call append(3, 'D|---------|')
+  call append(4, 'A|---------|')
+  call append(5, 'E|---------|')
+  call cursor(3, 1)
+  call SongwriterAddDashes()
+Then:
+  AssertEqual 'e|---------|--', getline(1)
+  AssertEqual 'B|---------|--', getline(2)
+  AssertEqual 'G|---------|--', getline(3)
+  AssertEqual 'D|---------|--', getline(4)
+  AssertEqual 'A|---------|--', getline(5)
+  AssertEqual 'E|---------|--', getline(6)
+
+" Test: does not affect non-tab lines
+
+Execute:
+  enew!
+  call setline(1, 'e|---------|')
+  call append(1, 'B|---------|')
+  call append(2, 'G|---------|')
+  call append(3, 'D|---------|')
+  call append(4, 'A|---------|')
+  call append(5, 'E|---------|')
+  call append(6, 'some prose line')
+  call append(7, 'another line')
+  call cursor(1, 1)
+  call SongwriterAddDashes()
+Then:
+  AssertEqual 'e|---------|--', getline(1)
+  AssertEqual 'some prose line', getline(7)
