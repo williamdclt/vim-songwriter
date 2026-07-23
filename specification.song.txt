@@ -7,13 +7,13 @@ This file is a specification of this format, and also a valid example of this fo
 
 [Sections]
 
-Sections are marked by square brackets (eg `[Intro]`). We can assume that they are standalone on a line. They should be rendered in bold and highlighted in yellow.
-We can have subsections by adding more brackets, eg `[[Chorus]]`): these should also be bold yellow.
+Sections are marked by square brackets (eg `[Intro]`). We can assume that they are standalone on a line. They should be rendered in bold and highlighted in yellow. ✓
+We can have subsections by adding more brackets, eg `[[Chorus]]`): these should also be bold yellow. ✗
 
 
 [Prose]
 
-We can have prose anywhere in a `.song.txt`. This should just be rendered with default colours.
+We can have prose anywhere in a `.song.txt`. This should just be rendered with default colours. ✓
 
 
 [Tablature]
@@ -30,14 +30,14 @@ E|--3-----------|--1-----------|-----1--------|-----3--4--4--|
 Each line is a guitar string, the numbers are the fretted notes, played sequentially from left to right.
 
 [[Rendering]]
-1. String names (EADGBe at the start of the line) MUST be in blue
-2. Dashes MUST be in blue
-3. everything else in white
+1. String names (EADGBe at the start of the line) MUST be in blue ✓
+2. Dashes MUST be in blue ✓
+3. everything else in white ✓
 
 [[Motions]]
-1. Motions like `w` MUST stop on `|` (as well as `dw`, `cw`...)
-2. Motions like `w` MUST NOT stop on `-`
-3. `W` (uppercase) and `L` (uppercase) MUST move to the next `|`
+1. Motions like `w` MUST stop on `|` (as well as `dw`, `cw`...) ✗
+2. Motions like `w` MUST NOT stop on `-` ✓
+3. `W` (uppercase) and `L` (uppercase) MUST move to the next `|` ✗
 
 
 [Chords]
@@ -49,12 +49,12 @@ Dadd9
 Bsus2
 
 [[Rendering]]
-Chords MUST be highlighted in magenta wherever they are in the document.
-There will be false positives (like `A` for an A major chord is likely to appear as a word in prose): it's okay, we'll just accept it for simplicity.
+Chords MUST be highlighted in magenta wherever they are in the document. ✓
+There will be false positives (like `A` for an A major chord is likely to appear as a word in prose): it's okay, we'll just accept it for simplicity. ✓
 
 [[Editing]]
-- `<Ctrl-A>` / `<Ctrl-X>` — transpose chord under cursor up/down
-- `<leader>m` — toggle minor/major
+- `<Ctrl-A>` / `<Ctrl-X>` — transpose chord under cursor up/down ✓
+- `<leader>m` — toggle minor/major ✓
 
 
 [Chord annotations]
@@ -71,5 +71,5 @@ Don't know where it goes
 But it's home to me and I walk alone
 ```
 
-There is nothing special about the rendering of these (just normal chord and prose rendering), but there might be some features to come for editing.
+There is nothing special about the rendering of these (just normal chord and prose rendering) ✓, but there might be some features to come for editing. ✗
 
