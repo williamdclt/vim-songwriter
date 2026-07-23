@@ -69,3 +69,51 @@ Execute:
   normal w
 Then:
   AssertEqual 2, col('.')
+
+" Test: L jumps to next bar line
+
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|--4-----------|--1-----------|')
+  setfiletype songwriter
+  call cursor(1, 5)
+  normal L
+Then:
+  AssertEqual 17, col('.')
+
+" Test: H jumps to previous bar line
+
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|--4-----------|--1-----------|')
+  setfiletype songwriter
+  call cursor(1, 20)
+  normal H
+Then:
+  AssertEqual 17, col('.')
+
+" Test: L from string name jumps to first bar line
+
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|--4-----------|')
+  setfiletype songwriter
+  call cursor(1, 1)
+  normal L
+Then:
+  AssertEqual 2, col('.')
+
+" Test: H from after first bar line jumps back to it
+
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|--4-----------|')
+  setfiletype songwriter
+  call cursor(1, 5)
+  normal H
+Then:
+  AssertEqual 2, col('.')
