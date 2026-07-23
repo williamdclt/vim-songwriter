@@ -11,10 +11,21 @@ nnoremap <buffer> <C-X> :call SongwriterTransposeChord(-1)<CR>
 " Toggle minor/major
 nnoremap <buffer> <leader>m :call SongwriterToggleMinorMajor()<CR>
 
+" Check if current line is tablature (starts with string name followed by |)
+function! SongwriterIsTablatureLine() abort
+  return getline('.') =~# '^[eEaAdDgGbB]\|'
+endfunction
+
 " Tablature motions: w/b skip over dashes, stopping on notes, bar lines, string names
-nnoremap <buffer> w :call search('[0-9a-zA-Z\\|]', 'W')<CR>
-nnoremap <buffer> b :call search('[0-9a-zA-Z\\|]', 'bW')<CR>
+" Only active on tablature lines; falls back to normal w/b otherwise
+nnoremap <buffer> <expr> w SongwriterIsTablatureLine() ? ':call search(''[0-9a-zA-Z\\|]'', ''W'')<CR>' : 'w'
+nnoremap <buffer> <expr> b SongwriterIsTablatureLine() ? ':call search(''[0-9a-zA-Z\\|]'', ''bW'')<CR>' : 'b'
 
 " Tablature bar-line jumps: L/H jump to next/previous |
-nnoremap <buffer> L :call search('\v\\|', 'W')<CR>
-nnoremap <buffer> H :call search('\v\\|', 'bW')<CR>
+" Only active on tablature lines; falls back to normal L/H otherwise
+nnoremap <buffer> <expr> L SongwriterIsTablatureLine() ? ':call SongwriterJumpBarLine(1)<CR>' : 'L'
+nnoremap <buffer> <expr> H SongwriterIsTablatureLine() ? ':call SongwriterJumpBarLine(-1)<CR>' : 'H'
+
+function! SongwriterJumpBarLine(forward) abort
+  call search('|', a:forward > 0 ? 'W' : 'b')
+endfunction

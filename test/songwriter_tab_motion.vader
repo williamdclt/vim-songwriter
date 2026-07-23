@@ -70,7 +70,7 @@ Execute:
 Then:
   AssertEqual 2, col('.')
 
-" Test: L jumps to next bar line
+" Test: L jumps to next bar line on tablature
 
 Execute:
   filetype plugin on
@@ -82,7 +82,7 @@ Execute:
 Then:
   AssertEqual 17, col('.')
 
-" Test: H jumps to previous bar line
+" Test: H jumps to previous bar line on tablature
 
 Execute:
   filetype plugin on
@@ -117,3 +117,27 @@ Execute:
   normal H
 Then:
   AssertEqual 2, col('.')
+
+" Test: w on prose line behaves normally
+
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'I walk a lonely road')
+  setfiletype songwriter
+  call cursor(1, 1)
+  normal w
+Then:
+  AssertEqual 3, col('.')
+
+" Test: b on prose line behaves normally (from 'lonely' back to 'a')
+
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'I walk a lonely road')
+  setfiletype songwriter
+  call cursor(1, 10)
+  normal b
+Then:
+  AssertEqual 8, col('.')
