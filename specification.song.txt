@@ -37,6 +37,7 @@ Each line is a guitar string, the numbers are the fretted notes, played sequenti
 [[Motions]]
 1. Motions like `w` MUST stop on `|` (as well as `dw`, `cw`...)
 2. Motions like `w` MUST NOT stop on `-`
+3. `W` (uppercase) and `L` (uppercase) MUST move to the next `|`
 
 
 [Chords]
