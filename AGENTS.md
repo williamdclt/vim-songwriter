@@ -1,1 +1,3 @@
-- Commit regularly as you make changes
+- Read README.md and specifications.song.txt for context
+- Always test changes if possible
+- Commit everytime you make a successful change

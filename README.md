@@ -1,32 +1,10 @@
 Vim plugin to help writing guitar tablatures, chord progressions and chord annotations on lyrics, as well as freeform prose.
 
-Design constraint: this is (as much as possible) not a custom file format. Someone without Vim, who's not familiar with this project, should be able to understand the music and prose easily.
+Design constraint: someone without Vim (just normal text editor), who's not familiar with this project, should be able to read a .song.txt file and understand everything in it easily. This means no complex rendering.
 
-## Features
+See specification.song.txt for a specification of this file format. 
 
-- [x] interleave freeform prose, lyrics, chord progressions, tabs... as a sort of notebook.
-- [x] Syntax highlighting of tablature, chord progressions
-- Tab edit:
-  - [x] add bar (`:SongwriterAddBar`)
-  - [x] add space (dashes) on all strings simultaneously (`:SongwriterAddDashes`)
-  - [x] insert a chord with a command (`:SongwriterTabChord Am7`)
-  - [x] move whole chord up or down chromatically (`<Ctrl-A>`/`<Ctrl-X>`)
-- Chord edit:
-  - [x] move whole chord up or down chromatically (`<Ctrl-A>`/`<Ctrl-X>`)
-  - [x] change the nature of the chord with a command (`:SongwriterChordQuality maj7`)
-  - [x] change the nature of the chord between minor and major (`<leader>m`)
-- Chord + lyrics edit:
-  - [x] Insert a chord above the current position of the cursor
-    - automatically insert whatever space is needed before the chord for alignment (`:SongwriterChordAbove Am7`)
-
-## Key Mappings
-
-- `<Ctrl-A>` / `<Ctrl-X>` — transpose chord under cursor up/down
-- `<leader>m` — toggle minor/major
-
-## Contribute
-
-Use https://github.com/junegunn/vader.vim for testing.
+This plugin is tested with Vader.vim to prevent regression. Vader documentation at https://raw.githubusercontent.com/junegunn/vader.vim/refs/heads/master/doc/vader.txt, you can look for example in existing test files in this project.
 
 ## Potential inspiration
 
