@@ -1,0 +1,71 @@
+" Test: w skips over dashes, stops on next note
+
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|-----------4--|--1-----------|')
+  setfiletype songwriter
+  call cursor(1, 5)
+  normal w
+Then:
+  AssertEqual 14, col('.')
+
+" Test: w skips over dashes, stops on bar line
+
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|--4-----------|')
+  setfiletype songwriter
+  call cursor(1, 5)
+  normal w
+Then:
+  AssertEqual 17, col('.')
+
+" Test: b skips over dashes, stops on previous note
+
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|--4--2-----|')
+  setfiletype songwriter
+  call cursor(1, 8)
+  normal b
+Then:
+  AssertEqual 5, col('.')
+
+" Test: b skips over dashes, stops on bar line
+
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|--4-----------|')
+  setfiletype songwriter
+  call cursor(1, 12)
+  normal b
+Then:
+  AssertEqual 5, col('.')
+
+" Test: b stops on bar line before dashes
+
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|--4-----------|')
+  setfiletype songwriter
+  call cursor(1, 3)
+  normal b
+Then:
+  AssertEqual 2, col('.')
+
+" Test: w from string name stops on bar line
+
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|--4-----------|')
+  setfiletype songwriter
+  call cursor(1, 1)
+  normal w
+Then:
+  AssertEqual 2, col('.')
