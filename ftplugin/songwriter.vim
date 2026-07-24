@@ -13,7 +13,7 @@ nnoremap <buffer> <leader>m :call SongwriterToggleMinorMajor()<CR>
 
 " Check if current line is tablature (starts with string name followed by |)
 function! SongwriterIsTablatureLine() abort
-  return getline('.') =~# '^[eEaAdDgGbB]\|'
+  return getline('.') =~# '^[eEaAdDgGbB][|]'
 endfunction
 
 " Tablature motions: w/b skip over dashes, stopping on notes, bar lines, string names
