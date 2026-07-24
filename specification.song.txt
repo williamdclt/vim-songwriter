@@ -42,7 +42,7 @@ Each line is a guitar string, the numbers are the fretted notes, played sequenti
 
 [[Editing]]
 1. `||` should lint the current tablature. ✗
-    1.1 If some pipes bounding a bar are not vertically aligned, add dashes as necessary to align them.
+    1.1 If some pipes bounding a bar are not vertically aligned across all strings, add dashes as necessary to align them.
     1.2 Trim start and end dashes so that there is exactly 2 dashes after/before the pipes bounding the bar.
 
 [Chords]
