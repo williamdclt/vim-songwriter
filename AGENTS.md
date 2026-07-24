@@ -1,3 +1,3 @@
-- Read README.md and specifications.song.txt for context
+- Read README.md, specifications.song.txt and design.md for context
 - Always test changes if possible
 - Commit everytime you make a successful change
