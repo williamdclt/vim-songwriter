@@ -40,6 +40,10 @@ Each line is a guitar string, the numbers are the fretted notes, played sequenti
 3. `L` (uppercase) MUST jump to the next `|` ✓
 4. `H` (uppercase) MUST jump to the previous `|` ✓
 
+[[Editing]]
+1. `||` should lint the current tablature.
+    1.1 If some pipes bounding a bar are not vertically aligned, add dashes as necessary to align them.
+    1.2 Trim start and end dashes so that there is exactly 2 dashes after/before the pipes bounding the bar.
 
 [Chords]
 
