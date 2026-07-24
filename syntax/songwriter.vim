@@ -6,6 +6,9 @@ if exists('b:current_syntax')
   finish
 endif
 
+" Subsection markers: [[Rendering]], [[Motions]], etc.
+syn match songwriterSection '\[\[\s*[A-Za-z][A-Za-z0-9 -]*\s*\]\]'
+
 " Section markers: [Intro], [Verse 1], [Chorus], etc.
 syn match songwriterSection '\[\s*[A-Za-z][A-Za-z0-9 -]*\s*\]'
 

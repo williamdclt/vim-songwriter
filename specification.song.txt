@@ -8,7 +8,7 @@ This file is a specification of this format, and also a valid example of this fo
 [Sections]
 
 Sections are marked by square brackets (eg `[Intro]`). We can assume that they are standalone on a line. They should be rendered in bold and highlighted in yellow. ✓
-We can have subsections by adding more brackets, eg `[[Chorus]]`): these should also be bold yellow. ✗
+We can have subsections by adding more brackets, eg `[[Chorus]]`): these should also be bold yellow. ✓
 
 
 [Prose]
