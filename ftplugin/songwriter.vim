@@ -27,9 +27,10 @@ nnoremap <buffer> <expr> L SongwriterIsTablatureLine() ? ':call SongwriterJumpBa
 nnoremap <buffer> <expr> H SongwriterIsTablatureLine() ? ':call SongwriterJumpBarLine(-1)<CR>' : 'H'
 xnoremap <buffer> <expr> L SongwriterIsTablatureLine() ? ':call SongwriterJumpBarLine(1)<CR>' : 'L'
 xnoremap <buffer> <expr> H SongwriterIsTablatureLine() ? ':call SongwriterJumpBarLine(-1)<CR>' : 'H'
-onoremap <buffer> <expr> L SongwriterIsTablatureLine() ? ':set v:searchforward=1 \| call search(''|'', ''W'')<CR>' : 'L'
-onoremap <buffer> <expr> H SongwriterIsTablatureLine() ? ':set v:searchforward=0 \| call search(''|'', ''bW'')<CR>' : 'H'
+onoremap <buffer> <expr> L SongwriterIsTablatureLine() ? ':call SongwriterJumpBarLine(1)<CR>' : 'L'
+onoremap <buffer> <expr> H SongwriterIsTablatureLine() ? ':call SongwriterJumpBarLine(-1)<CR>' : 'H'
 
 function! SongwriterJumpBarLine(forward) abort
-  call search('|', a:forward > 0 ? 'W' : 'b')
+  let v:searchforward = a:forward > 0
+  call search('|', a:forward > 0 ? 'W' : 'bW')
 endfunction
