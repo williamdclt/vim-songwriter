@@ -41,9 +41,12 @@ Each line is a guitar string, the numbers are the fretted notes, played sequenti
 4. `H` (uppercase) MUST jump to the previous `|` ✓
 
 [[Editing]]
-1. `||` should lint the current tablature.
+1. `||` should lint the current tablature. ✗
     1.1 If some pipes bounding a bar are not vertically aligned, add dashes as necessary to align them.
     1.2 Trim start and end dashes so that there is exactly 2 dashes after/before the pipes bounding the bar.
+2. `:SongwriterAddBar` — insert `|` at cursor column across all tab lines in the block ✓
+3. `:SongwriterAddDashes` — append `--` to all tab lines in the block ✓
+4. `:SongwriterTabChord <chord>` — insert chord name above the tab block at cursor column ✓
 
 [Chords]
 
@@ -60,6 +63,8 @@ There will be false positives (like `A` for an A major chord is likely to appear
 [[Editing]]
 - `<Ctrl-A>` / `<Ctrl-X>` — transpose chord under cursor up/down ✓
 - `<leader>m` — toggle minor/major ✓
+- `:SongwriterChordAbove <chord>` — insert chord above cursor, aligned to cursor column ✓
+- `:SongwriterChordQuality <quality>` — change quality of chord under cursor ✓
 
 
 [Chord annotations]
