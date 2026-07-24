@@ -5,6 +5,7 @@ test:
 		-c "set rtp+=$(VADER),." \
 		-c "runtime plugin/vader.vim" \
 		-c "runtime plugin/songwriter.vim" \
-		-c "Vader! test/*.vader"
+		-c "Vader! test/*.vader" \
+		-c "qa!"
 
 .PHONY: test

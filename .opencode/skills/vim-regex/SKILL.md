@@ -243,6 +243,3 @@ noremap ;' :%s:::cg<Left><Left><Left><Left>
 - Perl supports extended options embedded in patterns; Vim does not.
 - Perl supports variable interpolation in patterns; Vim does not.
 
-## Reference
-
-`:help pattern` in Vim normal mode is the authoritative source.
