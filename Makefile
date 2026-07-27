@@ -1,5 +1,6 @@
 VADER := $(HOME)/.vim/pack/plugins/start/vader
 
+# Run the full test suite. This is fast, default to doing that rather than running a single test.
 test:
 	vim -N -u NONE \
 		-c "set rtp+=$(VADER),." \
