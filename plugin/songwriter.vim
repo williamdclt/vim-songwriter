@@ -72,6 +72,127 @@ function! SongwriterAddBar()
   endfor
 endfunction
 
+" Lint a block of tab lines: align bar pipes across all strings and normalise
+" dashes so that each bar's first note sits 2 dashes after the left pipe and
+" its last note 2 dashes before the right pipe. Note order is preserved.
+"
+function! s:lint_block(lines)
+  " Parse each line into letter + list of bar-region strings.
+  " A bar region is the content strictly between two consecutive pipes.
+  " split on '|' keeps empty middle fields so regions line up.
+  let l:regions = []
+  let l:P = 0
+  for l:ln in a:lines
+    let l:parts = split(l:ln, '[|]', 1)
+    call remove(l:parts, 0)   " drop the string-name prefix
+    call remove(l:parts, len(l:parts) - 1)  " drop anything after the final pipe
+    call add(l:regions, l:parts)
+    if len(l:parts) > l:P
+      let l:P = len(l:parts)
+    endif
+  endfor
+
+  " For each bar index, find min/max note columns across all lines and whether
+  " it contains any note at all.
+  let l:has = []
+  let l:mincol = []
+  let l:maxcol = []
+  for l:j in range(0, l:P - 1)
+    let l:h = 0
+    let l:mn = 0
+    let l:mx = 0
+    for l:reg in l:regions
+      if l:j >= len(l:reg)
+        continue
+      endif
+      let l:r = l:reg[l:j]
+      let l:i = 0
+      while l:i < len(l:r)
+        let l:c = l:r[l:i]
+        if l:c !=# '-'
+          if l:h == 0
+           " first note seen in this bar - seed min and max columns
+            let l:mn = l:i
+            let l:mx = l:i
+            let l:h = 1
+          else
+           " scan is per-line, so take a true min and max column
+            if l:i < l:mn
+              let l:mn = l:i
+            endif
+            if l:i > l:mx
+              let l:mx = l:i
+            endif
+          endif
+        endif
+        let l:i += 1
+      endwhile
+    endfor
+    call add(l:has, l:h)
+    call add(l:mincol, l:mn)
+    call add(l:maxcol, l:mx)
+  endfor
+
+  " Rebuild each line.
+  let l:out = []
+  for l:k in range(0, len(a:lines) - 1)
+    let l:letter = strpart(a:lines[l:k], 0, 1)
+    let l:reg = l:regions[l:k]
+    let l:newregs = []
+    for l:j in range(0, l:P - 1)
+      if l:has[l:j] == 0
+         " Empty bar -> exactly two dashes.
+        call add(l:newregs, '--')
+        continue
+      endif
+      let l:r = (l:j < len(l:reg)) ? l:reg[l:j] : ''
+      let l:W = l:maxcol[l:j] - l:mincol[l:j] + 5
+      let l:res = repeat('-', l:W)
+      let l:i = 0
+      while l:i < len(l:r)
+        let l:c = l:r[l:i]
+        if l:c !=# '-'
+          let l:pos = l:i - l:mincol[l:j] + 2
+          let l:res = strpart(l:res, 0, l:pos) . l:c . strpart(l:res, l:pos + 1)
+        endif
+        let l:i += 1
+      endwhile
+      call add(l:newregs, l:res)
+    endfor
+    call add(l:out, l:letter . '|' . join(l:newregs, '|') . '|')
+  endfor
+  return l:out
+endfunction
+
+function! SongwriterLint()
+  " A tab line: starts with a letter immediately followed by |
+  let l:tab_pat = '^\a[|]'
+
+  if getline('.') !~# l:tab_pat
+    return
+  endif
+
+  " Find the contiguous tab block around the cursor.
+  let l:start = line('.')
+  while l:start > 1 && getline(l:start - 1) =~# l:tab_pat
+    let l:start -= 1
+  endwhile
+  let l:end = line('.')
+  while l:end < line('$') && getline(l:end + 1) =~# l:tab_pat
+    let l:end += 1
+  endwhile
+
+  let l:lines = []
+  for l:ln in range(l:start, l:end)
+    call add(l:lines, getline(l:ln))
+  endfor
+
+  let l:newlines = s:lint_block(l:lines)
+  for l:i in range(len(l:newlines))
+    call setline(l:start + l:i, l:newlines[l:i])
+  endfor
+endfunction
+
 function! SongwriterTabChord(chord)
   " A tab line: starts with a letter immediately followed by |
   let l:tab_pat = '^\a[|]'
@@ -276,6 +397,7 @@ endfunction
 
 command! -nargs=0 SongwriterAddBar call SongwriterAddBar()
 command! -nargs=0 SongwriterAddDashes call SongwriterAddDashes()
+command! -nargs=0 SongwriterLint call SongwriterLint()
 command! -nargs=1 SongwriterTabChord call SongwriterTabChord(<q-args>)
 command! -nargs=1 SongwriterChordAbove call SongwriterChordAbove(<q-args>)
 command! -nargs=1 SongwriterChordQuality call SongwriterChordQuality(<q-args>)

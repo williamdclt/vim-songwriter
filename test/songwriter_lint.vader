@@ -1,0 +1,107 @@
+" Tests for SongwriterLint: align bar pipes across all strings and normalise
+" dashes so that the first note of a bar sits two dashes after the left pipe and
+" the last note sits two dashes before the right pipe. Note order is preserved.
+
+" Test: does not lint non-tab lines
+
+Execute:
+  enew!
+  call setline(1, 'some prose')
+  call append(1, 'another line')
+  call cursor(1, 1)
+  call SongwriterLint()
+Then:
+  AssertEqual 'some prose', getline(1)
+  AssertEqual 'another line', getline(2)
+
+" Test: an empty bar (no notes) becomes exactly two dashes
+
+Execute:
+  enew!
+  call setline(1, 'e|---------|')
+  call cursor(1, 1)
+  call SongwriterLint()
+Then:
+  AssertEqual 'e|--|', getline(1)
+
+" Test: aligns misaligned bar pipes across strings, trims to two dashes (1.1/1.2)
+
+Execute:
+  enew!
+  call setline(1, 'e|-----5-----|')
+  call append(1, 'B|---0--0-----|')
+  call append(2, 'G|----------|')
+  call append(3, 'a lyric line')
+  call cursor(2, 1)
+  call SongwriterLint()
+Then:
+  AssertEqual 'e|----5---|', getline(1)
+  AssertEqual 'B|--0--0--|', getline(2)
+  AssertEqual 'G|--------|', getline(3)
+  AssertEqual 'a lyric line', getline(4)
+
+" Test: a string with no notes in a bar aligns with the noted strings
+
+Execute:
+  enew!
+  call setline(1, 'e|--5--|')
+  call append(1, 'B|-----------|')
+  call cursor(1, 1)
+  call SongwriterLint()
+Then:
+  AssertEqual 'e|--5--|', getline(1)
+  AssertEqual 'B|-----|', getline(2)
+
+" Test: trims leading and trailing dashes to exactly two (1.2)
+
+Execute:
+  enew!
+  call setline(1, 'e|------5-----|')
+  call cursor(1, 1)
+  call SongwriterLint()
+Then:
+  AssertEqual 'e|--5--|', getline(1)
+
+" Test: preserves relative order of notes, does not collapse sequential notes
+
+Execute:
+  enew!
+  call setline(1, 'e|----5-|')
+  call append(1, 'B|-0-|')
+  call cursor(1, 1)
+  call SongwriterLint()
+Then:
+  AssertEqual 'e|-----5--|', getline(1)
+  AssertEqual 'B|--0-----|', getline(2)
+
+" Test: handles multiple bars
+
+Execute:
+  enew!
+  call setline(1, 'e|---5--|---0--|')
+  call append(1, 'B|------|--1-|')
+  call cursor(1, 1)
+  call SongwriterLint()
+Then:
+  AssertEqual 'e|--5--|---0--|', getline(1)
+  AssertEqual 'B|-----|--1---|', getline(2)
+
+" Test: cursor anywhere in the block lints the whole block; canonical tab is unchanged
+
+Execute:
+  enew!
+  call setline(1, 'e|-----------4--|--1-----------|--3-----------|--3-----------|')
+  call append(1, 'B|--------1-----|-----2-----2--|--------------|--------4--1--|')
+  call append(2, 'G|--3-----0--0--|-----1--0--0--|--1-----------|--------------|')
+  call append(3, 'D|--------1-----|-----1--------|-----1--------|-----1--1-----|')
+  call append(4, 'A|--4--3--------|--1-----1-----|-----3--3--3--|--------3--1--|')
+  call append(5, 'E|--3-----------|--1-----------|-----1--------|-----3--4--4--|')
+  call cursor(6, 1)
+  call SongwriterLint()
+Then:
+  AssertEqual 'e|-----------4--|--1-----------|--3-----------|--3-----------|', getline(1)
+  AssertEqual 'B|--------1-----|-----2-----2--|--------------|--------4--1--|', getline(2)
+  AssertEqual 'G|--3-----0--0--|-----1--0--0--|--1-----------|--------------|', getline(3)
+  AssertEqual 'D|--------1-----|-----1--------|-----1--------|-----1--1-----|', getline(4)
+  AssertEqual 'A|--4--3--------|--1-----1-----|-----3--3--3--|--------3--1--|', getline(5)
+  AssertEqual 'E|--3-----------|--1-----------|-----1--------|-----3--4--4--|', getline(6)

@@ -11,6 +11,9 @@ nnoremap <buffer> <C-X> :call SongwriterTransposeChord(-1)<CR>
 " Toggle minor/major
 nnoremap <buffer> <leader>m :call SongwriterToggleMinorMajor()<CR>
 
+" Typing || on a tab block lints it (aligns bar pipes, normalises dashes)
+nnoremap <buffer> \|\| :call SongwriterLint()<CR>
+
 " Check if current line is tablature (starts with string name followed by |)
 function! SongwriterIsTablatureLine() abort
   return getline('.') =~# '^[eEaAdDgGbB][|]'
