@@ -26,10 +26,10 @@ without changing any existing behaviour.
       tab-line check to the same pattern — check: `make test` (50/50).
 - [x] 2. Add `s:insert_char_at_col(char)`; make `SongwriterAddDash`/
       `SongwriterAddBar` thin wrappers over it — check: `make test`.
-- [ ] 3. Centralize chord handling: `s:Chromatic`/`s:FlatToSharp`/`s:RootPat`
+- [x] 3. Centralize chord handling: `s:Chromatic`/`s:FlatToSharp`/`s:RootPat`
       constants, `s:chord_parse()`, `s:chord_transpose()`, `s:chord_build()`,
-      `s:splice_chord()`; rewrite the 5 chord functions over them — check:
-      `make test`.
+      `s:splice_chord()`; rewrite `TransposeChord`/`ChordQuality`/
+      `ToggleMinorMajor` over them — check: `make test` (50/50, done).
 - [ ] 4. Decompose `s:lint_block` into `s:parse_tab_lines()`,
       `s:relax_bar()`, `s:render_bar()` (same algorithm, documented model) —
       check: `make test`.

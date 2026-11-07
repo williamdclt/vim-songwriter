@@ -278,48 +278,55 @@ function! SongwriterTabChord(chord)
   call append(l:block[0] - 1, repeat(' ', col('.') - 1) . a:chord)
 endfunction
 
-function! s:chromatic_index(note)
-   " Returns 0-11 for note name. Handles sharps and flats.
-  let l:flat_map = {'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#', 'Db': 'C#'}
-  let l:n = a:note
-  if has_key(l:flat_map, l:n)
-    let l:n = l:flat_map[l:n]
-  endif
-  let l:chromatic = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-  let l:idx = index(l:chromatic, l:n)
-  if l:idx < 0
-    return -1
-  endif
-  return l:idx
+" === Chord model ===
+
+" Chromatic scale (sharp spelling) and flat-to-sharp aliases, shared by transpose
+" and the quality helpers.
+let s:Chromatic = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+let s:FlatToSharp = {'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#', 'Db': 'C#'}
+" A chord root: a note letter with an optional sharp/flat accidental.
+let s:RootPat = '[A-G][#b]\='
+
+" Parse a chord token into {root, quality, name}. `root` is the raw spelling as
+" found in the text (a flat stays a flat); `quality` is everything after it.
+" When there is no root letter at all, root and quality are empty strings.
+function! s:chord_parse(name)
+  let l:root = matchstr(a:name, s:RootPat)
+  let l:quality = (l:root ==# '') ? '' : strpart(a:name, len(l:root))
+  return {'name': a:name, 'root': l:root, 'quality': l:quality}
 endfunction
 
-function! s:transpose_chord_name(chord_name, semitones)
-   " Parse chord name into root + quality and transpose root by semitones
-   " Handles: C, C#, Db, D, D#, Eb, etc. + optional quality (maj7, m7, 7, sus4, dim, aug, m, maj, etc.)
-  let l:chromatic = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-  let l:name = a:chord_name
+" Build a chord token from a (raw-spelling) root and a quality string.
+function! s:chord_build(root, quality)
+  return a:root . a:quality
+endfunction
 
-   " Match root (1-2 chars: letter + optional # or b)
-  let l:root_pat = '^\(\<[A-G][#b]\=\)'
-  if l:name =~# l:root_pat
-    let l:root = matchstr(l:name, '[A-G][#b]\=')
-    let l:quality = strpart(l:name, len(l:root))
-  else
-    return l:name
+" Transpose the root of a parsed chord by `semitones`, preserving the quality.
+" Flats in the root are normalized to sharps in the result, since s:Chromatic
+" has only one spelling per pitch.
+function! s:chord_transpose(parsed, semitones)
+  let l:root = a:parsed['root']
+  if l:root ==# ''
+    return a:parsed['name']
   endif
-
-  let l:idx = s:chromatic_index(l:root)
+  if has_key(s:FlatToSharp, l:root)
+    let l:root = s:FlatToSharp[l:root]
+  endif
+  let l:idx = index(s:Chromatic, l:root)
   if l:idx < 0
-    return l:name
+    return a:parsed['name']
   endif
-
-   " Wrap around with proper modulo for negative numbers
   let l:new_idx = (l:idx + a:semitones) % 12
   if l:new_idx < 0
     let l:new_idx += 12
   endif
+  return s:Chromatic[l:new_idx] . a:parsed['quality']
+endfunction
 
-  return l:chromatic[l:new_idx] . l:quality
+" Splice a new chord token into a line, replacing the inclusive [start, end]
+" bounds (0-indexed) returned by s:find_chord_at_cursor.
+function! s:splice_chord(line, bounds, newc)
+  return strpart(a:line, 0, a:bounds[0]) . a:newc . strpart(a:line, a:bounds[1] + 1)
 endfunction
 
 function! s:find_chord_at_cursor(line, col)
@@ -367,27 +374,17 @@ function! s:find_chord_at_cursor(line, col)
 endfunction
 
 function! SongwriterTransposeChord(direction)
-   " Transpose chord under cursor up (1) or down (-1) chromatically
+    " Transpose the chord under the cursor up (1) or down (-1) chromatically.
   let l:line = getline('.')
-  let l:c = col('.') - 1
-
-  let l:result = s:find_chord_at_cursor(l:line, l:c)
-  let l:start = l:result[0]
-  let l:end = l:result[1]
-  let l:chord = l:result[2]
-
-  if empty(l:chord)
+  let l:result = s:find_chord_at_cursor(l:line, col('.') - 1)
+  if empty(l:result[2])
     return
   endif
-
-  let l:new_chord = s:transpose_chord_name(l:chord, a:direction)
-  if l:new_chord ==# l:chord
+  let l:new = s:chord_transpose(s:chord_parse(l:result[2]), a:direction)
+  if l:new ==# l:result[2]
     return
   endif
-
-   " Replace chord in line
-  let l:new_line = strpart(l:line, 0, l:start) . l:new_chord . strpart(l:line, l:end + 1)
-  call setline('.', l:new_line)
+  call setline('.', s:splice_chord(l:line, l:result, l:new))
 endfunction
 
 function! SongwriterChordAbove(chord)
@@ -398,58 +395,34 @@ function! SongwriterChordAbove(chord)
 endfunction
 
 function! SongwriterChordQuality(quality)
-   " Change quality of chord under cursor (e.g. Am7 -> Amaj7)
+    " Change the quality of the chord under the cursor (e.g. Am7 -> Amaj7).
   let l:line = getline('.')
-  let l:c = col('.') - 1
-
-  let l:result = s:find_chord_at_cursor(l:line, l:c)
-  let l:start = l:result[0]
-  let l:end = l:result[1]
-  let l:chord = l:result[2]
-
-  if empty(l:chord)
+  let l:result = s:find_chord_at_cursor(l:line, col('.') - 1)
+  if empty(l:result[2])
     return
   endif
-
-  let l:root = matchstr(l:chord, '[A-G][#b]\=')
+  let l:root = s:chord_parse(l:result[2])['root']
   if empty(l:root)
     return
   endif
-
-  let l:new_chord = l:root . a:quality
-  let l:new_line = strpart(l:line, 0, l:start) . l:new_chord . strpart(l:line, l:end + 1)
-  call setline('.', l:new_line)
+  call setline('.', s:splice_chord(l:line, l:result, s:chord_build(l:root, a:quality)))
 endfunction
 
 function! SongwriterToggleMinorMajor()
-   " Toggle chord between major and minor (A <-> Am)
+    " Toggle the chord under the cursor between major and minor (A <-> Am),
+    " leaving any other quality (7, m7, ...) otherwise intact.
   let l:line = getline('.')
-  let l:c = col('.') - 1
-
-  let l:result = s:find_chord_at_cursor(l:line, l:c)
-  let l:start = l:result[0]
-  let l:end = l:result[1]
-  let l:chord = l:result[2]
-
-  if empty(l:chord)
+  let l:result = s:find_chord_at_cursor(l:line, col('.') - 1)
+  if empty(l:result[2])
     return
   endif
-
-  let l:root = matchstr(l:chord, '[A-G][#b]\=')
-  if empty(l:root)
+  let l:parsed = s:chord_parse(l:result[2])
+  if empty(l:parsed['root'])
     return
   endif
-
-  let l:quality = strpart(l:chord, len(l:root))
-  if strpart(l:quality, 0, 1) ==# 'm'
-    let l:new_quality = strpart(l:quality, 1)
-  else
-    let l:new_quality = 'm' . l:quality
-  endif
-
-  let l:new_chord = l:root . l:new_quality
-  let l:new_line = strpart(l:line, 0, l:start) . l:new_chord . strpart(l:line, l:end + 1)
-  call setline('.', l:new_line)
+  let l:q = l:parsed['quality']
+  let l:new_q = (l:q[0:0] ==# 'm') ? l:q[1:] : ('m' . l:q)
+  call setline('.', s:splice_chord(l:line, l:result, s:chord_build(l:parsed['root'], l:new_q)))
 endfunction
 
 " === Ex commands ===

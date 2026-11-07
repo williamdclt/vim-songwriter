@@ -30,6 +30,30 @@ not folded in. This shape also makes spec `[Tablature → Editing] 3` ("press a
 number replaces the dash") a small addition of a `replace_dash_at_col` variant
 later, when that feature is built.
 
+### Chord model (parse / build / transpose / splice)
+`TransposeChord`, `ChordQuality`, `ToggleMinorMajor`, and `TabChord` each needed
+the chord at the cursor, its root spelling, its quality, and a way to splice a new
+chord token back into a line — copy-pasted across the four, with the chromatic
+scale and the flat-to-sharp table declared twice. Centralised into a small model:
+
+- `s:Chromatic`, `s:FlatToSharp`, `s:RootPat` — shared constants; one spelling per
+  pitch, sharp-based.
+- `s:chord_parse(name)` -> `{name, root, quality}`. `root` keeps its raw spelling
+  (a flat stays a flat); `quality` is everything after it; no letter means empty
+  root/quality.
+- `s:chord_build(root, quality)` -> a chord token.
+- `s:chord_transpose(parsed, semitones)` -> new token (flats normalized to
+  sharps, the single unambiguous spelling in `s:Chromatic`).
+- `s:splice_chord(line, bounds, newc)` -> the string replacement shared by every
+  chord-editing feature.
+
+A new chord action is now: find the chord (`s:find_chord_at_cursor`),
+`s:chord_parse`, transform root/quality, `s:chord_build`, `s:splice_chord` back.
+The four public chord functions differ only in how they transform the parsed chord,
+which is the one thing worth keeping small and explicit. Note: the parsed dict in
+`s:chord_parse` must stay on one line — a multi-line `{` `}` without `\`
+continuations is an error (E723).
+
 ## Tablatures
 
 Motions and editing capabilities should be scoped to tablature lines explicitly using `getline('.') =~# '^\a[|]'`, when possible. If not possible, this should be documented in the specifications file.
