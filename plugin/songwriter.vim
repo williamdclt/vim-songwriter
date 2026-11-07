@@ -34,6 +34,26 @@ function! s:find_tab_block()
   return [l:start, l:end, l:lines]
 endfunction
 
+" Insert one character at the cursor column on every string of the tab block,
+" padding short lines with dashes first. The char lands *after* the character at
+" the cursor column (i.e. col+1 in 1-indexed terms), matching the original
+" AddBar/AddDash behaviour. Returns 0 when the cursor is not on a tab line.
+function! s:insert_char_at_col(char)
+  let l:block = s:find_tab_block()
+  if empty(l:block[2])
+    return 0
+  endif
+  let l:col = col('.')
+  for l:i in range(len(l:block[2]))
+    let l:line = l:block[2][l:i]
+    while len(l:line) < l:col
+      let l:line .= '-'
+    endwhile
+    call setline(l:block[0] + l:i, strpart(l:line, 0, l:col) . a:char . strpart(l:line, l:col))
+  endfor
+  return 1
+endfunction
+
 function! SongwriterAddDashes()
   let l:block = s:find_tab_block()
   if empty(l:block[2])
@@ -45,33 +65,11 @@ function! SongwriterAddDashes()
 endfunction
 
 function! SongwriterAddDash()
-  let l:block = s:find_tab_block()
-  if empty(l:block[2])
-    return
-  endif
-  let l:col = col('.')
-  for l:i in range(len(l:block[2]))
-    let l:line = l:block[2][l:i]
-    while len(l:line) < l:col
-      let l:line .= '-'
-    endwhile
-    call setline(l:block[0] + l:i, strpart(l:line, 0, l:col) . '-' . strpart(l:line, l:col))
-  endfor
+  call s:insert_char_at_col('-')
 endfunction
 
 function! SongwriterAddBar()
-  let l:block = s:find_tab_block()
-  if empty(l:block[2])
-    return
-  endif
-  let l:col = col('.')
-  for l:i in range(len(l:block[2]))
-    let l:line = l:block[2][l:i]
-    while len(l:line) < l:col
-      let l:line .= '-'
-    endwhile
-    call setline(l:block[0] + l:i, strpart(l:line, 0, l:col) . '|' . strpart(l:line, l:col))
-  endfor
+  call s:insert_char_at_col('|')
 endfunction
 
 " Return atoms (maximal runs of digits) of a bar-region string as a list of

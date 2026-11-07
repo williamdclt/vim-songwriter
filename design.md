@@ -17,6 +17,19 @@ same `^\a[|]` literal (it previously used the narrower `^[eEaAdDgGbB][|]`).
 All test inputs (`e|…` and prose) match both, so no motion test changes; this
 was a behavioural unification towards the design-documented `^\a[|]`.
 
+### Column-op helper (`s:insert_char_at_col`)
+
+`SongwriterAddDash` (insert `-`) and `SongwriterAddBar` (insert `|`) differed
+only in the character inserted; the "insert one char at the cursor column on
+every string, padding short lines with dashes first" logic is shared as
+`s:insert_char_at_col(char)`, and the two commands are now thin wrappers over
+it. Insertion lands *after* the character at the cursor column (i.e. `col+1`,
+1-indexed), preserving the original `AddBar`/`AddDash` behaviour. `SongwriterAddDashes`
+still appends `--` to the whole line, which is a different operation, so it is
+not folded in. This shape also makes spec `[Tablature → Editing] 3` ("press a
+number replaces the dash") a small addition of a `replace_dash_at_col` variant
+later, when that feature is built.
+
 ## Tablatures
 
 Motions and editing capabilities should be scoped to tablature lines explicitly using `getline('.') =~# '^\a[|]'`, when possible. If not possible, this should be documented in the specifications file.

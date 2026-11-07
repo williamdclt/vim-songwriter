@@ -24,7 +24,7 @@ without changing any existing behaviour.
 - [x] 1. Introduce `s:TabLinePat` + `s:find_tab_block()` and rewrite
       `AddDashes/AddDash/AddBar/Lint/TabChord` to use it; unify `ftplugin`'s
       tab-line check to the same pattern — check: `make test` (50/50).
-- [ ] 2. Add `s:insert_char_at_col(char)`; make `SongwriterAddDash`/
+- [x] 2. Add `s:insert_char_at_col(char)`; make `SongwriterAddDash`/
       `SongwriterAddBar` thin wrappers over it — check: `make test`.
 - [ ] 3. Centralize chord handling: `s:Chromatic`/`s:FlatToSharp`/`s:RootPat`
       constants, `s:chord_parse()`, `s:chord_transpose()`, `s:chord_build()`,
