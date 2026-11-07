@@ -72,94 +72,189 @@ function! SongwriterAddBar()
   endfor
 endfunction
 
+" Return atoms (maximal runs of digits) of a bar-region string as a list of
+" [c0, num] where c0 is the 0-based column of the first digit.
+function! s:extract_atoms(region) abort
+  let l:res = []
+  let l:i = 0
+  let l:n = len(a:region)
+  while l:i < l:n
+    if a:region[l:i] =~# '[0-9]'
+      let l:j = l:i + 1
+      while l:j < l:n && a:region[l:j] =~# '[0-9]'
+        let l:j += 1
+      endwhile
+      call add(l:res, [l:i, strpart(a:region, l:i, l:j - l:i)])
+      let l:i = l:j
+    else
+      let l:i += 1
+    endif
+  endwhile
+  return l:res
+endfunction
+
 " Lint a block of tab lines: align bar pipes across all strings and normalise
 " dashes so that each bar's first note sits 2 dashes after the left pipe and
-" its last note 2 dashes before the right pipe. Note order is preserved.
+" its last note 2 dashes before the right pipe. A digit that would overlap a
+" note on another string without being aligned is pushed right (spec 1.3).
 "
 function! s:lint_block(lines)
-  " Parse each line into letter + list of bar-region strings.
-  " A bar region is the content strictly between two consecutive pipes.
-  " split on '|' keeps empty middle fields so regions line up.
+  " Parse each line into a list of bar-region strings (content between pipes).
+  " split on '|' keeps empty middle fields so regions line up across strings.
   let l:regions = []
   let l:P = 0
   for l:ln in a:lines
     let l:parts = split(l:ln, '[|]', 1)
-    call remove(l:parts, 0)   " drop the string-name prefix
-    call remove(l:parts, len(l:parts) - 1)  " drop anything after the final pipe
+    call remove(l:parts, 0)           " drop the string-name prefix
+    call remove(l:parts, len(l:parts) - 1) " drop anything after the final pipe
     call add(l:regions, l:parts)
     if len(l:parts) > l:P
       let l:P = len(l:parts)
     endif
   endfor
 
-  " For each bar index, find min/max note columns across all lines and whether
-  " it contains any note at all.
-  let l:has = []
+  let l:NL = len(a:lines)
+
+  " For each bar index, collect the digit atoms ([lin, c0, num]) across all
+  " lines, the bar's min column, and whether it contains any note at all.
+  let l:bar_atoms = []
   let l:mincol = []
-  let l:maxcol = []
+  let l:has = []
   for l:j in range(0, l:P - 1)
-    let l:h = 0
+    let l:lst = []
     let l:mn = 0
-    let l:mx = 0
-    for l:reg in l:regions
-      if l:j >= len(l:reg)
+    let l:mnset = 0
+    let l:h = 0
+    for l:lin in range(0, l:NL - 1)
+      if l:j >= len(l:regions[l:lin])
         continue
       endif
-      let l:r = l:reg[l:j]
-      let l:i = 0
-      while l:i < len(l:r)
-        let l:c = l:r[l:i]
-        if l:c !=# '-'
-          if l:h == 0
-           " first note seen in this bar - seed min and max columns
-            let l:mn = l:i
-            let l:mx = l:i
-            let l:h = 1
-          else
-           " scan is per-line, so take a true min and max column
-            if l:i < l:mn
-              let l:mn = l:i
-            endif
-            if l:i > l:mx
-              let l:mx = l:i
-            endif
-          endif
+      for l:at in s:extract_atoms(l:regions[l:lin][l:j])
+        call add(l:lst, [l:lin, l:at[0], l:at[1]])
+        let l:h = 1
+        if !l:mnset || l:at[0] < l:mn
+          let l:mn = l:at[0]
+          let l:mnset = 1
         endif
-        let l:i += 1
-      endwhile
+      endfor
     endfor
-    call add(l:has, l:h)
+    call add(l:bar_atoms, l:lst)
     call add(l:mincol, l:mn)
-    call add(l:maxcol, l:mx)
+    call add(l:has, l:h)
   endfor
 
-  " Rebuild each line.
-  let l:out = []
-  for l:k in range(0, len(a:lines) - 1)
-    let l:letter = strpart(a:lines[l:k], 0, 1)
-    let l:reg = l:regions[l:k]
-    let l:newregs = []
-    for l:j in range(0, l:P - 1)
-      if l:has[l:j] == 0
-         " Empty bar -> exactly two dashes.
-        call add(l:newregs, '--')
-        continue
-      endif
-      let l:r = (l:j < len(l:reg)) ? l:reg[l:j] : ''
-      let l:W = l:maxcol[l:j] - l:mincol[l:j] + 5
-      let l:res = repeat('-', l:W)
-      let l:i = 0
-      while l:i < len(l:r)
-        let l:c = l:r[l:i]
-        if l:c !=# '-'
-          let l:pos = l:i - l:mincol[l:j] + 2
-          let l:res = strpart(l:res, 0, l:pos) . l:c . strpart(l:res, l:pos + 1)
-        endif
-        let l:i += 1
-      endwhile
-      call add(l:newregs, l:res)
+  " Rebuild each line, one bar at a time.
+  let l:lineparts = []
+  for l:i in range(0, l:NL - 1)
+    call add(l:lineparts, [])
+  endfor
+  for l:j in range(0, l:P - 1)
+    if l:has[l:j] == 0
+        " Empty bar -> exactly two dashes on every string.
+      for l:lin in range(0, l:NL - 1)
+        call add(l:lineparts[l:lin], '--')
+      endfor
+      continue
+    endif
+
+    " Working atoms with a natural output column of c0 - mincol + 2: a note
+    " sits two dashes after the bar's left pipe. len is the number of digits.
+    let l:work = []
+    for l:a in l:bar_atoms[l:j]
+      call add(l:work, {
+            \ 'lin': l:a[0],
+            \ 'c0': l:a[1],
+            \ 'num': l:a[2],
+            \ 'len': len(l:a[2]),
+            \ 'start': l:a[1] - l:mincol[l:j] + 2})
     endfor
-    call add(l:out, l:letter . '|' . join(l:newregs, '|') . '|')
+
+    " Fixed-point relaxation enforcing two invariants:
+    "   same-string  : keep each string's original relative note spacing, so
+    "                  sequential notes are never collapsed onto one column.
+    "   cross-string : (spec 1.3) when a note starts strictly after a note on a
+    "                  different line but still inside that note's column span,
+    "                  the two numbers overlap without being aligned, so push
+    "                  the later one right so exactly one dash separates them.
+    " A single-column note can never satisfy "start < other.start AND start <=
+    " other.end", so aligned single digits are always left untouched.
+    let l:iter = 0
+    while l:iter < 200
+      let l:iter += 1
+      let l:changed = 0
+      let l:last = {}
+      for l:a in l:work
+        let l:need = l:a['start']
+        if has_key(l:last, l:a['lin'])
+          let l:gap = l:a['c0'] - l:last[l:a['lin']]['c0']
+          let l:cand = l:last[l:a['lin']]['start'] + l:gap
+          if l:cand > l:need
+            let l:need = l:cand
+          endif
+        endif
+        for l:b in l:work
+          if l:b['lin'] !=# l:a['lin']
+           \ && l:b['start'] < l:a['start']
+           \ && l:a['start'] <= l:b['start'] + l:b['len'] - 1
+            let l:cand = l:b['start'] + l:b['len'] + 1
+            if l:cand > l:need
+              let l:need = l:cand
+            endif
+          endif
+        endfor
+        if l:need > l:a['start']
+          let l:a['start'] = l:need
+          let l:changed = 1
+        endif
+        let l:last[l:a['lin']] = {'c0': l:a['c0'], 'start': l:a['start']}
+      endfor
+      if !l:changed
+        break
+      endif
+    endwhile
+
+    " Bar width: content columns [2 .. maxend] plus two trailing dashes.
+    let l:maxend = 2
+    for l:a in l:work
+      let l:e = l:a['start'] + l:a['len'] - 1
+      if l:e > l:maxend
+        let l:maxend = l:e
+      endif
+    endfor
+    let l:W = l:maxend + 3
+
+    " Group the final atoms by line and render each string's region.
+    let l:bylin = {}
+    for l:a in l:work
+      if !has_key(l:bylin, l:a['lin'])
+        let l:bylin[l:a['lin']] = []
+      endif
+      call add(l:bylin[l:a['lin']], l:a)
+    endfor
+    for l:lin in range(0, l:NL - 1)
+      if has_key(l:bylin, l:lin)
+        let l:arr = []
+        for l:idx in range(0, l:W - 1)
+          call add(l:arr, '-')
+        endfor
+        for l:a in l:bylin[l:lin]
+          for l:k in range(0, l:a['len'] - 1)
+            let l:arr[l:a['start'] + l:k] = l:a['num'][l:k]
+          endfor
+        endfor
+        call add(l:lineparts[l:lin], join(l:arr, ''))
+      else
+          " String with no note in this bar -> padded so its pipes line up.
+        call add(l:lineparts[l:lin], repeat('-', l:W))
+      endif
+    endfor
+  endfor
+
+  " Assemble lines.
+  let l:out = []
+  for l:k in range(0, l:NL - 1)
+    let l:letter = strpart(a:lines[l:k], 0, 1)
+    call add(l:out, l:letter . '|' . join(l:lineparts[l:k], '|') . '|')
   endfor
   return l:out
 endfunction

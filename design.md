@@ -42,3 +42,29 @@ lints the current tab block. A buffer-local `||` mapping lives in
 **Malformed input.** A line that cannot be split into bar regions (no pipe /
 not a tab line) is left alone; the linter only touches well-formed tab lines.
 
+### Overlapping two-digit notes (`spec 1.3`)
+
+Notes are parsed as *atoms* — maximal runs of digit characters — so a two-digit
+fret number like `12` is a single atom spanning two columns, not two notes. A
+note is re-flowed to a natural output column of `c0 - mincol + 2` (two dashes
+after the bar's left pipe), then a fixed-point relaxation enforces two
+invariants per bar:
+
+* **Same-string order** — a string's notes keep their *original relative gap*
+  (`prev.start + (c0 - prev.c0)`), so sequential notes are never collapsed onto
+  one column. This preserves the re-flow model of 1.1/1.2.
+* **Cross-string de-overlap** — when a note starts strictly after a note on a
+  *different* string but still inside that note's column span (`other.start <
+  start <= other.end`), the two numbers overlap without being aligned; the later
+  one is pushed right until exactly one dash separates them
+  (`start = other.end + 2`).
+
+`Aligned` two-note numbers (same start column) are an explicit exception and are
+never split: the condition `other.start < start` is false for two notes that
+begin on the same column, so they stay stacked. The same property means a
+single-digit note that merely lines up with the first digit of a neighbouring
+`12` is also left alone — only a *second* digit that lands inside another
+number's span is ever pushed. Resolution runs to a fixed point (capped at 200
+iterations, never exceeded in practice) because pushing one note can in turn
+collide with a later one on a neighbouring string.
+
