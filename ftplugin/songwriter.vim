@@ -17,9 +17,11 @@ nnoremap <buffer> \|\| :call SongwriterLint()<CR>
 " Typing _ on a tab block inserts a dash on every string at the cursor column
 nnoremap <buffer> _ :call SongwriterAddDash()<CR>
 
-" Check if current line is tablature (starts with string name followed by |)
+" Return 1 when the cursor is on a tab line (a string name followed by a bar
+" pipe). Uses the same pattern as the rest of the plugin (s:TabLinePat in
+" plugin/songwriter.vim); see design.md.
 function! SongwriterIsTablatureLine() abort
-  return getline('.') =~# '^[eEaAdDgGbB][|]'
+  return getline('.') =~# '^\a[|]'
 endfunction
 
 " Tablature motions: w/b skip over dashes, stopping on notes, bar lines, string names

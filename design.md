@@ -1,3 +1,22 @@
+## Architecture: shared helpers
+
+### Tab-block scanner + single tab-line pattern (`s:find_tab_block` / `s:TabLinePat`)
+
+Every tab operation (add bar, add dash, add dashes, lint, insert chord above)
+needs "the contiguous block of tab lines around the cursor." This was
+previously copy-pasted into all five functions. It is now one helper,
+`s:find_tab_block()`, which returns `[start, end, lines]`, or `[0, 0, []]` when
+the cursor is not on a tab line. Callers guard with
+`if empty(l:block[2]) | return | endif` and use `l:block[0]` (start line) and
+`l:block[2]` (lines).
+
+The "is this a tab line?" predicate — a string name immediately followed by a
+bar pipe — is defined **once** as `s:TabLinePat = '^\a[|]'` and is used by
+`s:find_tab_block`. The ftplugin gate `SongwriterIsTablatureLine` now uses the
+same `^\a[|]` literal (it previously used the narrower `^[eEaAdDgGbB][|]`).
+All test inputs (`e|…` and prose) match both, so no motion test changes; this
+was a behavioural unification towards the design-documented `^\a[|]`.
+
 ## Tablatures
 
 Motions and editing capabilities should be scoped to tablature lines explicitly using `getline('.') =~# '^\a[|]'`, when possible. If not possible, this should be documented in the specifications file.

@@ -7,105 +7,70 @@ if exists('g:loaded_songwriter')
 endif
 let g:loaded_songwriter = 1
 
-function! SongwriterAddDashes()
-  " A tab line: starts with a letter immediately followed by |
-  let l:tab_pat = '^\a[|]'
+" A tab line starts with a string name immediately followed by a bar pipe.
+" This is the single source of truth for "what is a tab line" (see design.md).
+let s:TabLinePat = '^\a[|]'
 
-  " Check if current line is a tab line
-  if !(getline('.') =~# tab_pat)
-    return
+" Return [start, end, lines] for the contiguous block of tab lines surrounding
+" the cursor, or [0, 0, []] when the cursor is not on a tab line. Callers guard
+" with `if empty(l:block[2]) | return | endif` and use l:block[0] (the block's
+" start line) and l:block[2] (its lines) as needed.
+function! s:find_tab_block()
+  if getline('.') !~# s:TabLinePat
+    return [0, 0, []]
   endif
-
-  " Find start of contiguous tab block (scan up)
   let l:start = line('.')
-  while l:start > 1 && (getline(l:start - 1) =~# tab_pat)
+  while l:start > 1 && (getline(l:start - 1) =~# s:TabLinePat)
     let l:start -= 1
   endwhile
-
-  " Find end of contiguous tab block (scan down)
   let l:end = line('.')
-  while l:end < line('$') && (getline(l:end + 1) =~# tab_pat)
+  while l:end < line('$') && (getline(l:end + 1) =~# s:TabLinePat)
     let l:end += 1
   endwhile
-
-  " Append -- to each tab line in the block
+  let l:lines = []
   for l:ln in range(l:start, l:end)
-    let l:line = getline(l:ln)
-    call setline(l:ln, l:line . '--')
+    call add(l:lines, getline(l:ln))
+  endfor
+  return [l:start, l:end, l:lines]
+endfunction
+
+function! SongwriterAddDashes()
+  let l:block = s:find_tab_block()
+  if empty(l:block[2])
+    return
+  endif
+  for l:i in range(len(l:block[2]))
+    call setline(l:block[0] + l:i, l:block[2][l:i] . '--')
   endfor
 endfunction
 
 function! SongwriterAddDash()
-   " A tab line: starts with a letter immediately followed by |
-  let l:tab_pat = '^\a[|]'
-
-   " Check if current line is a tab line
-  if !(getline('.') =~# l:tab_pat)
+  let l:block = s:find_tab_block()
+  if empty(l:block[2])
     return
   endif
-
-   " Find start of contiguous tab block (scan up)
-  let l:start = line('.')
-  while l:start > 1 && (getline(l:start - 1) =~# l:tab_pat)
-    let l:start -= 1
-  endwhile
-
-   " Find end of contiguous tab block (scan down)
-  let l:end = line('.')
-  while l:end < line('$') && (getline(l:end + 1) =~# l:tab_pat)
-    let l:end += 1
-  endwhile
-
-   " Get cursor column (1-indexed)
   let l:col = col('.')
-
-   " Insert - at cursor column on each tab line in the block
-  for l:ln in range(l:start, l:end)
-    let l:line = getline(l:ln)
-     " Ensure line is long enough; pad with dashes if needed
+  for l:i in range(len(l:block[2]))
+    let l:line = l:block[2][l:i]
     while len(l:line) < l:col
       let l:line .= '-'
     endwhile
-     " Insert - at cursor column (col is 1-indexed, string is 0-indexed)
-    let l:newline = strpart(l:line, 0, l:col) . '-' . strpart(l:line, l:col)
-    call setline(l:ln, l:newline)
+    call setline(l:block[0] + l:i, strpart(l:line, 0, l:col) . '-' . strpart(l:line, l:col))
   endfor
 endfunction
 
 function! SongwriterAddBar()
-  " A tab line: starts with a letter immediately followed by |
-  let l:tab_pat = '^\a[|]'
-
-  " Check if current line is a tab line
-  if !(getline('.') =~# tab_pat)
+  let l:block = s:find_tab_block()
+  if empty(l:block[2])
     return
   endif
-
-  " Find start of contiguous tab block (scan up)
-  let l:start = line('.')
-  while l:start > 1 && (getline(l:start - 1) =~# tab_pat)
-    let l:start -= 1
-  endwhile
-
-  " Find end of contiguous tab block (scan down)
-  let l:end = line('.')
-  while l:end < line('$') && (getline(l:end + 1) =~# tab_pat)
-    let l:end += 1
-  endwhile
-
-  " Get cursor column (1-indexed)
   let l:col = col('.')
-
-  " Insert | at cursor column on each tab line in the block
-  for l:ln in range(l:start, l:end)
-    let l:line = getline(l:ln)
-    " Ensure line is long enough; pad with dashes if needed
+  for l:i in range(len(l:block[2]))
+    let l:line = l:block[2][l:i]
     while len(l:line) < l:col
       let l:line .= '-'
     endwhile
-    " Insert | at cursor column (col is 1-indexed, string is 0-indexed)
-    let l:newline = strpart(l:line, 0, l:col) . '|' . strpart(l:line, l:col)
-    call setline(l:ln, l:newline)
+    call setline(l:block[0] + l:i, strpart(l:line, 0, l:col) . '|' . strpart(l:line, l:col))
   endfor
 endfunction
 
@@ -136,13 +101,13 @@ endfunction
 " note on another string without being aligned is pushed right (spec 1.3).
 "
 function! s:lint_block(lines)
-  " Parse each line into a list of bar-region strings (content between pipes).
-  " split on '|' keeps empty middle fields so regions line up across strings.
+   " Parse each line into a list of bar-region strings (content between pipes).
+   " split on '|' keeps empty middle fields so regions line up across strings.
   let l:regions = []
   let l:P = 0
   for l:ln in a:lines
     let l:parts = split(l:ln, '[|]', 1)
-    call remove(l:parts, 0)           " drop the string-name prefix
+    call remove(l:parts, 0)            " drop the string-name prefix
     call remove(l:parts, len(l:parts) - 1) " drop anything after the final pipe
     call add(l:regions, l:parts)
     if len(l:parts) > l:P
@@ -152,8 +117,8 @@ function! s:lint_block(lines)
 
   let l:NL = len(a:lines)
 
-  " For each bar index, collect the digit atoms ([lin, c0, num]) across all
-  " lines, the bar's min column, and whether it contains any note at all.
+   " For each bar index, collect the digit atoms ([lin, c0, num]) across all
+   " lines, the bar's min column, and whether it contains any note at all.
   let l:bar_atoms = []
   let l:mincol = []
   let l:has = []
@@ -180,41 +145,41 @@ function! s:lint_block(lines)
     call add(l:has, l:h)
   endfor
 
-  " Rebuild each line, one bar at a time.
+   " Rebuild each line, one bar at a time.
   let l:lineparts = []
   for l:i in range(0, l:NL - 1)
     call add(l:lineparts, [])
   endfor
   for l:j in range(0, l:P - 1)
     if l:has[l:j] == 0
-        " Empty bar -> exactly two dashes on every string.
+         " Empty bar -> exactly two dashes on every string.
       for l:lin in range(0, l:NL - 1)
         call add(l:lineparts[l:lin], '--')
       endfor
       continue
     endif
 
-    " Working atoms with a natural output column of c0 - mincol + 2: a note
-    " sits two dashes after the bar's left pipe. len is the number of digits.
+     " Working atoms with a natural output column of c0 - mincol + 2: a note
+     " sits two dashes after the bar's left pipe. len is the number of digits.
     let l:work = []
     for l:a in l:bar_atoms[l:j]
       call add(l:work, {
-            \ 'lin': l:a[0],
-            \ 'c0': l:a[1],
-            \ 'num': l:a[2],
-            \ 'len': len(l:a[2]),
-            \ 'start': l:a[1] - l:mincol[l:j] + 2})
+             \ 'lin': l:a[0],
+             \ 'c0': l:a[1],
+             \ 'num': l:a[2],
+             \ 'len': len(l:a[2]),
+             \ 'start': l:a[1] - l:mincol[l:j] + 2})
     endfor
 
-    " Fixed-point relaxation enforcing two invariants:
-    "   same-string  : keep each string's original relative note spacing, so
-    "                  sequential notes are never collapsed onto one column.
-    "   cross-string : (spec 1.3) when a note starts strictly after a note on a
-    "                  different line but still inside that note's column span,
-    "                  the two numbers overlap without being aligned, so push
-    "                  the later one right so exactly one dash separates them.
-    " A single-column note can never satisfy "start < other.start AND start <=
-    " other.end", so aligned single digits are always left untouched.
+     " Fixed-point relaxation enforcing two invariants:
+     "   same-string   : keep each string's original relative note spacing, so
+     "                  sequential notes are never collapsed onto one column.
+     "   cross-string : (spec 1.3) when a note starts strictly after a note on a
+     "                  different line but still inside that note's column span,
+     "                  the two numbers overlap without being aligned, so push
+     "                  the later one right so exactly one dash separates them.
+     " A single-column note can never satisfy "start < other.start AND start <=
+     " other.end", so aligned single digits are always left untouched.
     let l:iter = 0
     while l:iter < 200
       let l:iter += 1
@@ -231,8 +196,8 @@ function! s:lint_block(lines)
         endif
         for l:b in l:work
           if l:b['lin'] !=# l:a['lin']
-           \ && l:b['start'] < l:a['start']
-           \ && l:a['start'] <= l:b['start'] + l:b['len'] - 1
+            \ && l:b['start'] < l:a['start']
+            \ && l:a['start'] <= l:b['start'] + l:b['len'] - 1
             let l:cand = l:b['start'] + l:b['len'] + 1
             if l:cand > l:need
               let l:need = l:cand
@@ -250,7 +215,7 @@ function! s:lint_block(lines)
       endif
     endwhile
 
-    " Bar width: content columns [2 .. maxend] plus two trailing dashes.
+     " Bar width: content columns [2 .. maxend] plus two trailing dashes.
     let l:maxend = 2
     for l:a in l:work
       let l:e = l:a['start'] + l:a['len'] - 1
@@ -260,7 +225,7 @@ function! s:lint_block(lines)
     endfor
     let l:W = l:maxend + 3
 
-    " Group the final atoms by line and render each string's region.
+     " Group the final atoms by line and render each string's region.
     let l:bylin = {}
     for l:a in l:work
       if !has_key(l:bylin, l:a['lin'])
@@ -281,13 +246,13 @@ function! s:lint_block(lines)
         endfor
         call add(l:lineparts[l:lin], join(l:arr, ''))
       else
-          " String with no note in this bar -> padded so its pipes line up.
+           " String with no note in this bar -> padded so its pipes line up.
         call add(l:lineparts[l:lin], repeat('-', l:W))
       endif
     endfor
   endfor
 
-  " Assemble lines.
+   " Assemble lines.
   let l:out = []
   for l:k in range(0, l:NL - 1)
     let l:letter = strpart(a:lines[l:k], 0, 1)
@@ -297,62 +262,26 @@ function! s:lint_block(lines)
 endfunction
 
 function! SongwriterLint()
-  " A tab line: starts with a letter immediately followed by |
-  let l:tab_pat = '^\a[|]'
-
-  if getline('.') !~# l:tab_pat
+  let l:block = s:find_tab_block()
+  if empty(l:block[2])
     return
   endif
-
-  " Find the contiguous tab block around the cursor.
-  let l:start = line('.')
-  while l:start > 1 && getline(l:start - 1) =~# l:tab_pat
-    let l:start -= 1
-  endwhile
-  let l:end = line('.')
-  while l:end < line('$') && getline(l:end + 1) =~# l:tab_pat
-    let l:end += 1
-  endwhile
-
-  let l:lines = []
-  for l:ln in range(l:start, l:end)
-    call add(l:lines, getline(l:ln))
-  endfor
-
-  let l:newlines = s:lint_block(l:lines)
+  let l:newlines = s:lint_block(l:block[2])
   for l:i in range(len(l:newlines))
-    call setline(l:start + l:i, l:newlines[l:i])
+    call setline(l:block[0] + l:i, l:newlines[l:i])
   endfor
 endfunction
 
 function! SongwriterTabChord(chord)
-  " A tab line: starts with a letter immediately followed by |
-  let l:tab_pat = '^\a[|]'
-
-  " Check if current line is a tab line
-  if !(getline('.') =~# tab_pat)
+  let l:block = s:find_tab_block()
+  if empty(l:block[2])
     return
   endif
-
-  " Find start of contiguous tab block (scan up)
-  let l:start = line('.')
-  while l:start > 1 && (getline(l:start - 1) =~# tab_pat)
-    let l:start -= 1
-  endwhile
-
-  " Get cursor column (1-indexed)
-  let l:col = col('.')
-
-  " Build chord line: spaces to align chord start at cursor column, then chord name
-  let l:spaces = repeat(' ', l:col - 1)
-  let l:chord_line = l:spaces . a:chord
-
-  " Insert chord line above the tab block
-  call append(l:start - 1, l:chord_line)
+  call append(l:block[0] - 1, repeat(' ', col('.') - 1) . a:chord)
 endfunction
 
 function! s:chromatic_index(note)
-  " Returns 0-11 for note name. Handles sharps and flats.
+   " Returns 0-11 for note name. Handles sharps and flats.
   let l:flat_map = {'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#', 'Db': 'C#'}
   let l:n = a:note
   if has_key(l:flat_map, l:n)
@@ -367,12 +296,12 @@ function! s:chromatic_index(note)
 endfunction
 
 function! s:transpose_chord_name(chord_name, semitones)
-  " Parse chord name into root + quality and transpose root by semitones
-  " Handles: C, C#, Db, D, D#, Eb, etc. + optional quality (maj7, m7, 7, sus4, dim, aug, m, maj, etc.)
+   " Parse chord name into root + quality and transpose root by semitones
+   " Handles: C, C#, Db, D, D#, Eb, etc. + optional quality (maj7, m7, 7, sus4, dim, aug, m, maj, etc.)
   let l:chromatic = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
   let l:name = a:chord_name
 
-  " Match root (1-2 chars: letter + optional # or b)
+   " Match root (1-2 chars: letter + optional # or b)
   let l:root_pat = '^\(\<[A-G][#b]\=\)'
   if l:name =~# l:root_pat
     let l:root = matchstr(l:name, '[A-G][#b]\=')
@@ -386,7 +315,7 @@ function! s:transpose_chord_name(chord_name, semitones)
     return l:name
   endif
 
-  " Wrap around with proper modulo for negative numbers
+   " Wrap around with proper modulo for negative numbers
   let l:new_idx = (l:idx + a:semitones) % 12
   if l:new_idx < 0
     let l:new_idx += 12
@@ -396,15 +325,15 @@ function! s:transpose_chord_name(chord_name, semitones)
 endfunction
 
 function! s:find_chord_at_cursor(line, col)
-  " Find chord name at cursor column (0-indexed) in line string
-  " Returns list [start, end, chord] or [-1, -1, '']
+   " Find chord name at cursor column (0-indexed) in line string
+   " Returns list [start, end, chord] or [-1, -1, '']
   let l:c = a:col
   let l:ln = a:line
   let l:lnlen = len(l:ln)
 
-  " Check if cursor is on a chord char
+   " Check if cursor is on a chord char
   if l:c >= l:lnlen || !(l:ln[l:c] =~# '[A-Ga-g]')
-    " Cursor might be on quality part (#, b, m, 7, etc.) — scan left to find root
+     " Cursor might be on quality part (#, b, m, 7, etc.) — scan left to find root
     let l:scan = l:c
     while l:scan > 0
       let l:scan -= 1
@@ -412,24 +341,24 @@ function! s:find_chord_at_cursor(line, col)
         let l:c = l:scan
         break
       endif
-      " If we hit a non-chord char before finding root, no chord here
+       " If we hit a non-chord char before finding root, no chord here
       if !(l:ln[l:scan] =~# '[A-Za-z0-9#b]')
         return [-1, -1, '']
       endif
     endwhile
-    " Check if we found a root at start of string
+     " Check if we found a root at start of string
     if l:c == 0 && !(l:ln[0] =~# '[A-Ga-g]')
       return [-1, -1, '']
     endif
   endif
 
-  " Now l:c points to root letter. Find chord start (scan left for word boundary)
+   " Now l:c points to root letter. Find chord start (scan left for word boundary)
   let l:start = l:c
   while l:start > 0 && l:ln[l:start - 1] =~# '[A-Za-z0-9#b]'
     let l:start -= 1
   endwhile
 
-  " Find chord end (scan right for word boundary)
+   " Find chord end (scan right for word boundary)
   let l:end = l:c
   while l:end < l:lnlen - 1 && l:ln[l:end + 1] =~# '[A-Za-z0-9#b]'
     let l:end += 1
@@ -440,7 +369,7 @@ function! s:find_chord_at_cursor(line, col)
 endfunction
 
 function! SongwriterTransposeChord(direction)
-  " Transpose chord under cursor up (1) or down (-1) chromatically
+   " Transpose chord under cursor up (1) or down (-1) chromatically
   let l:line = getline('.')
   let l:c = col('.') - 1
 
@@ -458,20 +387,20 @@ function! SongwriterTransposeChord(direction)
     return
   endif
 
-  " Replace chord in line
+   " Replace chord in line
   let l:new_line = strpart(l:line, 0, l:start) . l:new_chord . strpart(l:line, l:end + 1)
   call setline('.', l:new_line)
 endfunction
 
 function! SongwriterChordAbove(chord)
-  " Insert chord above cursor with alignment for lyrics
+   " Insert chord above cursor with alignment for lyrics
   let l:col = col('.')
   let l:spaces = repeat(' ', l:col - 1)
   call append(line('.') - 1, l:spaces . a:chord)
 endfunction
 
 function! SongwriterChordQuality(quality)
-  " Change quality of chord under cursor (e.g. Am7 -> Amaj7)
+   " Change quality of chord under cursor (e.g. Am7 -> Amaj7)
   let l:line = getline('.')
   let l:c = col('.') - 1
 
@@ -495,7 +424,7 @@ function! SongwriterChordQuality(quality)
 endfunction
 
 function! SongwriterToggleMinorMajor()
-  " Toggle chord between major and minor (A <-> Am)
+   " Toggle chord between major and minor (A <-> Am)
   let l:line = getline('.')
   let l:c = col('.') - 1
 
