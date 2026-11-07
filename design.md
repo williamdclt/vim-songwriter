@@ -90,6 +90,21 @@ pipes line up. This reuses the block-alignment model of `SongwriterAddDashes`
 to width 2 (`|--|`). `--` vs `----` for a truly empty bar is cosmetic and left
 as the minimal `--`.
 
+**Structure (decomposed).** `s:lint_block` is now a thin orchestrator over three
+documentable steps, each named after the model stage it implements:
+- `s:parse_tab_lines(lines)` -> `[regions, P, NL]`: split each line on pipes into
+  bar-region strings (dropping the string-name prefix and anything after the
+  final pipe), and find the widest bar count `P`.
+- `s:relax_bar(atoms, mincol)` -> a list of note dicts carrying a final output
+  column `start`; the fixed-point pass enforcing the two invariants above.
+- `s:render_bar(work, NL)` -> one region string per line, each padded so the
+  pipes line up (bar width = content span + two trailing dashes).
+
+The per-bar atom collection (gather `atoms`, `mincol`, and whether the bar is
+empty) stays in `s:lint_block`, which then calls `relax_bar` + `render_bar` for
+each non-empty bar and assembles the lines. This is a like-for-like decomposition
+of the previous single function; the 21 lint assertions are the behaviour oracle.
+
 **Pipes vs `||`.** A single `|` is a bar boundary. Typing `||` does not denote a
 double bar-line (this format has no double pipes); it is the *trigger* that
 lints the current tab block. A buffer-local `||` mapping lives in

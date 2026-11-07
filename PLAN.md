@@ -30,9 +30,9 @@ without changing any existing behaviour.
       constants, `s:chord_parse()`, `s:chord_transpose()`, `s:chord_build()`,
       `s:splice_chord()`; rewrite `TransposeChord`/`ChordQuality`/
       `ToggleMinorMajor` over them — check: `make test` (50/50, done).
-- [ ] 4. Decompose `s:lint_block` into `s:parse_tab_lines()`,
-      `s:relax_bar()`, `s:render_bar()` (same algorithm, documented model) —
-      check: `make test`.
+- [x] 4. Decompose `s:lint_block` into `s:parse_tab_lines()`,
+      `s:relax_bar()`, `s:render_bar()` (like-for-like model; orchestrator
+      collects per-bar atoms) — check: `make test` (50/50, done).
 - [ ] 5. Split into `autoload/songwriter/{util,tab,chord}.vim`; keep global
       wrappers + `:command`s in `plugin/songwriter.vim`; `ftplugin` calls the
       unified util — check: `make test`.
