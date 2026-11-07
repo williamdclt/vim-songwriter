@@ -42,6 +42,19 @@ lints the current tab block. A buffer-local `||` mapping lives in
 **Malformed input.** A line that cannot be split into bar regions (no pipe /
 not a tab line) is left alone; the linter only touches well-formed tab lines.
 
+## Tab dash insertion (`_`)
+
+`_` on a tab block inserts one `-` at the cursor column on every string of the
+contiguous block (spec [[Editing]] 2), implemented as `SongwriterAddDash` and
+mirroring `SongwriterAddBar` block-for-block: it scopes to the block found with
+`getline('.') =~# '^\a[|]'`, reads the cursor column, and inserts via
+`strpart(line, 0, col) . '-' . strpart(line, col)` — so the new dash lands after
+the character at the cursor column (column `col+1`), exactly as `SongwriterAddBar`
+places its `|`. Short lines are padded with dashes first. No-op on non-tab lines.
+
+The buffer-local `_` normal-mode mapping lives in `ftplugin/songwriter.vim` and,
+like the `||` mapping, is intentionally untested by design; the function is tested.
+
 ### Overlapping two-digit notes (`spec 1.3`)
 
 Notes are parsed as *atoms* — maximal runs of digit characters — so a two-digit

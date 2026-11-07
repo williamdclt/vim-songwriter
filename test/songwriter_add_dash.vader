@@ -1,0 +1,59 @@
+" Test: _ inserts a dash at the cursor column on every tab string
+
+Execute:
+  enew!
+  call setline(1, 'e|----|')
+  call append(1, 'B|----|')
+  call append(2, 'G|----|')
+  call append(3, 'D|----|')
+  call append(4, 'A|----|')
+  call append(5, 'E|----|')
+  call cursor(1, 4)
+  call SongwriterAddDash()
+Then:
+  AssertEqual 'e|-----|', getline(1)
+  AssertEqual 'B|-----|', getline(2)
+  AssertEqual 'G|-----|', getline(3)
+  AssertEqual 'D|-----|', getline(4)
+  AssertEqual 'A|-----|', getline(5)
+  AssertEqual 'E|-----|', getline(6)
+
+" Test: dash is inserted at the cursor column, before a later note
+
+Execute:
+  enew!
+  call setline(1, 'e|----4--|')
+  call append(1, 'B|----4--|')
+  call append(2, 'G|----4--|')
+  call cursor(1, 6)
+  call SongwriterAddDash()
+Then:
+  AssertEqual 'e|-----4--|', getline(1)
+  AssertEqual 'B|-----4--|', getline(2)
+  AssertEqual 'G|-----4--|', getline(3)
+
+" Test: works when cursor is on any string line
+
+Execute:
+  enew!
+  call setline(1, 'e|----|')
+  call append(1, 'B|----|')
+  call append(2, 'G|----|')
+  call cursor(3, 4)
+  call SongwriterAddDash()
+Then:
+  AssertEqual 'e|-----|', getline(1)
+  AssertEqual 'B|-----|', getline(2)
+  AssertEqual 'G|-----|', getline(3)
+
+" Test: does not affect non-tab lines
+
+Execute:
+  enew!
+  call setline(1, 'some prose line')
+  call append(1, 'another line')
+  call cursor(1, 1)
+  call SongwriterAddDash()
+Then:
+  AssertEqual 'some prose line', getline(1)
+  AssertEqual 'another line', getline(2)

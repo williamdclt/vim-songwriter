@@ -14,6 +14,9 @@ nnoremap <buffer> <leader>m :call SongwriterToggleMinorMajor()<CR>
 " Typing || on a tab block lints it (aligns bar pipes, normalises dashes)
 nnoremap <buffer> \|\| :call SongwriterLint()<CR>
 
+" Typing _ on a tab block inserts a dash on every string at the cursor column
+nnoremap <buffer> _ :call SongwriterAddDash()<CR>
+
 " Check if current line is tablature (starts with string name followed by |)
 function! SongwriterIsTablatureLine() abort
   return getline('.') =~# '^[eEaAdDgGbB][|]'
