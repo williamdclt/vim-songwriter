@@ -45,6 +45,8 @@ Each line is a guitar string, the numbers are the fretted notes, played sequenti
     1.1 If some pipes bounding a bar are not vertically aligned across all strings, add dashes as necessary to align them. ✓
     1.2 Trim start and end dashes so that there is exactly 2 dashes after/before the pipes bounding the bar. ✓
     1.3 Split up numbers that are overlapping but not aligned (when a number is 2-digits, the second digit might overlap with another number on a different line), by pushing the second number to the right with dashes. There needs to be 1 dash between the numbers. ✓
+2. In normal mode, `_` should insert a dash (`-`) at the cursor's column position on every line of the tab.
+3. In normal mode, pressing a number (0-9) should replace the current dash with the number.
 
 [Chords]
 
