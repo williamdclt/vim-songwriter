@@ -1,3 +1,3 @@
-- Read README.md, specifications.song.txt and design.md for context
+- Read README.md, specification.song.txt and design.md for context
 - Use TDD: write expected behaviour in the form of a Vader test first (failing), then implement it until the tests are passing. If implementation proves to be difficult or impossible, check in with the user to decide on compromises.
 - Commit everytime you make a successful change
