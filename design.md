@@ -1,3 +1,24 @@
+## Module layout (autoload)
+The implementation lives under `autoload/songwriter/`, split by concern; each
+module keeps its own private helpers as `s:` script-locals:
+- `songwriter#util` - the shared tab-line concern: `s:TabLinePat`,
+  `songwriter#util#IsTablatureLine()`, `songwriter#util#find_tab_block()`, and
+  `songwriter#util#insert_char_at_col()`. Used by both `tab` and `chord`.
+- `songwriter#tab` - tablature editing: `AddDashes`, `AddDash`, `AddBar`, `Lint`,
+  `TabChord`, plus the private linter helpers `s:extract_atoms` /
+  `s:parse_tab_lines` / `s:relax_bar` / `s:render_bar` / `s:lint_block`.
+- `songwriter#chord` - chord parsing/transpose: the `s:Chromatic` /
+  `s:FlatToSharp` / `s:RootPat` constants and `s:chord_parse` / `s:chord_build`
+  / `s:chord_transpose` / `s:splice_chord` / `s:find_chord_at_cursor`, plus
+  `TransposeChord`, `ChordAbove`, `ChordQuality`, `ToggleMinorMajor`.
+
+`plugin/songwriter.vim` is now thin: a `g:loaded_songwriter_plugin` guard, the
+`Songwriter*()` global wrappers (kept so the test-suite and the ftplugin
+mappings bind unchanged), and the `:command` definitions. `ftplugin` keeps its
+buffer motions and delegates its tab-line test to
+`songwriter#util#IsTablatureLine`. Because `rtp` includes the repo, every public
+name autoloads on first use.
+
 ## Architecture: shared helpers
 
 ### Tab-block scanner + single tab-line pattern (`s:find_tab_block` / `s:TabLinePat`)

@@ -33,9 +33,11 @@ without changing any existing behaviour.
 - [x] 4. Decompose `s:lint_block` into `s:parse_tab_lines()`,
       `s:relax_bar()`, `s:render_bar()` (like-for-like model; orchestrator
       collects per-bar atoms) — check: `make test` (50/50, done).
-- [ ] 5. Split into `autoload/songwriter/{util,tab,chord}.vim`; keep global
-      wrappers + `:command`s in `plugin/songwriter.vim`; `ftplugin` calls the
-      unified util — check: `make test`.
+- [x] 5. Split into `autoload/songwriter/{util,tab,chord}.vim`; keep global
+      wrappers + `:command`s in `plugin/songwriter.vim`; `ftplugin` delegates
+      its tab-line test to `songwriter#util#IsTablatureLine` — check: `make test`
+      (50/50, done). Public `Songwriter*` names untouched. Each autoload file
+      sources clean; tests unchanged.
 
 # Done when
 

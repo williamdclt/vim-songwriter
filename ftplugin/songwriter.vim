@@ -21,7 +21,9 @@ nnoremap <buffer> _ :call SongwriterAddDash()<CR>
 " pipe). Uses the same pattern as the rest of the plugin (s:TabLinePat in
 " plugin/songwriter.vim); see design.md.
 function! SongwriterIsTablatureLine() abort
-  return getline('.') =~# '^\a[|]'
+  " Shared tab-line test from
+  " the util module (see design.md).
+  return songwriter#util#IsTablatureLine(getline('.'))
 endfunction
 
 " Tablature motions: w/b skip over dashes, stopping on notes, bar lines, string names
