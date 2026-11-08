@@ -24,6 +24,12 @@ endfunction
 function! SongwriterTabChord(chord)
   call songwriter#tab#TabChord(a:chord)
 endfunction
+function! SongwriterMoveNote(dir)
+  call songwriter#tab#MoveNote(a:dir)
+endfunction
+function! SongwriterMoveColumn(dir)
+  call songwriter#tab#MoveColumn(a:dir)
+endfunction
 
 " --- Thin wrappers over autoload/songwriter/chord.vim ---
 function! SongwriterTransposeChord(dir)

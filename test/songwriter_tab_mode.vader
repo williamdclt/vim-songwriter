@@ -1,0 +1,165 @@
+" Spec [Tablature -> Editing] 3: <leader>t toggles a buffer-local "tablature"
+" mode (b:songwriter_tabmode). In it, the motions w/b/l/h become note-level:
+"    3.1 w/b move to the next/prev NOTE on the current line, skipping dashes/pipes.
+"    3.2 l/h move to the next/prev column where ANY line of the block has a note.
+"
+" The mappings are buffer glue, but motion mappings are exercised end-to-end via
+" `normal` here (as in songwriter_tab_motion.vader). The prose no-op guards are
+" tested at the function level, because on a non-tab line the keys fall back to
+" their default behaviour (so the mapping cannot show the no-op directly).
+
+" --- 3.1 w/b: note on the current line, skipping dashes and pipes ---
+
+" Test: w in tablature mode skips dashes to the next note
+
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|--4--|--1--|')
+  setfiletype songwriter
+  let b:songwriter_tabmode = 1
+  call cursor(1, 3)
+  normal w
+Then:
+  AssertEqual 5, col('.')
+
+" Test: w in tablature mode skips the bar pipe and dashes to the next note
+
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|--4--|--1--|')
+  setfiletype songwriter
+  let b:songwriter_tabmode = 1
+  call cursor(1, 5)
+  normal w
+Then:
+  AssertEqual 11, col('.')
+
+" Test: w in tablature mode lands on the first digit of a two-digit fret
+
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|---12---|')
+  setfiletype songwriter
+  let b:songwriter_tabmode = 1
+  call cursor(1, 3)
+  normal w
+Then:
+  AssertEqual 6, col('.')
+
+" Test: b in tablature mode skips dashes to the previous note
+
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|--4--|--1--|')
+  setfiletype songwriter
+  let b:songwriter_tabmode = 1
+  call cursor(1, 6)
+  normal b
+Then:
+  AssertEqual 5, col('.')
+
+" Test: b in tablature mode lands on the first digit of a two-digit fret
+
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|--4---12--|')
+  setfiletype songwriter
+  let b:songwriter_tabmode = 1
+  call cursor(1, 10)
+  normal b
+Then:
+  AssertEqual 9, col('.')
+
+" --- 3.2 l/h: the next/prev column where ANY line has a note ---
+
+" Test: l in tablature mode skips to a note column that only exists on another string
+
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|----4----|')
+  call append(1, 'B|---2-----|')
+  setfiletype songwriter
+  let b:songwriter_tabmode = 1
+  call cursor(1, 3)
+  normal l
+Then:
+  AssertEqual 1, line('.')
+  AssertEqual 6, col('.')
+
+" Test: l in tablature mode skips to the next note column on another string
+
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|----4----|')
+  call append(1, 'B|---2-----|')
+  setfiletype songwriter
+  let b:songwriter_tabmode = 1
+  call cursor(1, 6)
+  normal l
+Then:
+  AssertEqual 7, col('.')
+
+" Test: h in tablature mode moves to the previous note column on another string
+
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|----4----|')
+  call append(1, 'B|---2-----|')
+  setfiletype songwriter
+  let b:songwriter_tabmode = 1
+  call cursor(1, 8)
+  normal h
+Then:
+  AssertEqual 7, col('.')
+
+" --- Mode toggle and no-op guards ---
+
+" Test: <leader>t toggle turns tablature mode on and off
+
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|----|')
+  setfiletype songwriter
+Then:
+  AssertEqual 0, get(b:, 'songwriter_tabmode', 0)
+Execute:
+  call SongwriterToggleTabMode()
+Then:
+  AssertEqual 1, b:songwriter_tabmode
+Execute:
+  call SongwriterToggleTabMode()
+Then:
+  AssertEqual 0, b:songwriter_tabmode
+
+" Test: w stays put on a prose line even in tablature mode (function no-op)
+
+Execute:
+  enew!
+  call setline(1, 'I walk a')
+  setfiletype songwriter
+  let b:songwriter_tabmode = 1
+  call cursor(1, 1)
+  call SongwriterMoveNote(1)
+Then:
+  AssertEqual 1, col('.')
+
+" Test: l stays put on a prose line even in tablature mode (function no-op)
+
+Execute:
+  enew!
+  call setline(1, 'I walk a')
+  setfiletype songwriter
+  let b:songwriter_tabmode = 1
+  call cursor(1, 1)
+  call SongwriterMoveColumn(1)
+Then:
+  AssertEqual 1, col('.')

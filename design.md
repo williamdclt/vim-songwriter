@@ -173,3 +173,44 @@ number's span is ever pushed. Resolution runs to a fixed point (capped at 200
 iterations, never exceeded in practice) because pushing one note can in turn
 collide with a later one on a neighbouring string.
 
+## Tablature mode (`<leader>t`; spec item 3)
+
+`<leader>t` toggles a buffer-local `b:songwriter_tabmode` (default 0). In that mode
+the key motions w/b/l/h become note-level (the actual movement lives in
+`s:digit_run_starts`, `songwriter#tab#MoveNote`, `songwriter#tab#MoveColumn`):
+
+- **3.1 w/b — the note on the current line.** A *note* is the start column of a
+  digit run `[0-9]+` (the two-digit frets 10-19 read as one run, so we land on
+  the left digit). w goes to the next run start to the right of the cursor, b the
+  one to the left, in either case ignoring the dashes and pipes between. The
+  guard `line() notin s:tab_lines()` no-ops on a prose line.
+- **3.2 l/h — the note column across any line.** Collect the digit-run start
+  columns from *every* line of the block, pick the nearest one on the side that
+  is not the current column, then `cursor` there. l/h thus jump to a column where
+  some *other* string carries a note (e.g. the `e` line skips a gap on itself and
+  lands opposite the `B` string's fret).
+
+### Why the maps are inline, not function-calling
+
+The motion mappings are written as fully inline `<expr>` maps — `get(b:,
+'songwriter_tabmode',0) && SongwriterIsTablatureLine() ?
+':call SongwriterMoveNote(1)<CR>' : 'w'` — just like L/H below. They must *not*
+call a helper that returns the ex-command string: an `<expr>` map whose RHS is a
+function returning a `:call ...<CR>` string did not execute reliably, while the
+equivalent inline form in L/H does. As a corollary, the w/b search pattern
+`[0-9a-zA-Z|]` stays inline and its `|` is escaped as `\|`, exactly as it was
+before this change.
+
+Off a tab line every one of these keys falls back to its default behaviour
+(`w`/`b` are still the usual tab-line `search('[0-9a-zA-Z|]', ...)`; `l`/`h`
+stay character-wise), so nothing outside tablature mode is disturbed. The toggle
+(`SongwriterToggleTabMode`) just flips the flag and echoes the new state; because
+`b:` is buffer-local and defaults to 0, no teardown is needed.
+
+## Bar-line jumps (L/H)
+
+L/H jump to the next/previous bar pipe `|` on the current tab line. They use
+`search('|', 'W'/'bW')` so the pipe is always found (the `W` flag ignores
+`iskeyword`); off a tab line the mapping falls back to the default `L`/`H`.
+
+

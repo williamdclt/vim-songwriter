@@ -205,6 +205,91 @@ function! songwriter#tab#Lint()
   endfor
 endfunction
 
+" --- Tablature mode motions (spec [Editing] 3) ---
+
+" 1-indexed start columns of every digit-run (note) in a whole tab line. Reuses
+" s:extract_atoms, which already collects maximal runs of digits; the string-name
+" prefix ('e') and any '|'/'-' fall between the runs and are skipped.
+function! s:digit_run_starts(line) abort
+  let l:res = []
+  for l:a in s:extract_atoms(a:line)
+    call add(l:res, l:a[0] + 1)
+  endfor
+  return l:res
+endfunction
+
+" 3.1: advance to the next/prev note on the CURRENT line, skipping dashes and
+" pipes. `dir` is +1 (forward) or -1 (backward). A note is a digit run; the
+" cursor lands on its first digit. No-op when the cursor is not on a tab line
+" (e.g. prose), or when there is no note in the requested direction.
+function! songwriter#tab#MoveNote(dir) abort
+  if !songwriter#util#IsTablatureLine(getline('.'))
+    return
+  endif
+  let l:col = col('.')
+  let l:starts = s:digit_run_starts(getline('.'))
+  let l:target = 0
+  if a:dir > 0
+    for l:s in l:starts
+      if l:s > l:col
+        let l:target = l:s
+        break
+      endif
+    endfor
+  else
+    for l:s in l:starts
+      if l:s < l:col
+        let l:target = l:s
+      endif
+    endfor
+  endif
+  if l:target > 0
+    call cursor(line('.'), l:target)
+  endif
+endfunction
+
+" 3.2: advance to the next/prev column that ANY line of the tab block has a
+" note in, skipping dashes and pipes. `dir` is +1 (forward) or -1 (backward).
+" Each note contributes its start column; `target` is the first such column past
+" the cursor (> for forward), or the last one before it (< for backward). The
+" cursor stays on its current line and moves to that column (clamped to end of
+" line). No-op off a tab block, or when there is no note column in that direction.
+function! songwriter#tab#MoveColumn(dir) abort
+  let l:block = songwriter#util#find_tab_block()
+  if empty(l:block[2])
+    return
+  endif
+  let l:col = col('.')
+  let l:cols = []
+  for l:ln in l:block[2]
+    for l:s in s:digit_run_starts(l:ln)
+      call add(l:cols, l:s)
+    endfor
+  endfor
+  let l:target = 0
+  if a:dir > 0
+    " smallest note column strictly right of the cursor (across all lines)
+    for l:c in l:cols
+      if l:c > l:col && (l:target == 0 || l:c < l:target)
+        let l:target = l:c
+      endif
+    endfor
+  else
+    " largest note column strictly left of the cursor (across all lines)
+    for l:c in l:cols
+      if l:c < l:col && (l:target == 0 || l:c > l:target)
+        let l:target = l:c
+      endif
+    endfor
+  endif
+  if l:target > 0
+    if l:target > len(getline('.'))
+      let l:target = len(getline('.'))
+    endif
+    call cursor(line('.'), l:target)
+  endif
+endfunction
+
 function! songwriter#tab#TabChord(chord)
   let l:block = songwriter#util#find_tab_block()
   if empty(l:block[2])
