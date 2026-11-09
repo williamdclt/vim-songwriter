@@ -200,6 +200,40 @@ returns the key itself. Special keys are written in `<>` notation in the
 tables, and the ftplugin passes them to `Dispatch` as `<lt>Esc>`, since
 `<Esc>` would otherwise be translated in the map's right side.
 
+### Operators and text objects (spec [Tablature][[Editing]] 6, not implemented yet)
+
+Decided design, to be implemented. The spec items carry the details; this
+records why.
+
+- **The time column is the unit of editing.** Vertical alignment says which
+  notes are played together, so in tablature mode no operator may change one
+  string without the others. Native single-line edits followed by a lint are not
+  safe: lint cannot tell an intended shift from an accidental one, and would
+  keep a wrong alignment. Single-string editing stays available by leaving
+  tablature mode.
+- **Vim's grammar rather than one command per operation.** Operators (`d`, `y`,
+  `c`, `p`, `x`) times targets (columns, bars, motions) give every combination,
+  plus counts, registers and `.`, for free. Operators go through
+  `operatorfunc`/`g@`, which is what makes `.` and counts work; `<Cmd>` actions
+  do not repeat.
+- **Spacing is rhythm.** The gap after a note belongs to it: `ac`, `x` on a
+  lone note and `X` remove it with the note, so the previous note keeps its
+  length and what follows moves earlier. Rests exist only where the user put
+  them with `_`; erasing never creates one, except that `x` on a shared column
+  leaves the other strings' timing intact.
+- **Text object names.** `ic`/`ac` (column) and `i|`/`a|` (bar). Bare letters
+  are motions after an operator (`db`), and `ib`/`ab` are Vim's parenthesis
+  objects; `i|` follows Vim's delimiter objects (`i"`, `i(`).
+- **Registers are plain blockwise registers**, so they interoperate with
+  `<C-v>` and with editing outside tablature mode. Source string names are
+  recorded beside the register so that pasting between tabs with different
+  strings (bass into guitar) can match rows from the bottom and refuse when
+  tunings disagree, instead of silently putting notes on the wrong strings.
+- **Visual mode.** Text objects show the real (full-height) extent; a plain `v`
+  selection is widened at operator time instead, so `v` does not move the
+  cursor off its string. Requires fixing the visual `L`/`H` `:call` maps (see
+  Keys).
+
 ### Outside tablature mode
 
 On a tab line, `w`/`b` stop on notes, string names and pipes but never on dashes
