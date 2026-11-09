@@ -184,24 +184,28 @@ the key motions w/b/l/h become note-level (the actual movement lives in
   the left digit). w goes to the next run start to the right of the cursor, b the
   one to the left, in either case ignoring the dashes and pipes between. The
   guard `!SongwriterIsTablatureLine(getline('.'))` no-ops on a prose line.
-- **l/h — across notes within the current bar (spec 3.3).** `MoveColumn` collects
-   the digit-run start columns within the **current bar** — the notes strictly
-   between the pipes that bound the cursor on the current line (`s:in_bar`) — on
-   *every* string, and moves to the nearest one on the requested side
-   (`SongwriterMoveColumn(+1/-1) = l/h`). The motion is bar-local: it never crosses
-   a pipe, so `w`/`b` (current-line notes) and `L`/`H` (next/previous pipe) remain
-   how you move across strings and between bars.
-   - **3.3.1** l/h land on the nearest in-bar note column on any string.
-   - **3.3.2** at the **last note of the bar**, `l` finds no in-bar note to its
-     right and so *behaves as `a`* — it appends a new-note slot on every string
-     (`s:append_note_right`), not a cross-bar jump. `h` is symmetric: at the first
-     note it is a no-op (there is no mirror of the `a` append, 3.3.4).
-   - **3.3.3** a plain move (a note was found) then runs `SongwriterLint` on the
-     block so the edited bar is aligned.
-   - **The lint-vs-append tension.** The linter forces exactly two dashes at a pipe
-     (spec 1.2) and would collapse the very slot `a` just opened, so the append
-     case (3.3.2) is the *result* and is not linted in the same step; only the
-     plain move lints. This keeps "easily append a note" working, as 3.3.2 intends.
+- **l/h — across notes on any string, block-wide (spec 3.3).** `MoveColumn`
+   collects the digit-run start columns of *every* string in the block and moves to
+   the nearest one on the requested side (`SongwriterMoveColumn(+1/-1) = l/h`). The
+   motion is **block-wide, not bar-scoped**: a note column on another bar or
+   string is a valid target, so `l`/`h` may crop a pipe; `w`/`b` still move within
+   the current line only, and `L`/`H` jump between bars.
+    - **3.3.1** l/h land on the nearest note column, on any string.
+    - **3.3.2** at the **last note of the tablature**, `l` finds no note column to
+    its right and so *behaves as `a`*, opening a new-note slot on every string via
+    `s:append_note_right`. `h` is the mirror but, per 3.3.3, has **no** `i`-style
+     append at the first note: it is a no-op.
+    - **No linting on the move.** Spec item 4 (lint-on-edit) is not yet implemented
+    and is out of scope, so a plain `l`/`h` move does **not** run the linter; a slot
+    opened in passing is tidied when the user presses `||`, and leftover dashes are
+    acceptable. (This was the old lint-on-move behaviour, now removed.)
+    - **The empty-string edge.** When the cursor sits on an empty string’s last-note
+    column (the last note itself lives on a neighbouring string), the slot must still
+    open on that empty string. `s:append_note_right` and its mirror
+    `s:prepend_note_left` therefore anchor on the **block-wide** last/first note
+     column, not the cursor line’s, so an empty string gets the same widening:
+    `e|--4--|` / `b|------|` with the cursor on the empty string’s last-note column and
+    `l` yields `e|--4----|` / `b|--------|` — the slot opens on every string.
 
 - **3.3 digits — enter a note.** A digit 0-9 in tablature mode on a tab line
   goes into the cell under the cursor: on a dash/blank it is a straight
@@ -224,10 +228,11 @@ the key motions w/b/l/h become note-level (the actual movement lives in
     `i` (`AddNote(-1)`, s:prepend_note_left) mirrors to the **left**: one dash before
     the current note, two after the preceding pipe. The cursor lands on the new slot
     itself, which is a dash the user then fills with a digit. No-op when there is no
-    digit run in the asked direction. `a`/`i` do not auto-lint themselves: the slot
-    *is* the new space, and the existing `||` lint key (and, for `l`, 3.3.3) is what
-    tidies it afterwards. Note: spec 4.2 ("lint when a note is inserted with a or i,
-    before the space is inserted") is not yet wired up and is out of scope for 3.1.
+    digit run in the asked direction. `a`/`i` do not auto-lint themselves: the
+   slot *is* the new space, so the `||` lint key is what tidies it afterwards.
+   Spec item 4 (lint-on-edit: when a note is entered, when `a`/`i` open or abort a
+   slot) is the pending feature and is out of scope for this work; leftover dashes
+   after a/a-i insert are acceptable.
 
 ### Why the maps are inline, not function-calling
 
@@ -251,5 +256,7 @@ stay character-wise), so nothing outside tablature mode is disturbed. The toggle
 L/H jump to the next/previous bar pipe `|` on the current tab line. They use
 `search('|', 'W'/'bW')` so the pipe is always found (the `W` flag ignores
 `iskeyword`); off a tab line the mapping falls back to the default `L`/`H`.
+
+
 
 

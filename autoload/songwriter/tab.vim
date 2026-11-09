@@ -248,68 +248,49 @@ function! songwriter#tab#MoveNote(dir) abort
   endif
 endfunction
 
-" 3.3: move to the next/prev note column within the CURRENT BAR that any line of
-" the block has, skipping dashes and pipes (a horizontal playhead). dir +1 ('l')
-" or -1 ('h'). The motion is bar-local: it never crosses a pipe.
-"  - 'l' finds the nearest in-bar note column to the right; if the cursor is at
-"    the last note of the bar (no note to its right in the bar) it behaves as
-"    'a' and opens a slot for the next note (3.3.2) instead of a plain move.
-"  - 'h' finds the nearest in-bar note to the left; at the first note of the bar
-"    it is a no-op (there is no mirror of the 'a' append, 3.3.4).
-"  - A plain move (a note was found) lints the moved bar (3.3.3); the 'a'-style
-"    append is itself the just-opened space, so it is deliberately not linted.
-" No-op off a tab block.
+" 3.3: move to the next/prev note column that ANY line of the block has, skipping
+" dashes and pipes (a horizontal playhead). dir +1 (l) or -1 (h). The motion is
+" block-wide, NOT bar-scoped: it may cross pipes.
+"   - l finds the nearest note column to the right; at the block's last note
+"     (no note to its right anywhere) it behaves as a and opens a slot (3.3.2).
+"   - h is the mirror; at the block's first note it is a no-op (no i mirror, 3.3.4).
+" A plain move lands on the note column. Spec item 4 (lint on edit) is out of
+" scope, so no linting runs here; leftover dashes are fine. No-op off a tab block.
 function! songwriter#tab#MoveColumn(dir) abort
   let l:block = songwriter#util#find_tab_block()
   if empty(l:block[2])
     return
   endif
-  let l:ln = line('.')
-  let l:col = col('.')
-  let l:line = getline(l:ln)
+  let l:ln = line(".")
+  let l:col = col(".")
 
-   " Current bar on the current line: the last pipe strictly left of the cursor
-   " (bar_start) and the first pipe strictly right (bar_end). A note lives
-   " strictly between them on every (aligned) string.
-  let l:bar_start = 0
-  let l:m = match(l:line, "|", 0)
-  while l:m >= 0
-    if l:m + 1 < l:col
-      let l:bar_start = l:m + 1
-    else
-      break
-    endif
-    let l:m = match(l:line, "|", l:m + 1)
-  endwhile
-  let l:bar_end = match(l:line, "|", l:col) + 1      " 1-indexed, strictly right
-
-  " In-bar note columns across every string of the block.
+    " Note columns across every string of the block.
   let l:cols = []
   for l:l in l:block[2]
     for l:s in s:digit_run_starts(l:l)
-      if s:in_bar(l:s, l:bar_start, l:bar_end)
-        call add(l:cols, l:s)
-      endif
+      call add(l:cols, l:s)
     endfor
   endfor
 
+  let l:target = 0
   if a:dir > 0
-       " 3.3.1 nearest in-bar note to the right; 3.3.2 append at the bar's end.
-    let l:target = 0
+        " 3.3.1 nearest note to the right; 3.3.2 append at the block's end.
     for l:c in l:cols
       if l:c > l:col && (l:target == 0 || l:c < l:target)
         let l:target = l:c
       endif
     endfor
     if l:target > 0
+      let l:line_len = len(getline(l:ln))
+      if l:target > l:line_len
+        let l:target = l:line_len
+      endif
       call cursor(l:ln, l:target)
-      call songwriter#tab#Lint()
     else
       call s:append_note_right(l:block)
     endif
   else
-       " 'h': previous in-bar note; a no-op at the first note (no 'i' mirror).
-    let l:target = 0
+        " h: nearest note to the left; a no-op at the block's first note.
     for l:c in l:cols
       if l:c < l:col && (l:target == 0 || l:c > l:target)
         let l:target = l:c
@@ -317,22 +298,8 @@ function! songwriter#tab#MoveColumn(dir) abort
     endfor
     if l:target > 0
       call cursor(l:ln, l:target)
-      call songwriter#tab#Lint()
     endif
   endif
-endfunction
-
-" True when 1-indexed column c sits strictly inside the bar bounded by
-" bar_start/bar_end (0 means unbounded on that side, which a well-formed tab
-" block does not present, but the guard stays permissive).
-function! s:in_bar(c, bar_start, bar_end) abort
-  if a:bar_start > 0 && a:c <= a:bar_start
-    return 0
-  endif
-  if a:bar_end > 0 && a:c >= a:bar_end
-    return 0
-  endif
-  return 1
 endfunction
 
 function! songwriter#tab#TabChord(chord)
@@ -418,17 +385,30 @@ endfunction
 " the following pipe (or a following note) right to keep its 2-dash / 1-dash gap.
 " Inserts N dashes across every string, then lands the cursor on the slot.
 function! s:append_note_right(block) abort
-  let l:line = getline(line('.'))
-  let l:e = s:current_note_end(l:line, col('.'))
+  let l:col = col('.')
+      " e = block-wide last digit-run end at or before the cursor: the note we
+      " open space to the right of. Anchoring on the block (not just this line,
+      " which may be empty) keeps an empty string aligned with its neighbours, so
+      " a slot is opened even when the last note is on a different line (3.3.2).
+  let l:e = 0
+  let l:refln = 0
+  for l:n in range(len(a:block[2]))
+    let l:e2 = s:current_note_end(a:block[2][l:n], l:col)
+    if l:e2 > l:e
+      let l:e = l:e2
+      let l:refln = l:n
+    endif
+  endfor
   if l:e == 0
     return
   endif
-  let l:rest = strpart(l:line, l:e)       " chars strictly right of the note
+  let l:line = a:block[2][l:refln]
+  let l:rest = strpart(l:line, l:e)        " chars strictly right of the note
   let l:m = match(l:rest, '[0-9|]')
   let l:N = 0
   if l:m >= 0
-    let l:b = l:e + 1 + l:m                " 1-indexed column of the next note/pipe
-       " 1 dash + the slot, then 2 dashes before the pipe (or 1 dash before note).
+    let l:b = l:e + 1 + l:m                " column of the next note / pipe
+        " 1 dash + the slot, then 2 dashes before the pipe (or 1 before a note).
     let l:want = (l:rest[l:m] ==# '|') ? l:e + 5 : l:e + 4
     let l:N = l:want - l:b
     if l:N < 0
@@ -442,19 +422,30 @@ function! s:append_note_right(block) abort
     endwhile
     call setline(a:block[0] + l:i, strpart(l:l, 0, l:e) . repeat('-', l:N) . strpart(l:l, l:e))
   endfor
-  call cursor(line('.'), l:e + 2)         " the new slot, one dash from the note
+  call cursor(line('.'), l:e + 2)          " slot, one dash from the note
 endfunction
 
 " 'i': mirror of s:append_note_right. Opens the slot to the LEFT of the current
 " note and pushes the note (and everything after) right to keep the preceding pipe
 " 2 dashes away. Inserts N dashes across every string, then lands on the slot.
 function! s:prepend_note_left(block) abort
-  let l:line = getline(line('.'))
-  let l:s = s:current_note_start(l:line, col('.'))
+  let l:col = col('.')
+      " s = block-wide first digit-run start at or after the cursor: the note we
+      " open space to the left of. Anchoring on the block (not just this line,
+      " which may be empty) keeps an empty string aligned with its neighbours.
+  let l:s = 0
+  let l:refln = 0
+  for l:n in range(len(a:block[2]))
+    let l:s2 = s:current_note_start(a:block[2][l:n], l:col)
+    if l:s2 > 0 && (l:s == 0 || l:s2 < l:s)
+      let l:s = l:s2
+      let l:refln = l:n
+    endif
+  endfor
   if l:s == 0
     return
   endif
-     " pcol: last pipe column (1-indexed) strictly left of the note.
+  let l:line = a:block[2][l:refln]
   let l:pcol = 0
   for l:i in range(l:s - 2, 1, -1)
     if l:line[l:i - 1] ==# '|'
@@ -462,7 +453,7 @@ function! s:prepend_note_left(block) abort
       break
     endif
   endfor
-     " 2 dashes after the pipe + the slot, so keep the note 5 columns right of it.
+      " 2 dashes after the pipe + the slot: keep the note 5 columns right of it.
   let l:N = (l:pcol == 0) ? 0 : l:pcol + 5 - l:s
   if l:N < 0
     let l:N = 0
@@ -474,6 +465,7 @@ function! s:prepend_note_left(block) abort
     endwhile
     call setline(a:block[0] + l:i, strpart(l:l, 0, l:s - 1) . repeat('-', l:N) . strpart(l:l, l:s - 1))
   endfor
-  call cursor(line('.'), l:s + l:N - 2)       " the new slot, one dash left of note
+  call cursor(line('.'), l:s + l:N - 2)        " slot, one dash left of the note
 endfunction
+
 

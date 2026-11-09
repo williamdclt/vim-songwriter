@@ -1,49 +1,48 @@
 # Goal
 
-Implement the changed spec `[Tablature → Editing]` items **3.1** (`a`/`i` open a
-1-dash-gap slot for a note on every string, cursor one dash from the current
-note, 2 dashes kept before/after the pipe) and **3.3** (`l`/`h` move across
-notes within the current bar; `l` at the last note of the bar behaves as `a` to
-append; `l`/`h` trigger linting; `h` does not mirror). The obsolete "always 3
-dashes / land on the second" `a`/`i` behaviour is deleted.
+Adjust the 3.3 `l`/`h` motion per the user's clarifications: (1) drop the on-move
+linting (spec item 4 is out of scope — leftover dashes after a note insert are
+fine), (2) make `l`/`h` **block-wide** (not bar-scoped) — `l` moves to the next
+note column on any line and **appends a slot only at the last note of the whole
+block**, (3) fix the bug where, when the cursor is on the last note's column on an
+**empty** string (the last note lives on a neighbouring string), `l` opened no slot.
 
-# Decisions (recorded — the motion/append semantics are underspecified)
+# Decisions
 
-- **3.1 slot rule.** The new-note slot sits **one dash from the current note** on
-  a side, and keeps the **2-dash gap** at the pipe. `a` opens right (`+1`),
-  `i` mirrors left (`-1`), across every string. N dashes are inserted as needed
-  (not a fixed 3). A string with no digit run in the asked direction is a no-op.
-- **"current note".** For `a` (right): the last digit run starting at/left of the
-  cursor. For `i` (left): the first digit run starting at/right of the cursor.
-- **3.3 bar-scoped.** `l`/`h` consider only notes inside the **current bar**
-  (between the pipes bounding the cursor on the current line). 3.3.2 literally says
-  "last note of the bar", so the motion is bar-local. `w` still moves note-to-note
-  within the current *line* (across pipes); `L`/`H` jump bars.
-- **3.3.3 linting vs 3.3.2 append — the one real tension.** The linter forces
-  exactly 2 dashes adjacent to a pipe (1.2), so a naive "lint after append"
-  destroys the just-opened slot. Resolution: the plain `l`/`h` *move* (a note is
-  found in the bar) triggers `SongwriterLint` after the move; the end-of-bar case
-  (`l` finds no note to its right in the bar) *is* the append ("behave as `a`"),
-  and its opened slot is the result, so it is **not** linted away. `h` at the
-  first note of the bar is a no-op (no left-append mirror, 3.3.4).
-- **`i` linting.** Out of scope (item 4 unchanged); the standalone `a`/`i` keys do
-  not lint themselves — only `l`/`h` moves do, per 3.3.3.
+- **No lint on move.** Remove the `SongwriterLint()` calls from `MoveColumn`.
+  Leftover dashes after a note insert are acceptable (spec item 4, out of scope);
+  the `||` key still tidies on demand.
+- **Block-wide, not bar-scoped.** `l`/`h` consider note columns on **every** line
+  of the block and may cross a pipe. `l` appends (behaves as `a`, block-wide) only
+  when there is no note column to the right anywhere in the block; `h` is a no-op
+    when there is none to the left (3.3.4, no `i` mirror). `s:in_bar` is deleted.
+- **Empty-string bug.** `s:append_note_right` / `s:prepend_note_left` anchor on the
+  **block's** last/first note column, not the cursor line's. So an empty string at
+   the last-note column gets the same widening as its neighbours:
+   `e|--4--|` / `b|------|` + `l` -> `e|--4----|` / `b|--------|` (col 7).
 
 # Steps
 
-- [x] 1. 3.1: rewrite `AddNote` and add `s:current_note_end` / `s:current_note_start`
-       / `s:append_note_right` / `s:prepend_note_left` in `autoload/songwriter/tab.vim`;
-       update the obsolete `a`/`i` assertions in `test/songwriter_tab_edit.vader`.
-       — check: `make test` green (71/71).
-- [x] 2. 3.3: rework `songwriter#tab#MoveColumn` to be in-bar, append on `l`
-       end-of-bar, lint on plain moves, and add `test/songwriter_tab_move.vader`.
-       — check: `make test` green.
-- [x] 3. Record the decisions in `design.md`; tick `3.1`/`3.3` boxes and remove the
-       obsolete "Old requirement" lines in `specification.song.txt`.
-       — check: `make test` still green.
+- [x] 1. Reproduce the bug; capture ground truth for the working / empty-line /
+   no-mirror / no-lint / cross-pipe cases (`/tmp/exp3.txt`).
+- [x] 2. Add the failing case to `test/songwriter_tab_move.vader` (empty last-note
+   string still gets a slot; block-wide l/h), plus block-wide integration tests;
+   confirm they fail.
+- [x] 3. Rework `MoveColumn` (block-wide, no lint, append at block end) and
+   `s:append_note_right` / `s:prepend_note_left` (block-wide note anchor); delete
+     `s:in_bar`. — check: `make test` green (77/77).
+- [x] 4. Update `design.md` (block-wide motion, no lint-on-move, empty-string edge,
+     item-4 out of scope) and tick spec `3.3.x`. — check: `make test` still green.
 
 # Done when
 
-- `make test` green with the new a/i/l/h tests.
-- Decisions in `design.md`, spec `3.1`/`3.3` ticked, obsolete lines removed.
-- One commit per green phase.
+- `make test` green, including the new empty-string append test.
+- `l`/`h` are block-wide, no on-move lint, and the empty-string bug is fixed.
+- Design + spec recorded; one commit per green phase.
+
+# Result
+
+All steps done and green (77/77). The empty-string bug is fixed and verified by
+`/tmp/exp3.txt` (both empty-line variants now open a slot on every string, col 7);
+`l` crosses a pipe to a later note; `h`'s no-mirror no-op is verified; a plain `l`
+leaves the line unchanged (no lint).

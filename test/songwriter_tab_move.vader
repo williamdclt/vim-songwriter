@@ -1,12 +1,42 @@
-" 3.3: l/h move to the next/previous note column within the CURRENT BAR, then
-" lint the moved bar. The motion is bar-local: l/h consider only the notes
-" between the pipes that bound the cursor. 'l' behaves as 'a' (appends) when it
-" is at the last note of the bar; 'h' is a no-op at the first note (no 'i'
-" mirror). The just-opened 'a' slot is not linted away.
+" 3.3: l/h move across note columns on ANY line of the block (not bar-scoped).
+" There is no linting on the move (spec item 4 is out of scope; leftover dashes
+" are fine). `l` at the last note column of the block behaves as `a` and opens a
+" new-note slot on every string; `h` at the first note column is a no-op (no `i`
+" mirror, 3.3.4).
 
-" --- 3.3.2 l at the last note of the bar appends a new-note slot ---
+" --- 3.3.1 l/h move to the next/previous note column on any line ---
 
-" Test: l at the last note of the bar appends a slot on every string (3.3.2)
+" Test: l moves block-wide to the next note column on another string
+
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|----4----|')
+  call append(1, 'B|---2-----|')
+  setfiletype songwriter
+  let b:songwriter_tabmode = 1
+  call cursor(1, 3)
+  call SongwriterMoveColumn(1)
+Then:
+  AssertEqual 6, col('.')
+
+" Test: h moves block-wide to the previous note column on another string
+
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|----4----|')
+  call append(1, 'B|---2-----|')
+  setfiletype songwriter
+  let b:songwriter_tabmode = 1
+  call cursor(1, 8)
+  call SongwriterMoveColumn(-1)
+Then:
+  AssertEqual 7, col('.')
+
+" --- 3.3.2 l at the last note column of the block behaves as `a` ---
+
+" Test: l at the last note column appends a slot on every string
 
 Execute:
   filetype plugin on
@@ -22,9 +52,24 @@ Then:
   AssertEqual 'b|--4----|', getline(2)
   AssertEqual 7, col('.')
 
-" --- 3.3.4 h at the first note of the bar is a no-op (no mirror) ---
+" Test: l in the middle of the block moves, it does not append
 
-" Test: h at the first note of the bar does not move or append (3.3.4)
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|--4--1--|')
+  call append(1, 'b|--4--1--|')
+  setfiletype songwriter
+  let b:songwriter_tabmode = 1
+  call cursor(1, 5)
+  call SongwriterMoveColumn(1)
+Then:
+  AssertEqual 8, col('.')
+  AssertEqual 'e|--4--1--|', getline(1)
+
+" --- 3.3.4 `h` at the first note column is a no-op ---
+
+" Test: h at the first note column does not move or mirror-append
 
 Execute:
   filetype plugin on
@@ -40,56 +85,22 @@ Then:
   AssertEqual 'b|--4--|', getline(2)
   AssertEqual 5, col('.')
 
-" --- 3.3.3 l on a plain move lints the moved bar ---
+" --- The bug: empty string at the last note column still gets a slot ---
 
-" Test: l moves to the next in-bar note and trims trailing dashes (3.3.3)
+" Test: l on an empty line at the last note column opens a slot on every string
+" The last note lives on the line above; the empty string below it must still be
+" widened so a new note can be entered on it.
 
 Execute:
   filetype plugin on
   enew!
-  call setline(1, 'e|--4---1---|')
-  call append(1, 'b|--4---1--|')
+  call setline(1, 'e|--4--|')
+  call append(1, 'b|------|')
   setfiletype songwriter
   let b:songwriter_tabmode = 1
-  call cursor(1, 5)
+  call cursor(2, 5)
   call SongwriterMoveColumn(1)
 Then:
-  AssertEqual 'e|--4---1--|', getline(1)
-  AssertEqual 'b|--4---1--|', getline(2)
-  AssertEqual 9, col('.')
-
-" --- 3.3.3 h on a plain move lints the moved bar ---
-
-" Test: h moves to the previous in-bar note and trims trailing dashes (3.3.3)
-
-Execute:
-  filetype plugin on
-  enew!
-  call setline(1, 'e|--4---1---|')
-  call append(1, 'b|--4---1----|')
-  setfiletype songwriter
-  let b:songwriter_tabmode = 1
-  call cursor(1, 9)
-  call SongwriterMoveColumn(-1)
-Then:
-  AssertEqual 'e|--4---1--|', getline(1)
-  AssertEqual 'b|--4---1--|', getline(2)
-  AssertEqual 5, col('.')
-
-" --- 3.3.2 l at the end of an earlier bar appends to THAT bar (bar-scoped) ---
-
-" Test: l at the last note of the first bar appends to the first bar, not the next
-
-Execute:
-  filetype plugin on
-  enew!
-  call setline(1, 'e|--4--|--8--|')
-  call append(1, 'b|--4--|--8--|')
-  setfiletype songwriter
-  let b:songwriter_tabmode = 1
-  call cursor(1, 5)
-  call SongwriterMoveColumn(1)
-Then:
-  AssertEqual 'e|--4----|--8--|', getline(1)
-  AssertEqual 'b|--4----|--8--|', getline(2)
+  AssertEqual 'e|--4----|', getline(1)
+  AssertEqual 'b|--------|', getline(2)
   AssertEqual 7, col('.')

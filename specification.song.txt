@@ -53,9 +53,8 @@ Each line is a guitar string, the numbers are the fretted notes, played sequenti
     3.2 `w` should move to the next note on the line, not stopping at dashes or pipes. `b` does the opposite (move to previous note). ✓
     3.3 `l` and `h` move across notes. ✓
         3.3.1 `l` should move to the column where _any_ line has a note. ✓
-        3.3.2 If the cursor is at the last note of the bar, `l` should behave as `a` so that new notes can easily be appended to the tablature. ✓
-        3.3.3 it should trigger linting ✓
-        3.3.4 `h` does the opposite (moving left), except it does not behave as `i` (no mirroring requirement 3.3.2). ✓
+        3.3.2 If the cursor is at the last note of the tablature, `l` should behave as `a` so that new notes can easily be appended to the tablature. ✓
+        3.3.3 `h` does the opposite (moving left), except it does not behave as `i` (no mirroring requirement 3.3.2). ✓
     3.4 numbers should enter the note: replace the character under cursor with the number.
 4. An edit should trigger linting
     4.1 When a note is entered (number typed)
