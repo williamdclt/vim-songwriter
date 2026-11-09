@@ -62,6 +62,67 @@ Execute (a cursor on a note of an unclosed bar stays on it):
 Expect songwriter:
   e|--3--5--|
 
+Given (an empty last bar is deleted (1.4)):
+  e|--3--|-----|
+  B|--1--|---|
+
+Execute (an empty last bar is deleted (1.4)):
+  call cursor(1, 1)
+  call songwriter#tab#Lint()
+Expect:
+  e|--3--|
+  B|--1--|
+
+Given (every empty bar at the end is deleted, so lint is idempotent (1.4)):
+  e|--3--|--|--|----|
+
+Execute (every empty bar at the end is deleted, so lint is idempotent (1.4)):
+  call cursor(1, 1)
+  call songwriter#tab#Lint()
+Expect:
+  e|--3--|
+
+Given (empty bars before the last one are kept (1.4)):
+  e|--3--|--|--5--|
+
+Execute (empty bars before the last one are kept (1.4)):
+  call cursor(1, 1)
+  call songwriter#tab#Lint()
+Expect:
+  e|--3--|--|--5--|
+
+Given (a bar with a note on any string is not empty (1.4)):
+  e|--3--|-----|
+  B|--1--|--7--|
+
+Execute (a bar with a note on any string is not empty (1.4)):
+  call cursor(1, 1)
+  call songwriter#tab#Lint()
+Expect:
+  e|--3--|-----|
+  B|--1--|--7--|
+
+Given (a tab with only empty bars keeps one (1.4)):
+  e|----|--|
+  B|--|------|
+
+Execute (a tab with only empty bars keeps one (1.4)):
+  call cursor(1, 1)
+  call songwriter#tab#Lint()
+Expect:
+  e|--|
+  B|--|
+
+Given songwriter (a cursor in a deleted last bar lands on the tab's last pipe (1.4)):
+  e|--3--|-----|
+
+Execute (a cursor in a deleted last bar lands on the tab's last pipe (1.4)):
+  call cursor(1, 10)
+  call songwriter#tab#LintAndFollow(songwriter#tab#model#Read())
+  AssertEqual 8, col('.')
+Expect songwriter:
+  e|--3--|
+
 Given (aligns misaligned bar pipes across strings, trims to two dashes (1.1/1.2)):
   e|-----5-----|
   B|---0--0-----|

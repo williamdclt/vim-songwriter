@@ -170,15 +170,17 @@ Then:
 Expect songwriter:
   e|--3--5--|--7--|
 
-Given songwriter (5 the new bar's slot abandoned is linted like any slot):
+Given songwriter (5 the new bar's slot abandoned is linted away, as an empty last bar (1.4)):
   e|--3--|
 
-Execute (5 the new bar's slot abandoned is linted like any slot):
+Execute (5 the new bar's slot abandoned is linted away, as an empty last bar (1.4)):
   let b:songwriter_tabmode = 1
   call cursor(1, 6)
   normal lh
+Then:
+  AssertEqual 5, col('.')
 Expect songwriter:
-  e|--3--|--|
+  e|--3--|
 
 Given songwriter (5 a bar that is not the last one never gets a new bar after it):
   e|--4--|--|
@@ -190,4 +192,4 @@ Execute (5 a bar that is not the last one never gets a new bar after it):
 Then:
   AssertEqual 7, col('.')
 Expect songwriter:
-  e|--4----|--|
+  e|--4----|

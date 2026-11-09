@@ -89,8 +89,8 @@ Expect:
 " the new slot; `i` lands on its mirrored slot.
 
 Given songwriter (a adds room to the right: 1 dash after the current note, 2 before the pipe):
-  e|--4--|--|
-  B|--4--|--|
+  e|--4--|--5--|
+  B|--4--|-----|
 
 Execute (a adds room to the right: 1 dash after the current note, 2 before the pipe):
   call cursor(1, 5)
@@ -99,8 +99,8 @@ Then:
   AssertEqual 7, col('.')
   AssertEqual 1, line('.')
 Expect:
-  e|--4----|--|
-  B|--4----|--|
+  e|--4----|--5--|
+  B|--4----|-----|
 
 Given songwriter (i is the mirror of a, opening a room to the left of the current note):
   e|--|--4--|
@@ -193,8 +193,8 @@ Expect:
 " --- Integration smoke tests: the buffer mappings fire in tablature mode ---
 
 Given songwriter (typing a in tablature mode opens a 1-dash-gap slot for a note):
-  e|--4--|--|
-  B|--4--|--|
+  e|--4--|--5--|
+  B|--4--|-----|
 
 Execute (typing a in tablature mode opens a 1-dash-gap slot for a note):
   let b:songwriter_tabmode = 1
@@ -203,8 +203,8 @@ Execute (typing a in tablature mode opens a 1-dash-gap slot for a note):
 Then:
   AssertEqual 7, col('.')
 Expect:
-  e|--4----|--|
-  B|--4----|--|
+  e|--4----|--5--|
+  B|--4----|-----|
 
 Given songwriter (typing a in tablature mode on a tab without a closing pipe keeps its notes):
   e|--4--5--

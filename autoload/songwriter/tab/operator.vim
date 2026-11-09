@@ -175,7 +175,8 @@ function! s:linewise(op, reg, l1, l2) abort
     call deletebufline('%', l:l1, l:l2)
     call cursor(min([l:l1, line('$')]), 1)
   else
-    " 6.3.1: clear every note of each tab, keep the bars, open a slot.
+    " 6.3.1: clear every note of each tab, open a slot. Lint then drops the
+    " emptied bars at the end (1.4), leaving the first one.
     let l:cur = line('.')
     let l:lnum = l:l1
     while l:lnum <= l:l2

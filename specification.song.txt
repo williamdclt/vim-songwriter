@@ -46,6 +46,7 @@ Each line is a guitar string, the numbers are the fretted notes, played sequenti
     1.1 If some pipes bounding a bar are not vertically aligned across all strings, add dashes as necessary to align them. ✓
     1.2 Trim start and end dashes so that there is exactly 2 dashes after/before the pipes bounding the bar. Empty bars should have 2 dashes. ✓
     1.3 Split up numbers that are overlapping but not aligned (when a number is 2-digits, the second digit might overlap with another number on a different line), by pushing the second number to the right with dashes. There needs to be 1 dash between the numbers. ✓
+    1.4 If the tab's last bar is empty (no note on any string), delete it; repeat while the new last bar is empty, but always keep at least one bar. ✓
 2. In normal mode, `_` should insert a dash (`-`) at the cursor's column position on every line of the tab. ✓
 3. `<leader>t` should enter a special "tablature" mode. ✓
     3.1 `a` should create space for a new note to be entered. ✓
@@ -73,7 +74,7 @@ Each line is a guitar string, the numbers are the fretted notes, played sequenti
     6.2 Operators with motions: any target on the current line (`dw`, `d3l`, `dL`, `d$`, `df5`...) gives a column range, which is widened to every string and snapped outward so that a note (e.g. `12`, `5h7`) is never cut in half. A range ending on a note includes its trailing gap (like `ac`); a range starting in a gap snaps to the previous note. A range crossing a bar line closes the bar where it starts (`d$` from a note leaves that bar ending there). ✓
         6.2.1 After an operator, the tablature-mode motions (`w`, `b`, `l`, `h`) are pure motions: they never open a slot (no 3.3.2 behaviour). ✓
     6.3 Line-wise targets (`dap`, `yap`, `dj`, `d}`, `V`...) are widened to every tab they touch, whole. Tabs are separated by blank lines, so `ap` is a whole tab. ✓
-        6.3.1 `cap` clears every note of the tab but keeps its bars (`|--3--5--|--7--|` -> `|--|--|`), and tablature mode stays on. ✓
+        6.3.1 `cap` clears every note of the tab but keeps its bars, and tablature mode stays on. Like any lint, emptied bars at the end are then deleted (1.4), so only the first bar is left: `|--3--5--|--7--|` -> `|--|` (with the slot open, `|-----|`). ✓
         6.3.2 `p` of a line-wise register puts it after the end of the tab (`P`: before its start), never between strings. Tab lines pasted next to the tab are kept apart from it by a blank line. ✓
     6.4 Registers: column and bar yanks are stored as normal Vim blockwise registers (one row per string), so they interoperate with native Vim (`<C-v>` yanks, pasting outside tablature mode). The string names of the source tab are recorded alongside the register (ignored if the register has changed since). Named registers (`"a`) work as usual. ✓
     6.5 `p` / `P` paste a blockwise register. ✓

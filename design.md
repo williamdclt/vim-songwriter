@@ -127,6 +127,14 @@ else in a bar (dashes, whitespace) is re-rendered as dashes.
 
 **Empty bar** (no note on any string) becomes `|--|`.
 
+**Empty bars at the end are deleted** (spec 1.4): a trailing empty bar is
+leftover space, not music. All of them go, not just the very last one, so that
+lint stays idempotent (linting twice changes nothing); empty bars between
+notes are rests and are kept. A tab keeps at least one bar, so an all-empty tab
+lints to `|--|`. This applies to every lint, so an abandoned new-bar slot (spec
+5) disappears, and `cap` leaves a single bar. A cursor that was in a deleted
+bar lands on the tab's last pipe.
+
 **Overlapping notes** (spec 1.3, two-digit notes or longer note groups). Each note gets a natural output
 offset `c0 - mincol + 2`, then a fixed-point pass enforces:
 

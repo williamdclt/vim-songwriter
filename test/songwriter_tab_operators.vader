@@ -186,18 +186,18 @@ Execute (6.3 yip yanks the whole tab):
   AssertEqual ['e|--3--|', 'B|--1--|'], getreg('"', 1, 1)
   AssertEqual 'V', getregtype('"')
 
-Given songwriter (6.3.1 cap clears every note, keeps the bars and opens a slot):
+Given songwriter (6.3.1 cap clears every note and opens a slot; the emptied last bar goes (1.4)):
   e|--3--|--5--|
   B|-----|--1--|
 
-Execute (6.3.1 cap clears every note, keeps the bars and opens a slot):
+Execute (6.3.1 cap clears every note and opens a slot; the emptied last bar goes (1.4)):
   call cursor(2, 4)
   normal cap
   AssertEqual 5, col('.')
   AssertEqual 1, songwriter#keys#InTabMode()
 Expect songwriter:
-  e|-----|--|
-  B|-----|--|
+  e|-----|
+  B|-----|
 
 " --- 6.6 change ---
 

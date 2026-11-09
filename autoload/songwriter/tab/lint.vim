@@ -16,6 +16,7 @@ function! songwriter#tab#lint#Lint(lines) abort
 
   let l:lineparts = map(range(l:nl), '[]')
   let l:moves = []
+  let l:empty = []
   for l:j in range(l:nbars)
     " This bar's note groups ([lin, c0, text], c0 = 0-indexed offset in the
     " bar region): notes with their playing techniques (`5h7`, `x`), kept
@@ -29,6 +30,7 @@ function! songwriter#tab#lint#Lint(lines) abort
       endif
     endfor
 
+    call add(l:empty, empty(l:atoms))
     if empty(l:atoms)
       " Empty bar -> exactly two dashes on every string.
       for l:lin in range(l:nl)
@@ -47,6 +49,17 @@ function! songwriter#tab#lint#Lint(lines) abort
       call add(l:moves, {'line': l:a.lin, 'bar': l:j, 'c0': l:a.c0, 'start': l:a.start})
     endfor
   endfor
+
+  " Spec 1.4: empty bars at the end of the tab are dropped (all of them, so
+  " lint is idempotent), but a tab keeps at least one bar. They hold no notes,
+  " so no moves to update.
+  let l:keep = len(l:empty)
+  while l:keep > 1 && l:empty[l:keep - 1]
+    let l:keep -= 1
+  endwhile
+  if l:keep < len(l:empty)
+    call map(l:lineparts, 'v:val[: l:keep - 1]')
+  endif
 
   let l:out = []
   for l:k in range(l:nl)
@@ -183,9 +196,13 @@ function! songwriter#tab#lint#FollowColumn(lines, result, lin, col) abort
   endif
   let l:k = index(l:old_pipes, a:col)
   if l:k >= 0
-    return l:new_pipes[l:k]
+    return l:new_pipes[min([l:k, len(l:new_pipes) - 1])]
   endif
   let l:bar = len(filter(copy(l:old_pipes), 'v:val < a:col')) - 1
+  if l:bar + 1 >= len(l:new_pipes)
+    " In a trailing empty bar that lint dropped (1.4): the tab's last pipe.
+    return l:new_pipes[-1]
+  endif
 
   " This bar's notes on every string: [from, to, len].
   let l:notes = []
