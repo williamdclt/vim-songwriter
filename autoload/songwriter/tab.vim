@@ -101,74 +101,87 @@ function! songwriter#tab#AddNote(side) abort
   let l:line = getline('.')
   let l:result = a:side > 0
         \ ? songwriter#tab#AppendSlot(l:block, l:line, col('.'))
-        \ : songwriter#tab#PrependSlot(l:block, col('.'))
+        \ : songwriter#tab#PrependSlot(l:block, l:line, col('.'))
   call s:apply(l:block, l:result)
   if !empty(l:result)
     let b:songwriter_slot = {'line': line('.'), 'tick': b:changedtick}
   endif
 endfunction
 
-" Pure. The `a` slot: the anchor note is the rightmost note end, on any string,
-" among notes starting at or before the cursor and inside the cursor's bar
-" (bounded by the bar's closing pipe, so appending at the end of a non-final bar
-" stays in that bar). Dashes are inserted after the anchor so that the slot sits
-" one dash from it and the next pipe keeps a 2-dash gap (a next note, 1 dash).
+" Pure. The `a` slot: the anchor is the rightmost note end, on any string,
+" among notes of the cursor's bar that start at or before the cursor (so the
+" anchor is the note column under or left of the cursor). Dashes are inserted
+" after the anchor so that the slot sits one dash from it and the next note, on
+" any string, stays one dash away (the next pipe, two dashes).
 " Returns {'lines', 'col'}, or {} when there is no anchor note.
 function! songwriter#tab#AppendSlot(block, line, col) abort
   let l:bar = songwriter#tab#model#BarAt(a:line, a:col)
-  let l:bound = l:bar.end > 0 ? l:bar.end - 1 : a:col
   let l:e = 0
-  let l:ref = 0
-  for l:i in range(len(a:block.strings))
-    for l:n in a:block.strings[l:i].notes
-      if l:n.col <= l:bound && l:n.col - 1 + l:n.len > l:e
-        let l:e = l:n.col - 1 + l:n.len
-        let l:ref = l:i
+  for l:s in a:block.strings
+    for l:n in l:s.notes
+      if l:n.col <= a:col && songwriter#tab#model#InBar(l:n.col, l:bar)
+        let l:e = max([l:e, l:n.col - 1 + l:n.len])
       endif
     endfor
   endfor
   if l:e == 0
     return {}
   endif
-  " Columns needed between the anchor's end (offset e) and the next note/pipe.
-  let l:rest = strpart(a:block.lines[l:ref], l:e)
-  let l:m = match(l:rest, '[0-9|]')
+  " Wanted column of the nearest next note (e + 4) or pipe (e + 5), any string.
   let l:n = 0
-  if l:m >= 0
-    let l:next = l:e + 1 + l:m
-    let l:want = (l:rest[l:m] ==# '|') ? l:e + 5 : l:e + 4
-    let l:n = max([0, l:want - l:next])
-  endif
+  for l:s in a:block.strings
+    for l:note in l:s.notes
+      if l:note.col > l:e
+        let l:n = max([l:n, l:e + 4 - l:note.col])
+      endif
+    endfor
+    for l:p in l:s.pipes
+      if l:p > l:e
+        let l:n = max([l:n, l:e + 5 - l:p])
+      endif
+    endfor
+  endfor
   return {
         \ 'lines': songwriter#tab#model#InsertColumns(a:block.lines, l:e, l:n, '-'),
         \ 'col': l:e + 2}
 endfunction
 
-" Pure. The `i` slot, mirror of AppendSlot: the anchor is the leftmost note, on
-" any string, starting at or after the cursor; dashes are inserted before it so
-" the slot sits one dash left of it and the preceding pipe keeps a 2-dash gap.
+" Pure. The `i` slot, mirror of AppendSlot: the anchor is the leftmost note
+" start, on any string, among notes of the cursor's bar that end at or after
+" the cursor. Dashes are inserted before it so that the slot sits one dash left
+" of it and the previous note, on any string, stays one dash away (the
+" previous pipe, two dashes).
 " Returns {'lines', 'col'}, or {} when there is no anchor note.
-function! songwriter#tab#PrependSlot(block, col) abort
+function! songwriter#tab#PrependSlot(block, line, col) abort
+  let l:bar = songwriter#tab#model#BarAt(a:line, a:col)
   let l:s = 0
-  let l:ref = 0
-  for l:i in range(len(a:block.strings))
-    for l:n in a:block.strings[l:i].notes
-      if l:n.col >= a:col && (l:s == 0 || l:n.col < l:s)
+  for l:str in a:block.strings
+    for l:n in l:str.notes
+      if l:n.col - 1 + l:n.len >= a:col
+            \ && songwriter#tab#model#InBar(l:n.col, l:bar)
+            \ && (l:s == 0 || l:n.col < l:s)
         let l:s = l:n.col
-        let l:ref = l:i
       endif
     endfor
   endfor
   if l:s == 0
     return {}
   endif
-  let l:pipe = 0
-  for l:p in a:block.strings[l:ref].pipes
-    if l:p <= l:s - 2
-      let l:pipe = l:p
-    endif
+  " Dashes needed so the previous note end (s - 4) or pipe (s - 5) is far enough.
+  let l:n = 0
+  for l:str in a:block.strings
+    for l:note in l:str.notes
+      let l:end = l:note.col - 1 + l:note.len
+      if l:end < l:s
+        let l:n = max([l:n, l:end + 4 - l:s])
+      endif
+    endfor
+    for l:p in l:str.pipes
+      if l:p < l:s
+        let l:n = max([l:n, l:p + 5 - l:s])
+      endif
+    endfor
   endfor
-  let l:n = (l:pipe == 0) ? 0 : max([0, l:pipe + 5 - l:s])
   return {
         \ 'lines': songwriter#tab#model#InsertColumns(a:block.lines, l:s - 1, l:n, '-'),
         \ 'col': l:s + l:n - 2}

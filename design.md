@@ -146,13 +146,16 @@ A buffer-local flag, `b:songwriter_tabmode`, off by default; no teardown needed.
     note.
   - Moving does not lint, except to abandon an open slot (4.3, below).
 - **`a`/`i` (3.1)**: open a slot for a new note on every string and land on it.
-  `a` anchors on the rightmost note end, on any string, among notes starting at
-  or before the cursor within the cursor's bar (bounded by the bar's closing
-  pipe), so the slot opens in the current bar even when the cursor line is an
-  empty string. It inserts as many dashes as needed for the slot to sit exactly
-  one dash after the anchor while the next pipe keeps a 2-dash gap (a next note,
-  1 dash): `e|--4--|` -> `e|--4----|`. `i` mirrors this to the left of the
-  leftmost note at or after the cursor, keeping the preceding pipe 2 dashes away.
+  `a` anchors on the rightmost note end, on any string, among the notes of the
+  cursor's bar that start at or before the cursor: the note column under (or
+  left of) the cursor, found even when the cursor line is an empty string. It
+  inserts as many dashes as needed for the slot to sit exactly one dash after
+  the anchor while the next note, on any string, keeps a 1-dash gap (the next
+  pipe, 2 dashes): `e|--3--5--|` with the cursor on 3 -> `e|--3---5--|`. `i`
+  mirrors this to the left of the leftmost note of the bar ending at or after
+  the cursor, keeping the previous note 1 dash and the previous pipe 2 dashes
+  away. Gaps are checked on every string, since a note on another string
+  occupies the column just as much.
   No anchor note: no-op. `a`/`i` lint first (4.2, below).
 - **Digits (3.4)**: a digit on a dash replaces it; on a digit it is appended to
   its right, so a two-digit fret is typed one key at a time; the block is then

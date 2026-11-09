@@ -72,6 +72,71 @@ Expect:
   e|--|----4--|
   B|--|----4--|
 
+Given songwriter (a anchors on the note under the cursor, not the bar's last note):
+  e|--3--5--|
+  B|--3--5--|
+
+Execute (a anchors on the note under the cursor, not the bar's last note):
+  call cursor(1, 5)
+  call songwriter#tab#AddNote(1)
+Then:
+  AssertEqual 7, col('.')
+Expect:
+  e|--3---5--|
+  B|--3---5--|
+
+Given songwriter (a keeps a 1-dash gap with a next note on another string):
+  e|--3----|
+  B|----5--|
+
+Execute (a keeps a 1-dash gap with a next note on another string):
+  call cursor(1, 5)
+  call songwriter#tab#AddNote(1)
+Then:
+  AssertEqual 7, col('.')
+Expect:
+  e|--3------|
+  B|------5--|
+
+Given songwriter (i keeps a 1-dash gap with the previous note):
+  e|--3--5--|
+  B|--3--5--|
+
+Execute (i keeps a 1-dash gap with the previous note):
+  call cursor(1, 8)
+  call songwriter#tab#AddNote(-1)
+Then:
+  AssertEqual 7, col('.')
+Expect:
+  e|--3---5--|
+  B|--3---5--|
+
+Given songwriter (i keeps a 1-dash gap with a previous note on another string):
+  e|----5--|
+  B|--3----|
+
+Execute (i keeps a 1-dash gap with a previous note on another string):
+  call cursor(1, 7)
+  call songwriter#tab#AddNote(-1)
+Then:
+  AssertEqual 7, col('.')
+Expect:
+  e|------5--|
+  B|--3------|
+
+Given songwriter (i anchors on a two-digit note when the cursor is on its second digit):
+  e|--3--12--|
+  B|--3------|
+
+Execute (i anchors on a two-digit note when the cursor is on its second digit):
+  call cursor(1, 9)
+  call songwriter#tab#AddNote(-1)
+Then:
+  AssertEqual 7, col('.')
+Expect:
+  e|--3---12--|
+  B|--3-------|
+
 Given (a is a no-op off a tab block):
   I walk a
 
