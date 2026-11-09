@@ -182,21 +182,15 @@ endfunction
 " note, and records itself for `.` (6.10). A refusal is echoed.
 function! songwriter#tab#strings#Change(dir, keep_pitch, column) abort
   call songwriter#tab#LintAbandonedSlot()
-  let l:block = songwriter#tab#LintAndFollow(songwriter#tab#model#Read())
-  if empty(l:block)
+  if empty(songwriter#tab#edit#Run(function('s:move', [a:dir, a:keep_pitch, a:column])))
     return
   endif
-  let l:res = songwriter#tab#strings#Move(l:block.lines, line('.') - l:block.start,
-        \ col('.'), a:dir, a:keep_pitch, a:column)
-  if has_key(l:res, 'error')
-    echohl ErrorMsg
-    echo 'songwriter: ' . l:res.error
-    echohl None
-    return
-  endif
-  call songwriter#tab#model#Write(l:block, l:res.lines)
-  call cursor(l:block.start + l:res.lin, l:res.col)
-  call songwriter#tab#LintAndFollow(songwriter#tab#model#Read(l:block.start))
   call songwriter#tab#operator#Record(printf('songwriter#tab#strings#Change(%d, %d, %d)',
         \ a:dir, a:keep_pitch, a:column), 1)
+endfunction
+
+function! s:move(dir, keep_pitch, column, ctx) abort
+  let l:res = songwriter#tab#strings#Move(a:ctx.block.lines, a:ctx.lin, a:ctx.col,
+        \ a:dir, a:keep_pitch, a:column)
+  return has_key(l:res, 'error') ? {'error': 'songwriter: ' . l:res.error} : l:res
 endfunction

@@ -57,7 +57,7 @@ Given songwriter (a cursor on a note of an unclosed bar stays on it):
 
 Execute (a cursor on a note of an unclosed bar stays on it):
   call cursor(1, 10)
-  call songwriter#tab#LintAndFollow(songwriter#tab#model#Read())
+  call songwriter#tab#edit#LintAndFollow(songwriter#tab#model#Read())
   AssertEqual 8, col('.')
 Expect songwriter:
   e|--3--5--|
@@ -118,7 +118,7 @@ Given songwriter (a cursor in a deleted last bar lands on the tab's last pipe (1
 
 Execute (a cursor in a deleted last bar lands on the tab's last pipe (1.4)):
   call cursor(1, 10)
-  call songwriter#tab#LintAndFollow(songwriter#tab#model#Read())
+  call songwriter#tab#edit#LintAndFollow(songwriter#tab#model#Read())
   AssertEqual 8, col('.')
 Expect songwriter:
   e|--3--|

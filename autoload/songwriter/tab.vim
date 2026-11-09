@@ -5,16 +5,6 @@
 " a cursor column, and apply the result. Parsing and column arithmetic live in
 " the model (tab/model.vim); the linter in tab/lint.vim.
 
-" Apply a pure result {'lines'?: [...], 'col'?: n} to the block / cursor line.
-function! s:apply(block, result) abort
-  if has_key(a:result, 'lines')
-    call songwriter#tab#model#Write(a:block, a:result.lines)
-  endif
-  if has_key(a:result, 'col')
-    call cursor(line('.'), a:result.col)
-  endif
-endfunction
-
 " === Editing ===
 
 " Append `--` to every string of the block.
@@ -91,7 +81,7 @@ function! songwriter#tab#EnterNote(digit) abort
     call setline('.', l:line[0 : l:col - 2] . l:digit . l:line[l:col :])
     call cursor(line('.'), l:col)
   endif
-  call s:lint_and_follow(songwriter#tab#model#Read())
+  call songwriter#tab#edit#LintAndFollow(songwriter#tab#model#Read())
   unlet! b:songwriter_slot
   let b:songwriter_typing = {'line': line('.'), 'col': col('.'), 'tick': b:changedtick}
 endfunction
@@ -116,12 +106,12 @@ function! songwriter#tab#AddNote(side) abort
     return
   endif
   unlet! b:songwriter_slot
-  let l:block = s:lint_and_follow(l:block)
+  let l:block = songwriter#tab#edit#LintAndFollow(l:block)
   let l:line = getline('.')
   let l:result = a:side > 0
         \ ? songwriter#tab#AppendSlot(l:block, l:line, col('.'))
         \ : songwriter#tab#PrependSlot(l:block, l:line, col('.'))
-  call s:apply(l:block, l:result)
+  call songwriter#tab#edit#Apply(l:block, l:result)
   if !empty(l:result)
     let b:songwriter_slot = {'line': line('.'), 'tick': b:changedtick}
   endif
@@ -137,8 +127,8 @@ function! songwriter#tab#AddBarSlot() abort
     return
   endif
   unlet! b:songwriter_slot
-  let l:block = s:lint_and_follow(l:block)
-  call s:apply(l:block, songwriter#tab#AppendBarSlot(l:block))
+  let l:block = songwriter#tab#edit#LintAndFollow(l:block)
+  call songwriter#tab#edit#Apply(l:block, songwriter#tab#AppendBarSlot(l:block))
   let b:songwriter_slot = {'line': line('.'), 'tick': b:changedtick}
 endfunction
 
@@ -264,29 +254,6 @@ endfunction
 
 " === Linting after edits (spec [Tablature][[Editing]] 4) ===
 
-" Lint `block`, write it back and keep the cursor on the same note (or in the
-" same gap between notes) when it is inside the block. Returns the re-read
-" block, or {} when `block` is empty.
-function! s:lint_and_follow(block) abort
-  if empty(a:block)
-    return {}
-  endif
-  let l:result = songwriter#tab#lint#Lint(a:block.lines)
-  call songwriter#tab#model#Write(a:block, l:result.lines)
-  let l:lin = line('.') - a:block.start
-  if l:lin >= 0 && l:lin < len(a:block.lines)
-    call cursor(line('.'),
-          \ songwriter#tab#lint#FollowColumn(a:block.lines, l:result, l:lin, col('.')))
-  endif
-  return songwriter#tab#model#Read(a:block.start)
-endfunction
-
-" Lint `block` and keep the cursor on the same note (see s:lint_and_follow),
-" for other modules' entry points. Returns the re-read block.
-function! songwriter#tab#LintAndFollow(block) abort
-  return s:lint_and_follow(a:block)
-endfunction
-
 " Spec 4.3: if the slot opened by `a`/`i` (or `l`, 3.3.2 and 5) is still open and
 " empty (the buffer has not changed since, e.g. only `j`/`k` were pressed),
 " lint its block. Called by the tablature-mode keys that abandon a slot.
@@ -296,7 +263,7 @@ function! songwriter#tab#LintAbandonedSlot() abort
   if empty(l:slot) || l:slot.tick != b:changedtick
     return
   endif
-  call s:lint_and_follow(songwriter#tab#model#Read(l:slot.line))
+  call songwriter#tab#edit#LintAndFollow(songwriter#tab#model#Read(l:slot.line))
 endfunction
 
 " === Motions ===

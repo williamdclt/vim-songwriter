@@ -17,6 +17,7 @@ never relies on concealing or rendering.
 |---|---|
 | `autoload/songwriter/grammar.vim` | The format's patterns (tab line, note, note group, chord, chord highlighting). The only place regexes for the format are written. |
 | `autoload/songwriter/tab/model.vim` | Tab block model: parse, queries, the column-insertion primitive, and `Read`/`Write` (the buffer edges). |
+| `autoload/songwriter/tab/edit.vim` | The buffer side of a tablature edit: `Commit` a pure function's result (write, cursor, lint and follow, message or refusal), `Run` a whole edit at the cursor. |
 | `autoload/songwriter/tab/lint.vim` | The linter, as a pure function over a block's lines. |
 | `autoload/songwriter/tab.vim` | Tab operations and motions: buffer entry points plus pure helpers (`AppendSlot`, `PrependSlot`, `AppendBarSlot`). |
 | `autoload/songwriter/tab/columns.vim` | The column model behind tablature-mode operators, pure: text object ranges, snapping, delete, extract, paste with row matching, erase. |
@@ -40,7 +41,9 @@ An operation is a thin buffer entry point around pure logic:
    `{}` off a tab line, which every entry point treats as a no-op);
 2. a pure function computes the result: new lines and/or a cursor column
    (`{'lines': [...], 'col': n}`, `{}` for "nothing to do");
-3. the entry point writes it back (`model#Write`, `cursor()`).
+3. the entry point writes it back (`edit#Commit` lints and follows too;
+   `edit#Apply` only writes and moves the cursor). `edit#Run` is the whole
+   sequence for an edit at the cursor.
 
 Pure functions are testable without buffer setup and composable: spec item 4
 (lint after an edit) is "edit, then lint, then follow the moved note", which is
