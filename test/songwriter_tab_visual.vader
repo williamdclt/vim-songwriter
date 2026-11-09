@@ -1,0 +1,135 @@
+" Spec [Tablature][[Editing]] 6.9: visual mode in tablature mode. Typed
+" end-to-end with `normal`; a selection that outlives `normal` is checked
+" through visualmode() and the '< '> marks.
+
+Before:
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_repeat
+  let b:songwriter_tabmode = 1
+  call setreg('"', [])
+
+" --- 6.9.1 text objects select the full-height rectangle ---
+
+Given songwriter (6.9.1 vac selects the column on every string):
+  e|--3--5--7--|
+  B|-----5-----|
+
+Execute (6.9.1 vac selects the column on every string):
+  call cursor(1, 8)
+  execute "normal vac\<Esc>"
+  AssertEqual "\<C-V>", visualmode()
+  AssertEqual [1, 8], getpos("'<")[1:2]
+  AssertEqual [2, 10], getpos("'>")[1:2]
+
+Given songwriter (6.9.1 vacd removes the column):
+  e|--3--5--7--|
+  B|-----5-----|
+
+Execute (6.9.1 vacd removes the column):
+  call cursor(1, 8)
+  normal vacd
+Expect songwriter:
+  e|--3--7--|
+  B|--------|
+
+Given songwriter (6.9.1 repeating a| extends the selection to the next bar):
+  e|--3--|--5--|--7--|
+
+Execute (6.9.1 repeating a| extends the selection to the next bar):
+  call cursor(1, 5)
+  normal va|a|y
+  AssertEqual ['--3--|--5--|'], getreg('"', 1, 1)
+
+Given songwriter (6.9.1 repeating ac extends the selection to the next column):
+  e|--3--5--7--|
+
+Execute (6.9.1 repeating ac extends the selection to the next column):
+  call cursor(1, 5)
+  normal vacacd
+Expect songwriter:
+  e|--7--|
+
+" --- 6.9.2 plain v is widened at operator time ---
+
+Given songwriter (6.9.2 v with tab motions, then d: widened and snapped):
+  e|--3--5--7--|
+  B|-----5-----|
+
+Execute (6.9.2 v with tab motions, then d: widened and snapped):
+  call cursor(1, 5)
+  normal vwd
+Expect songwriter:
+  e|--7--|
+  B|-----|
+
+Given songwriter (6.9.2 v with l moves by column, then y):
+  e|--3--------|
+  B|-----5-----|
+
+Execute (6.9.2 v with l moves by column, then y):
+  call cursor(1, 5)
+  normal vly
+  AssertEqual ['3--------', '---5-----'], getreg('"', 1, 1)
+
+Given songwriter (6.9.2 a <C-v> on some strings is widened to all of them):
+  e|--3--5--|
+  B|--1--5--|
+  G|--0--5--|
+
+Execute (6.9.2 a <C-v> on some strings is widened to all of them):
+  call cursor(1, 5)
+  execute "normal \<C-v>jd"
+Expect songwriter:
+  e|--5--|
+  B|--5--|
+  G|--5--|
+
+" --- 6.9.3 V ---
+
+Given songwriter (6.9.3 Vd deletes the whole tab):
+  Intro
+  e|--3--|
+  B|--1--|
+  end
+
+Execute (6.9.3 Vd deletes the whole tab):
+  call cursor(2, 4)
+  normal Vd
+Expect songwriter:
+  Intro
+  end
+
+" --- 6.9.4 visual p ---
+
+Given songwriter (6.9.4 va|p replaces the bar with the register):
+  e|--3--|--5--|
+
+Execute (6.9.4 va|p replaces the bar with the register):
+  call cursor(1, 5)
+  normal ya|
+  call cursor(1, 11)
+  normal va|p
+Expect songwriter:
+  e|--3--|--3--|
+
+Given songwriter (6.9.4 vacp replaces the column with the register):
+  e|--3--5--7--|
+
+Execute (6.9.4 vacp replaces the column with the register):
+  call cursor(1, 5)
+  normal yac
+  call cursor(1, 11)
+  normal vacp
+Expect songwriter:
+  e|--3--5--3--|
+
+" --- 6.9.5 motions keep visual mode ---
+
+Given songwriter (6.9.5 visual L stays in visual mode, outside tablature mode too):
+  e|--3--|--5--|
+
+Execute (6.9.5 visual L stays in visual mode, outside tablature mode too):
+  let b:songwriter_tabmode = 0
+  call cursor(1, 3)
+  normal vLd
+Expect songwriter:
+  e|--5--|

@@ -57,7 +57,23 @@ let s:tabmode.o = {
       \ 'i|': 'call songwriter#tab#operator#Object("|", 0)',
       \ 'a|': 'call songwriter#tab#operator#Object("|", 1)',
       \ }
-let s:tabmode.x = {}
+" Spec 6.9.
+let s:tabmode.x = {
+      \ 'w': 'call songwriter#tab#operator#VisualMotion("w")',
+      \ 'b': 'call songwriter#tab#operator#VisualMotion("b")',
+      \ 'l': 'call songwriter#tab#operator#VisualMotion("l")',
+      \ 'h': 'call songwriter#tab#operator#VisualMotion("h")',
+      \ 'ic': 'call songwriter#tab#operator#VisualObject("c", 0)',
+      \ 'ac': 'call songwriter#tab#operator#VisualObject("c", 1)',
+      \ 'i|': 'call songwriter#tab#operator#VisualObject("|", 0)',
+      \ 'a|': 'call songwriter#tab#operator#VisualObject("|", 1)',
+      \ 'd': 'call songwriter#tab#operator#VisualOp("d", v:register)',
+      \ 'x': 'call songwriter#tab#operator#VisualOp("d", v:register)',
+      \ 'y': 'call songwriter#tab#operator#VisualOp("y", v:register)',
+      \ 'c': 'call songwriter#tab#operator#VisualOp("c", v:register)',
+      \ 'p': 'call songwriter#tab#operator#VisualPut(v:register)',
+      \ 'P': 'call songwriter#tab#operator#VisualPut(v:register)',
+      \ }
 
 " Spec [Tablature][[Motions]].
 let s:tabline.n = {

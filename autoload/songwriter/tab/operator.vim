@@ -389,6 +389,145 @@ function! s:record(fmt, count) abort
   let b:songwriter_repeat = {'fmt': a:fmt, 'count': a:count, 'tick': b:changedtick}
 endfunction
 
+" === Visual mode (spec 6.9) ===
+
+" The last selection made by VisualObject: while it is still the current one,
+" the selection is exact (no snapping) and the same object extends it.
+let s:vobj = {}
+
+function! s:selection() abort
+  return [line('v'), col('v'), line('.'), col('.')]
+endfunction
+
+function! s:is_vobj() abort
+  return !empty(s:vobj) && mode() ==# "\<C-V>" && s:selection() ==# s:vobj.sel
+endfunction
+
+" Spec 6.9.1: select the object as a blockwise rectangle over every string,
+" cursor on the bottom string. Again on our own selection: one more column /
+" bar, counted from where the first one started.
+function! songwriter#tab#operator#VisualObject(kind, around) abort
+  let l:block = songwriter#tab#model#Read()
+  if empty(l:block)
+    return
+  endif
+  if s:is_vobj() && s:vobj.kind ==# a:kind && s:vobj.around == a:around
+    let l:o = s:vobj
+    let l:o.count += 1
+  else
+    let l:o = {'kind': a:kind, 'around': a:around, 'count': v:count1,
+          \ 'lin': line('.') - l:block.start, 'col': col('.')}
+  endif
+  let l:range = a:kind ==# 'c'
+        \ ? songwriter#tab#columns#ColumnObject(l:block.lines, l:o.lin, l:o.col, l:o.count, a:around)
+        \ : songwriter#tab#columns#BarObject(l:block.lines, l:o.lin, l:o.col, l:o.count, a:around)
+  if empty(l:range)
+    return
+  endif
+  let l:last = l:block.start + len(l:block.lines) - 1
+  execute "normal! \<Esc>"
+  call cursor(l:block.start, l:range[0])
+  execute "normal! \<C-V>"
+  call cursor(l:last, l:range[1])
+  let l:o.sel = [l:block.start, l:range[0], l:last, l:range[1]]
+  let s:vobj = l:o
+endfunction
+
+" Spec 6.9.5: tablature-mode motions in visual mode, without side effects:
+" `w`/`b` to the next/previous note of the string, `l`/`h` to the next/previous
+" note column of the block.
+function! songwriter#tab#operator#VisualMotion(key) abort
+  let l:block = songwriter#tab#model#Read()
+  if empty(l:block)
+    return
+  endif
+  let l:stops = a:key =~# '[wb]'
+        \ ? map(songwriter#tab#columns#Atoms(getline('.')), 'v:val.col')
+        \ : songwriter#tab#columns#Columns(l:block.lines)
+  let l:col = col('.')
+  for l:i in range(v:count1)
+    let l:c = filter(copy(l:stops), a:key =~# '[wl]' ? 'v:val > l:col' : 'v:val < l:col')
+    if empty(l:c)
+      break
+    endif
+    let l:col = a:key =~# '[wl]' ? l:c[0] : l:c[-1]
+  endfor
+  call cursor(line('.'), l:col)
+endfunction
+
+" The current selection as [lnum, s, e, exact] for a column operation (lnum:
+" a line of the block), or [l1, l2] in line-wise visual mode. Leaves visual.
+function! s:take_selection() abort
+  let l:mode = mode()
+  let [l:l1, l:c1, l:l2, l:c2] = s:selection()
+  let l:exact = s:is_vobj()
+  let s:vobj = {}
+  execute "normal! \<Esc>"
+  if l:mode ==# 'V'
+    return [min([l:l1, l:l2]), max([l:l1, l:l2])]
+  endif
+  return [l:l2, min([l:c1, l:c2]), max([l:c1, l:c2]), l:exact]
+endfunction
+
+" Spec 6.9.2 / 6.9.3: d, y, c (and x as d) on a selection: widened to every
+" string, snapped unless it is one of our objects; V covers whole tabs.
+function! songwriter#tab#operator#VisualOp(op, reg) abort
+  let l:sel = s:take_selection()
+  if len(l:sel) == 2
+    call s:linewise(a:op, a:reg, l:sel[0], l:sel[1])
+    return
+  endif
+  let [l:lnum, l:s, l:e, l:exact] = l:sel
+  let l:block = songwriter#tab#model#Read(l:lnum)
+  if empty(l:block)
+    return
+  endif
+  if !l:exact
+    let [l:s, l:e] = songwriter#tab#columns#Snap(l:block.lines, l:lnum - l:block.start, l:s, l:e)
+  endif
+  call cursor(l:lnum, l:s)
+  call s:columnwise(a:op, a:reg, l:block, l:s, l:e)
+endfunction
+
+" Spec 6.9.4: replace the selected columns with a blockwise register (rows
+" matched as for p), or the selected tabs (V) with a line-wise register.
+function! songwriter#tab#operator#VisualPut(reg) abort
+  let l:type = getregtype(a:reg)
+  let l:rows = getreg(a:reg, 1, 1)
+  let l:names = songwriter#tab#operator#RegisterNames(a:reg)
+  let l:sel = s:take_selection()
+  if len(l:sel) == 2
+    if l:type !=# 'V'
+      return s:error('songwriter: only a line-wise register can replace whole tabs')
+    endif
+    call s:linewise('d', '_', l:sel[0], l:sel[1])
+    call append(line('.') - (line('.') >= l:sel[0] ? 1 : 0), l:rows)
+    return
+  endif
+  if l:type[0] !=# "\<C-V>" || empty(l:rows)
+    return s:error('songwriter: cannot paste a character-wise register into a tab')
+  endif
+  let [l:lnum, l:s, l:e, l:exact] = l:sel
+  let l:block = songwriter#tab#model#Read(l:lnum)
+  if empty(l:block)
+    return
+  endif
+  if !l:exact
+    let [l:s, l:e] = songwriter#tab#columns#Snap(l:block.lines, l:lnum - l:block.start, l:s, l:e)
+  endif
+  let l:lines = songwriter#tab#columns#DeleteRange(l:block.lines, l:s, l:e).lines
+  let l:res = songwriter#tab#columns#PasteAt(l:lines, l:s - 1, l:rows, l:names)
+  if has_key(l:res, 'error')
+    return s:error(l:res.error)
+  endif
+  call songwriter#tab#model#Write(l:block, l:res.lines)
+  call cursor(l:lnum, l:res.col)
+  call songwriter#tab#LintAndFollow(songwriter#tab#model#Read())
+  if !empty(l:res.msg)
+    echo l:res.msg
+  endif
+endfunction
+
 " === Repeat (spec 6.10) ===
 
 " `.` in tablature mode. Operators repeat natively (g@ records itself; note

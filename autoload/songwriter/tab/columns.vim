@@ -252,20 +252,40 @@ function! songwriter#tab#columns#Paste(lines, lin, col, rows, regnames, before, 
       let l:offset = a:before ? l:c - 1 : s:gap_end(a:lines, a:lin, l:bar, l:cols, l:c)
     endif
   endif
-  call map(l:rows, 'repeat(v:val, max([a:count, 1]))')
+  let l:res = s:insert_rows(a:lines, l:offset, l:rows, a:count)
+  let l:res.msg = l:m.msg
+  return l:res
+endfunction
+
+" Spec 6.9.4: paste register `rows` right after byte `offset` (0 = line
+" start), rows matched as in Paste. {'lines', 'col', 'msg'} or {'error'}.
+function! songwriter#tab#columns#PasteAt(lines, offset, rows, regnames) abort
+  let l:m = songwriter#tab#columns#MatchRows(map(copy(a:lines), 'v:val[0]'), a:rows, a:regnames)
+  if has_key(l:m, 'error')
+    return l:m
+  endif
+  let l:res = s:insert_rows(a:lines, a:offset, l:m.rows, 1)
+  let l:res.msg = l:m.msg
+  return l:res
+endfunction
+
+" Insert `count` copies of `rows` after byte `offset` on every line. Returns
+" {'lines', 'col': the first inserted note on any string}.
+function! s:insert_rows(lines, offset, rows, count) abort
+  let l:rows = map(copy(a:rows), 'repeat(v:val, max([a:count, 1]))')
   let l:out = []
   for l:i in range(len(a:lines))
-    let l:l = s:pad(a:lines[l:i], l:offset)
-    call add(l:out, strpart(l:l, 0, l:offset) . l:rows[l:i] . strpart(l:l, l:offset))
+    let l:l = s:pad(a:lines[l:i], a:offset)
+    call add(l:out, strpart(l:l, 0, a:offset) . l:rows[l:i] . strpart(l:l, a:offset))
   endfor
   let l:first = 0
   for l:r in l:rows
     let l:p = match(l:r, songwriter#grammar#TabAtom())
-    if l:p >= 0 && stridx('|', l:r[l:p]) < 0 && (l:first == 0 || l:p + 1 < l:first)
+    if l:p >= 0 && (l:first == 0 || l:p + 1 < l:first)
       let l:first = l:p + 1
     endif
   endfor
-  return {'lines': l:out, 'col': l:offset + max([l:first, 1]), 'msg': l:m.msg}
+  return {'lines': l:out, 'col': a:offset + max([l:first, 1])}
 endfunction
 
 " Spec 6.7: erase the note at column `col` of line `lin`. Shared column (6.7.1):
