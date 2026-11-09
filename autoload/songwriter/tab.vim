@@ -225,6 +225,12 @@ function! s:lint_and_follow(block) abort
   return songwriter#tab#model#Read(a:block.start)
 endfunction
 
+" Lint `block` and keep the cursor on the same note (see s:lint_and_follow),
+" for other modules' entry points. Returns the re-read block.
+function! songwriter#tab#LintAndFollow(block) abort
+  return s:lint_and_follow(a:block)
+endfunction
+
 " Spec 4.3: if the slot opened by `a`/`i` (or `l`, 3.3.2) is still open and
 " empty (the buffer has not changed since, e.g. only `j`/`k` were pressed),
 " lint its block. Called by the tablature-mode keys that abandon a slot.

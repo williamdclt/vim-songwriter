@@ -26,22 +26,20 @@ for [s:key, s:plug] in items(s:plug_keys)
   let b:undo_ftplugin .= '| silent! nunmap <buffer> ' . s:key
 endfor
 
-" Context-dependent keys (tab line, tablature mode): see autoload/songwriter/keys.vim.
-" The key name is passed with `<` as <lt>, so a special key such as <Esc> reaches
-" Dispatch as its name rather than being translated in the map's right side.
-for s:key in songwriter#keys#ContextKeys()
-  execute printf('nnoremap <buffer> <expr> %s songwriter#keys#Dispatch(%s)',
-        \ s:key, substitute(string(s:key), '<', '<lt>', 'g'))
-  let b:undo_ftplugin .= '| silent! nunmap <buffer> ' . s:key
+" Context-dependent keys (tab line, tablature mode), per mode: see
+" autoload/songwriter/keys.vim. In the map's right side the key name is passed
+" with `<` as <lt>, so a special key such as <Esc> reaches Dispatch as its name
+" rather than being translated; `|` is written <Bar> on both sides.
+for s:mode in ['n', 'o', 'x']
+  for s:key in songwriter#keys#ContextKeys(s:mode)
+    let s:lhs = substitute(s:key, '|', '<Bar>', 'g')
+    execute printf('%snoremap <buffer> <expr> %s songwriter#keys#Dispatch(%s, %s)',
+          \ s:mode, s:lhs,
+          \ substitute(substitute(string(s:key), '<', '<lt>', 'g'), '|', '<Bar>', 'g'),
+          \ string(s:mode))
+    let b:undo_ftplugin .= printf('| silent! %sunmap <buffer> %s', s:mode, s:lhs)
+  endfor
 endfor
-onoremap <buffer> <expr> L songwriter#keys#Dispatch('L')
-onoremap <buffer> <expr> H songwriter#keys#Dispatch('H')
-let b:undo_ftplugin .= '| silent! ounmap <buffer> L| silent! ounmap <buffer> H'
 
-" Visual L/H keep the `:call` form: it leaves visual mode, which is a known
-" defect (switching to Dispatch/<Cmd> would change that behaviour).
-xnoremap <buffer> <expr> L songwriter#grammar#IsTabLine(getline('.')) ? ':call songwriter#keys#JumpBarLine(1)<CR>' : 'L'
-xnoremap <buffer> <expr> H songwriter#grammar#IsTabLine(getline('.')) ? ':call songwriter#keys#JumpBarLine(-1)<CR>' : 'H'
-let b:undo_ftplugin .= '| silent! xunmap <buffer> L| silent! xunmap <buffer> H'
-
+unlet s:mode s:lhs
 unlet s:key s:plug s:plug_keys

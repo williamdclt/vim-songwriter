@@ -1,19 +1,24 @@
 " autoload/songwriter/keys.vim - context-dependent keys.
 "
 " Keys whose meaning depends on where the cursor is are declared in the tables
-" below and mapped by ftplugin/songwriter.vim as
-"     nnoremap <buffer> <expr> {key} songwriter#keys#Dispatch({key})
+" below, one set per mode (n: normal, o: operator-pending, x: visual), and
+" mapped by ftplugin/songwriter.vim as
+"     {mode}noremap <buffer> <expr> {key} songwriter#keys#Dispatch({key}, {mode})
 " Dispatch picks the action for the current context, most specific first, and
 " falls back to the key's default behaviour:
-"   1. s:tabmode_keys - tablature mode on (<leader>t) and cursor on a tab line
-"   2. s:tabline_keys - cursor on a tab line
+"   1. s:tabmode[mode] - tablature mode on (<leader>t) and cursor on a tab line
+"   2. s:tabline[mode] - cursor on a tab line
 "   3. the key itself
 " An action is an Ex command, run with <Cmd> (no mode change, no command-line
-" echo). Special keys are written in <> notation ('<Esc>'). To add a context
-" key: add it to a table.
+" echo), or, when it starts with `=`, an expression whose value is the keys to
+" run (operators need this: they return `g@`). Special keys are written in <>
+" notation ('<Esc>'). To add a context key: add it to a table.
 
-" Spec [Tablature][[Editing]] 3.
-let s:tabmode_keys = {
+let s:tabmode = {}
+let s:tabline = {}
+
+" Spec [Tablature][[Editing]] 3 and 6.
+let s:tabmode.n = {
       \ 'w': 'call songwriter#tab#MoveNote(1)',
       \ 'b': 'call songwriter#tab#MoveNote(-1)',
       \ 'l': 'call songwriter#tab#MoveColumn(1)',
@@ -21,35 +26,72 @@ let s:tabmode_keys = {
       \ 'a': 'call songwriter#tab#AddNote(1)',
       \ 'i': 'call songwriter#tab#AddNote(-1)',
       \ '<Esc>': 'call songwriter#tab#LintAbandonedSlot()',
+      \ 'd': '=songwriter#tab#operator#Start("d")',
+      \ 'y': '=songwriter#tab#operator#Start("y")',
+      \ 'c': '=songwriter#tab#operator#Start("c")',
+      \ 'dd': '=songwriter#tab#operator#Lines("d")',
+      \ 'yy': '=songwriter#tab#operator#Lines("y")',
+      \ 'cc': '=songwriter#tab#operator#Lines("c")',
+      \ 'D': '=songwriter#tab#operator#Start("d") . "$"',
+      \ 'C': '=songwriter#tab#operator#Start("c") . "$"',
+      \ 'Y': '=songwriter#tab#operator#Lines("y")',
+      \ '.': '=songwriter#tab#operator#Repeat()',
       \ }
 for s:d in range(10)
-  let s:tabmode_keys[s:d] = 'call songwriter#tab#EnterNote(' . s:d . ')'
+  let s:tabmode.n[s:d] = 'call songwriter#tab#EnterNote(' . s:d . ')'
 endfor
 unlet s:d
 
+" Spec 6.1 (text objects) and 6.2.1 (pure motions after an operator).
+let s:tabmode.o = {
+      \ 'w': 'call songwriter#tab#operator#Motion("w")',
+      \ 'b': 'call songwriter#tab#operator#Motion("b")',
+      \ 'l': 'call songwriter#tab#operator#Motion("l")',
+      \ 'h': 'call songwriter#tab#operator#Motion("h")',
+      \ 'ic': 'call songwriter#tab#operator#Object("c", 0)',
+      \ 'ac': 'call songwriter#tab#operator#Object("c", 1)',
+      \ 'i|': 'call songwriter#tab#operator#Object("|", 0)',
+      \ 'a|': 'call songwriter#tab#operator#Object("|", 1)',
+      \ }
+let s:tabmode.x = {}
+
 " Spec [Tablature][[Motions]].
-let s:tabline_keys = {
+let s:tabline.n = {
       \ 'w': 'call songwriter#keys#TabWord(1)',
       \ 'b': 'call songwriter#keys#TabWord(-1)',
       \ 'L': 'call songwriter#keys#JumpBarLine(1)',
       \ 'H': 'call songwriter#keys#JumpBarLine(-1)',
       \ }
+let s:tabline.o = {
+      \ 'L': 'call songwriter#keys#JumpBarLine(1)',
+      \ 'H': 'call songwriter#keys#JumpBarLine(-1)',
+      \ }
+let s:tabline.x = {
+      \ 'L': 'call songwriter#keys#JumpBarLine(1)',
+      \ 'H': 'call songwriter#keys#JumpBarLine(-1)',
+      \ }
 
-" Every key that needs a dispatching map.
-function! songwriter#keys#ContextKeys() abort
-  return uniq(sort(keys(s:tabmode_keys) + keys(s:tabline_keys)))
+" Every key of `mode` (default 'n') that needs a dispatching map.
+function! songwriter#keys#ContextKeys(...) abort
+  let l:mode = a:0 ? a:1 : 'n'
+  return uniq(sort(keys(s:tabmode[l:mode]) + keys(s:tabline[l:mode])))
 endfunction
 
-function! songwriter#keys#Dispatch(key) abort
+function! songwriter#keys#Dispatch(key, ...) abort
+  let l:mode = a:0 ? a:1 : 'n'
   if songwriter#grammar#IsTabLine(getline('.'))
-    if songwriter#keys#InTabMode() && has_key(s:tabmode_keys, a:key)
-      return "\<Cmd>" . s:tabmode_keys[a:key] . "\<CR>"
+    if songwriter#keys#InTabMode() && has_key(s:tabmode[l:mode], a:key)
+      return s:action(s:tabmode[l:mode][a:key])
     endif
-    if has_key(s:tabline_keys, a:key)
-      return "\<Cmd>" . s:tabline_keys[a:key] . "\<CR>"
+    if has_key(s:tabline[l:mode], a:key)
+      return s:action(s:tabline[l:mode][a:key])
     endif
   endif
   return a:key =~# '^<.\+>$' ? eval('"\' . a:key . '"') : a:key
+endfunction
+
+function! s:action(action) abort
+  return a:action[0] ==# '=' ? eval(a:action[1:]) : "\<Cmd>" . a:action . "\<CR>"
 endfunction
 
 " Tablature mode: a buffer-local flag, off by default.

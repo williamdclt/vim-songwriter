@@ -306,3 +306,16 @@ function! songwriter#tab#columns#EraseNote(lines, lin, col) abort
   endif
   return {'lines': l:out, 'col': l:c, 'rows': l:rows}
 endfunction
+
+" Spec 6.6: a slot in the (empty) bar around column `col` of line `lin`: the
+" bar's content becomes 5 dashes on every string and the slot is the middle
+" one. Returns {'lines', 'col'}, or {} outside a bar.
+function! songwriter#tab#columns#EmptyBarSlot(lines, lin, col) abort
+  let l:bar = songwriter#tab#model#BarAt(a:lines[a:lin], a:col)
+  if l:bar.start == 0 || l:bar.end == 0
+    return {}
+  endif
+  let l:out = map(copy(a:lines),
+        \ 'strpart(v:val, 0, l:bar.start) . "-----" . strpart(v:val, l:bar.end - 1)')
+  return {'lines': l:out, 'col': l:bar.start + 3}
+endfunction
