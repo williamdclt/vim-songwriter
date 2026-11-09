@@ -123,36 +123,36 @@ Execute (6.5.2 P pastes before the cursor's bar; a leading pipe is dropped):
   let res = songwriter#tab#columns#Paste(['e|--3--|--5--|'], 0, 11, ['|--7--'], [], 1, 1)
   AssertEqual ['e|--3--|--7--|--5--|'], res.lines
 
-Execute (6.5.3 a count pastes several copies):
+Execute (Paste: a count pastes several copies):
   let res = songwriter#tab#columns#Paste(['e|--3--|'], 0, 5, ['--7--|'], [], 0, 2)
   AssertEqual ['e|--3--|--7--|--7--|'], res.lines
   let res = songwriter#tab#columns#Paste(['e|--3--|'], 0, 5, ['5-'], [], 0, 3)
   AssertEqual ['e|--3--5-5-5-|'], res.lines
 
-Execute (6.5.4 a bass register lands on a guitar's lowest strings):
+Execute (6.5.3 a bass register lands on a guitar's lowest strings):
   let lines = ['e|--|', 'B|--|', 'G|--|', 'D|--|', 'A|--|', 'E|--|']
   let res = songwriter#tab#columns#Paste(lines, 5, 3, ['5--', '---', '---', '3--'], ['G', 'D', 'A', 'E'], 0, 1)
   AssertEqual ['e|-----|', 'B|-----|', 'G|--5--|', 'D|-----|', 'A|-----|', 'E|--3--|'], res.lines
   AssertEqual '', res.msg
 
-Execute (6.5.4 filler strings keep a bar register's pipes):
+Execute (6.5.3 filler strings keep a bar register's pipes):
   let lines = ['e|--|', 'B|--|', 'G|--|']
   let res = songwriter#tab#columns#Paste(lines, 2, 3, ['--5--|', '--3--|'], ['B', 'G'], 0, 1)
   AssertEqual ['e|--|-----|', 'B|--|--5--|', 'G|--|--3--|'], res.lines
 
-Execute (6.5.4 different string names where the rows meet: refused):
+Execute (6.5.3 different string names where the rows meet: refused):
   let lines = ['G|--|', 'D|--|', 'A|--|', 'E|--|']
   let res = songwriter#tab#columns#Paste(lines, 0, 3, ['---', '---', '---', '---', '---', '0--'], ['e', 'B', 'G', 'D', 'A', 'D'], 0, 1)
   Assert has_key(res, 'error')
   Assert res.error =~# 'D vs E', res.error
 
-Execute (6.5.4 unknown names: pasted by position, with a message):
+Execute (6.5.3 unknown names: pasted by position, with a message):
   let lines = ['e|--|', 'B|--|', 'G|--|']
   let res = songwriter#tab#columns#Paste(lines, 0, 3, ['5--', '3--'], [], 0, 1)
   AssertEqual ['e|-----|', 'B|--5--|', 'G|--3--|'], res.lines
   Assert res.msg =~# 'position', res.msg
 
-Execute (6.5.4 dropped rows with notes: pasted, with a count of dropped notes):
+Execute (6.5.3 dropped rows with notes: pasted, with a count of dropped notes):
   let lines = ['G|--|', 'D|--|', 'A|--|', 'E|--|']
   let res = songwriter#tab#columns#Paste(lines, 0, 3, ['3-5h7', '-----', '-----', '-----', '-----', '0----'], ['e', 'B', 'G', 'D', 'A', 'E'], 0, 1)
   AssertEqual ['G|-------|', 'D|-------|', 'A|-------|', 'E|--0----|'], res.lines

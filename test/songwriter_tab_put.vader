@@ -108,7 +108,7 @@ Expect songwriter:
   e|--3--5--|--3--5--|--8--|
   B|--1-----|--1-----|-----|
 
-Given songwriter (6.5.4 a bass bar pasted into a guitar tab lands on the lowest strings):
+Given songwriter (6.5.3 a bass bar pasted into a guitar tab lands on the lowest strings):
   e|--|
   B|--|
   G|--|
@@ -121,7 +121,7 @@ Given songwriter (6.5.4 a bass bar pasted into a guitar tab lands on the lowest 
   A|--3--|
   E|-----|
 
-Execute (6.5.4 a bass bar pasted into a guitar tab lands on the lowest strings):
+Execute (6.5.3 a bass bar pasted into a guitar tab lands on the lowest strings):
   call cursor(8, 4)
   normal ya|
   call cursor(1, 3)
@@ -139,7 +139,7 @@ Expect songwriter:
   A|--3--|
   E|-----|
 
-Given songwriter (6.5.4 different string names where they meet: refused):
+Given songwriter (6.5.3 different string names where they meet: refused):
   e|--0--|
   B|-----|
   G|-----|
@@ -152,7 +152,7 @@ Given songwriter (6.5.4 different string names where they meet: refused):
   A|--|
   E|--|
 
-Execute (6.5.4 different string names where they meet: refused):
+Execute (6.5.3 different string names where they meet: refused):
   call cursor(1, 4)
   normal ya|
   call cursor(8, 3)
@@ -170,10 +170,10 @@ Expect songwriter:
   A|--|
   E|--|
 
-Given songwriter (6.5.5 a character-wise register is refused):
+Given songwriter (6.5.4 a character-wise register is refused):
   e|--3--|
 
-Execute (6.5.5 a character-wise register is refused):
+Execute (6.5.4 a character-wise register is refused):
   call setreg('"', 'abc', 'c')
   call cursor(1, 5)
   normal p

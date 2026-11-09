@@ -24,3 +24,13 @@ Execute (Leaving the filetype removes every buffer map and restores options):
   AssertEqual [], filter(['_', '||', '<C-A>', 'w', '5', 'L', 'H', '<Esc>'], '!empty(maparg(v:val, "n"))')
   AssertEqual '', maparg('L', 'o') . maparg('L', 'x')
   AssertEqual 1, &l:wrap
+
+Execute (Every context key of every mode is mapped, and unmapped on leaving the filetype):
+  setfiletype songwriter
+  let keys = []
+  for m in ['n', 'o', 'x']
+    call extend(keys, map(songwriter#keys#ContextKeys(m), '[m, substitute(v:val, "|", "<Bar>", "g")]'))
+  endfor
+  AssertEqual [], filter(copy(keys), 'empty(maparg(v:val[1], v:val[0]))')
+  set filetype=text
+  AssertEqual [], filter(copy(keys), '!empty(maparg(v:val[1], v:val[0]))')

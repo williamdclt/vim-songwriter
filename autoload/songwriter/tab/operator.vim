@@ -186,7 +186,7 @@ endfunction
 " === Registers (spec 6.4) ===
 
 " Set register `reg` and remember the string names of its source tab, so a
-" paste can match strings by name (6.5.4) while the register is unchanged.
+" paste can match strings by name (6.5.3) while the register is unchanged.
 function! s:setreg(reg, rows, type, names) abort
   call setreg(a:reg, a:rows, a:type)
   if !exists('g:songwriter_register_names')

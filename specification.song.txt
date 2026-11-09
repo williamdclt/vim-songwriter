@@ -63,39 +63,38 @@ Each line is a guitar string, the numbers are the fretted notes, played sequenti
     4.3 When a note insertion with `a` or `i` is aborted (esc, `h`, `l`, `w`, `b`... but not `j` or `k`) without a number having been entered ✓
     4.4 There might be other scenarios where it would make sense to trigger linting that are not listed here. They should be added explicitly as they are discovered.
 5. When at the end of the tab, moving right (`l`) should create a new bar. It should start insertion of a new note so it won't be 2 dashes, it will be 5 with the cursor in the middle.
-6. In tablature mode, Vim operators (`d`, `y`, `c`, `p`, `x`...) act on whole time columns across every string of the tab, never on one string alone. Outside tablature mode, everything stays native Vim (single-line editing remains possible there). Spacing between notes is a loose indication of rhythm chosen by the user: operations must preserve it. ✗
-    6.1 Text objects. ✗
-        6.1.1 `ic` selects the note column under the cursor (on every string); `ac` also includes the gap (dashes) after it, up to the next note column or the bar's closing pipe. On a dash, they select the nearest note column to the left. On a pipe or string name, they do nothing. ✗
-        6.1.2 `i|` selects the content of the bar under the cursor (on every string); `a|` also includes one pipe, so that deleting it leaves no empty `||`. ✗
-        6.1.3 Counts extend to the next columns / bars (`2ac`, `2a|`), but never beyond the current tab. ✗
-    6.2 Operators with motions: any target on the current line (`dw`, `d3l`, `dL`, `d$`, `df5`...) gives a column range, which is widened to every string and snapped outward so that a note (e.g. `12`, `5h7`) is never cut in half. A range ending on a note includes its trailing gap (like `ac`); a range starting in a gap snaps to the previous note. ✗
-        6.2.1 After an operator, the tablature-mode motions (`w`, `b`, `l`, `h`) are pure motions: they never open a slot (no 3.3.2 behaviour). ✗
-    6.3 Line-wise targets (`dd`, `yy`, `dj`, `d}`, `V`...) are widened to every tab they touch, whole. ✗
-        6.3.1 `cc` clears every note of the tab but keeps its bars (`|--3--5--|--7--|` -> `|--|--|`), and tablature mode stays on. ✗
-        6.3.2 `p` of a line-wise register puts it after the end of the tab, never between strings. ✗
-    6.4 Registers: column and bar yanks are stored as normal Vim blockwise registers (one row per string), so they interoperate with native Vim (`<C-v>` yanks, pasting outside tablature mode). The string names of the source tab are recorded alongside the register (ignored if the register has changed since). Named registers (`"a`) work as usual. ✗
-    6.5 `p` / `P` paste a blockwise register. ✗
-        6.5.1 Column register (no pipe in it): inserted after (`p`) / before (`P`) the cursor's note column and its gap. The yanked gap comes along, so spacing is preserved (register `5--`, cursor on 3: `e|--3--7--|` -> `e|--3--5--7--|`). ✗
-        6.5.2 Bar register (contains a pipe): inserted after the end (`p`) / before the start (`P`) of the cursor's bar; a bar is never split. ✗
-        6.5.3 Counts paste several copies (`3p`). ✗
-        6.5.4 When the register has a different number of rows than the tab, rows are matched from the bottom string (a bass tab `GDAE` lands on the lowest 4 strings of a guitar tab; extra strings get dashes; extra rows are dropped). If the source string names are known and differ where they meet (drop D vs E, 5-string bass, 7-string guitar), refuse with a message. If unknown, paste and say rows were matched by position. If dropped rows contained notes, paste and say how many notes were dropped. ✗
-        6.5.5 A character-wise register is refused with a message. ✗
-        6.5.6 The cursor lands on the first pasted note. ✗
-    6.6 `c{target}` deletes like `d{target}`, then opens a slot where the deleted content was (as `a` does, 3.1), ready for a digit. ✗
-    6.7 `x` erases the note under the cursor on the current string. ✗
-        6.7.1 If another string has a note on the same column, the note becomes dashes (same width) and the column is kept. ✗
-        6.7.2 If no other string has a note on that column, the note and its gap up to the next note column (or the bar's closing pipe) are removed on every string, so the following notes move earlier and the previous note keeps its gap (`e|--3----5--7--|`, `x` on 5 -> `e|--3----7--|`). Rests are only created explicitly, with `_`. ✗
-        6.7.3 `x` writes to the register what `ac` would yank, with every other string as dashes. So `xp` swaps a note with the next column, as in normal Vim. ✗
-        6.7.4 Counts apply repeatedly (`3x`). ✗
-    6.8 `X` is `dac`: remove the column and its gap on every string, writing it to the register. ✗
-    6.9 Visual mode. ✗
-        6.9.1 `ic`/`ac`/`i|`/`a|` in visual mode select a blockwise rectangle covering every string, and repeating them extends the selection (`va|a|`). The cursor is on the rectangle's bottom-string corner. ✗
-        6.9.2 A plain `v` selection (or a `<C-v>` covering only some strings) is shown as-is, and widened and snapped as in 6.2 when an operator is applied. ✗
-        6.9.3 `V` selects whole tabs (6.3). ✗
-        6.9.4 Visual `p` replaces the selected columns with the register (delete, then paste in their place, with 6.5.4 row matching). ✗
-        6.9.5 Tab motions (`w`, `b`, `l`, `h`, `L`, `H`) work in visual mode without leaving it. ✗
-    6.10 Each operation, including the lint that follows it, is a single undo step, and `.` repeats it (with its count and register). ✗
-    6.11 After `d`, `X`, `x` (6.7.2) and `p`, the tab is linted, and the cursor is on the first note at or after the change. Lint trimming to 2 dashes at bar edges (1.2) still applies: a rest left at the start or end of a bar disappears. ✗
+6. In tablature mode, Vim operators (`d`, `y`, `c`, `p`, `x`...) act on whole time columns across every string of the tab, never on one string alone. Outside tablature mode, everything stays native Vim (single-line editing remains possible there). Spacing between notes is a loose indication of rhythm chosen by the user: operations must preserve it. ✓
+    6.1 Text objects. ✓
+        6.1.1 `ic` selects the note column under the cursor (on every string); `ac` also includes the gap (dashes) after it, up to the next note column or the bar's closing pipe. On a dash, they select the nearest note column to the left (the bar's first one if there is none). On a pipe, the string name or in an empty bar, they do nothing. ✓
+        6.1.2 `i|` selects the content of the bar under the cursor (on every string); `a|` also includes one pipe, so that deleting it leaves no empty `||`. ✓
+        6.1.3 Counts extend to the next columns / bars (`d2ac`, `d2a|`): columns never beyond the current bar, bars never beyond the current tab. ✓
+    6.2 Operators with motions: any target on the current line (`dw`, `d3l`, `dL`, `d$`, `df5`...) gives a column range, which is widened to every string and snapped outward so that a note (e.g. `12`, `5h7`) is never cut in half. A range ending on a note includes its trailing gap (like `ac`); a range starting in a gap snaps to the previous note. A range crossing a bar line closes the bar where it starts (`d$` from a note leaves that bar ending there). ✓
+        6.2.1 After an operator, the tablature-mode motions (`w`, `b`, `l`, `h`) are pure motions: they never open a slot (no 3.3.2 behaviour). ✓
+    6.3 Line-wise targets (`dd`, `yy`, `dj`, `d}`, `V`...) are widened to every tab they touch, whole. ✓
+        6.3.1 `cc` clears every note of the tab but keeps its bars (`|--3--5--|--7--|` -> `|--|--|`), and tablature mode stays on. ✓
+        6.3.2 `p` of a line-wise register puts it after the end of the tab (`P`: before its start), never between strings. Tab lines pasted next to the tab are kept apart from it by a blank line. ✓
+    6.4 Registers: column and bar yanks are stored as normal Vim blockwise registers (one row per string), so they interoperate with native Vim (`<C-v>` yanks, pasting outside tablature mode). The string names of the source tab are recorded alongside the register (ignored if the register has changed since). Named registers (`"a`) work as usual. ✓
+    6.5 `p` / `P` paste a blockwise register. ✓
+        6.5.1 Column register (no pipe in it): inserted after (`p`) / before (`P`) the cursor's note column and its gap. The yanked gap comes along, so spacing is preserved (register `5--`, cursor on 3: `e|--3--7--|` -> `e|--3--5--7--|`). ✓
+        6.5.2 Bar register (contains a pipe): inserted after the end (`p`) / before the start (`P`) of the cursor's bar; a bar is never split. ✓
+        6.5.3 When the register has a different number of rows than the tab, rows are matched from the bottom string (a bass tab `GDAE` lands on the lowest 4 strings of a guitar tab; extra strings get dashes; extra rows are dropped). If the source string names are known and differ where they meet (drop D vs E, 5-string bass, 7-string guitar), refuse with a message. If unknown, paste and say rows were matched by position. If dropped rows contained notes, paste and say how many notes were dropped. ✓
+        6.5.4 A character-wise register is refused with a message. ✓
+        6.5.5 The cursor lands on the first pasted note. ✓
+    6.6 `c{target}` deletes like `d{target}`, then opens a slot where the deleted content was (as `a` does, 3.1), ready for a digit. ✓
+    6.7 `x` erases the note under the cursor on the current string. ✓
+        6.7.1 If another string has a note on the same column, the note becomes dashes (same width) and the column is kept. ✓
+        6.7.2 If no other string has a note on that column, the note and its gap up to the next note column (or the bar's closing pipe) are removed on every string, so the following notes move earlier and the previous note keeps its gap (`e|--3----5--7--|`, `x` on 5 -> `e|--3----7--|`). Rests are only created explicitly, with `_`. ✓
+        6.7.3 `x` writes to the register what `ac` would yank, with every other string as dashes. So `xp` swaps a note with the next column, as in normal Vim. ✓
+    6.8 `X` is `dac`: remove the column and its gap on every string, writing it to the register. ✓
+    6.9 Visual mode. ✓
+        6.9.1 `ic`/`ac`/`i|`/`a|` in visual mode select a blockwise rectangle covering every string, and repeating them extends the selection (`va|a|`). The cursor is on the rectangle's bottom-string corner. ✓
+        6.9.2 A plain `v` selection (or a `<C-v>` covering only some strings) is shown as-is, and widened and snapped as in 6.2 when an operator is applied. ✓
+        6.9.3 `V` selects whole tabs (6.3). ✓
+        6.9.4 Visual `p` replaces the selected columns with the register (delete, then paste in their place, with 6.5.3 row matching). ✓
+        6.9.5 Tab motions (`w`, `b`, `l`, `h`, `L`, `H`) work in visual mode without leaving it. ✓
+    6.10 Each operation, including the lints before and after it, is a single undo step, and `.` repeats it (with its register). After a yank, `.` repeats the yank. ✓
+    6.12 Digits enter notes in tablature mode (3.4), so a count cannot be typed in front of a command (`3x` types a 3). Counts work after an operator (`d2ac`, `d3w`) and in visual mode. ✓
+    6.11 After `d`, `X`, `x` (6.7.2) and `p`, the tab is linted, and the cursor is on the first note at or after the change. Lint trimming to 2 dashes at bar edges (1.2) still applies: a rest left at the start or end of a bar disappears. ✓
 
 [[Bugs]]
 These are known bugs that need fixing

@@ -180,7 +180,7 @@ function! songwriter#tab#columns#ClearNotes(lines) abort
         \ "v:val[0:1] . substitute(v:val[2:], songwriter#grammar#TabAtom(), '\\=repeat(\"-\", len(submatch(0)))', 'g')")
 endfunction
 
-" Spec 6.5.4: register rows for a block with `names`, matched from the bottom
+" Spec 6.5.3: register rows for a block with `names`, matched from the bottom
 " string. `regnames` is [] when unknown. {'rows', 'msg'} or {'error'}.
 function! songwriter#tab#columns#MatchRows(names, rows, regnames) abort
   let l:ns = len(a:names)

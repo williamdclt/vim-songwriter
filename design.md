@@ -19,6 +19,8 @@ never relies on concealing or rendering.
 | `autoload/songwriter/tab/model.vim` | Tab block model: parse, queries, the column-insertion primitive, and `Read`/`Write` (the buffer edges). |
 | `autoload/songwriter/tab/lint.vim` | The linter, as a pure function over a block's lines. |
 | `autoload/songwriter/tab.vim` | Tab operations and motions: buffer entry points plus pure helpers (`AppendSlot`, `PrependSlot`). |
+| `autoload/songwriter/tab/columns.vim` | The column model behind tablature-mode operators, pure: text object ranges, snapping, delete, extract, paste with row matching, erase. |
+| `autoload/songwriter/tab/operator.vim` | Tablature-mode operators, text objects, `x`/`X`/`p`/`P`, visual mode, registers and `.`: buffer entry points around `columns.vim`. |
 | `autoload/songwriter/chord.vim` | Chord model and chord editing. |
 | `autoload/songwriter/keys.vim` | Context-dependent keys: tables and `Dispatch()`, tablature-mode flag, tab-line `w`/`b`/`L`/`H`. |
 | `plugin/songwriter.vim` | `:Songwriter*` commands and `<Plug>(songwriter-*)` maps. |
@@ -44,16 +46,16 @@ why `lint#Lint` reports where every note moved.
 
 ### Keys
 
-Keys whose meaning depends on context are declared in tables in `keys.vim` and
-mapped as `<expr>` maps calling `songwriter#keys#Dispatch(key)`, which picks, in
-order: the tablature-mode action (mode on and cursor on a tab line), the
-tab-line action, or the key's default. Actions run through `<Cmd>…<CR>` (Vim
-8.2.1978+ / Neovim 0.5+): no mode change, no command-line echo, and valid as an
-operator-pending motion. Plain keys (`||`, `_`, `<C-A>`, `<leader>m`…) map to
-`<Plug>(songwriter-*)` so users can rebind them.
-
-Visual-mode `L`/`H` still use a `:call …<CR>` map, which leaves visual mode (a
-known defect, kept as-is until it is fixed deliberately).
+Keys whose meaning depends on context are declared in tables in `keys.vim`, one
+set per mode (normal, operator-pending, visual), and mapped as `<expr>` maps
+calling `songwriter#keys#Dispatch(key, mode)`, which picks, in order: the
+tablature-mode action (mode on and cursor on a tab line), the tab-line action,
+or the key's default. Actions run through `<Cmd>…<CR>` (Vim 8.2.1978+ / Neovim
+0.5+): no mode change (visual `L`/`H` stay in visual mode), no command-line
+echo, and valid as an operator-pending motion or text object. An action written
+`=expr` returns keys instead; operators use it to return `g@`. Plain keys
+(`||`, `_`, `<C-A>`, `<leader>m`…) map to `<Plug>(songwriter-*)` so users can
+rebind them.
 
 `||` is not a double bar line (the format has none); it is the key that lints
 the block.
@@ -200,10 +202,9 @@ returns the key itself. Special keys are written in `<>` notation in the
 tables, and the ftplugin passes them to `Dispatch` as `<lt>Esc>`, since
 `<Esc>` would otherwise be translated in the map's right side.
 
-### Operators and text objects (spec [Tablature][[Editing]] 6, not implemented yet)
+### Operators and text objects (spec [Tablature][[Editing]] 6)
 
-Decided design, to be implemented. The spec items carry the details; this
-records why.
+The spec items carry the behaviour; this records why, and how it is built.
 
 - **The time column is the unit of editing.** Vertical alignment says which
   notes are played together, so in tablature mode no operator may change one
@@ -212,27 +213,53 @@ records why.
   keep a wrong alignment. Single-string editing stays available by leaving
   tablature mode.
 - **Vim's grammar rather than one command per operation.** Operators (`d`, `y`,
-  `c`, `p`, `x`) times targets (columns, bars, motions) give every combination,
-  plus counts, registers and `.`, for free. Operators go through
-  `operatorfunc`/`g@`, which is what makes `.` and counts work; `<Cmd>` actions
-  do not repeat.
-- **Spacing is rhythm.** The gap after a note belongs to it: `ac`, `x` on a
-  lone note and `X` remove it with the note, so the previous note keeps its
-  length and what follows moves earlier. Rests exist only where the user put
-  them with `_`; erasing never creates one, except that `x` on a shared column
-  leaves the other strings' timing intact.
+  `c`) times targets (columns, bars, motions) give every combination, plus
+  registers and `.`, for free. They run through `operatorfunc`/`g@`. A `<Cmd>`
+  before `g@` lints the block first (its undo step is joined to the
+  operation's with `:undojoin`); it consumes the count, so the count is given
+  again after `g@` (`g@3w`). `v:register` is not reliable inside the
+  operatorfunc, so the operator, register and "exact target" flag are kept in
+  `s:pending`.
+- **Spacing is rhythm.** The gap after a note belongs to it: `ac`, a snapped
+  motion range, `x` on a lone note and `X` remove it with the note, so the
+  previous note keeps its length and what follows moves earlier. Rests exist
+  only where the user put them with `_`; erasing never creates one, except that
+  `x` on a shared column leaves the other strings' timing intact.
 - **Text object names.** `ic`/`ac` (column) and `i|`/`a|` (bar). Bare letters
   are motions after an operator (`db`), and `ib`/`ab` are Vim's parenthesis
-  objects; `i|` follows Vim's delimiter objects (`i"`, `i(`).
+  objects; `i|` follows Vim's delimiter objects (`i"`, `i(`). Our objects set an
+  "exact" flag so the operator does not snap them (`ic` would otherwise grow
+  into `ac`). Column counts stop at the bar's end, so a column object never
+  contains a pipe.
+- **Ranges that cross a bar line** (`d$`, `d2w`): the columns are removed and
+  a pipe is put back where the range started, so the bar it started in is
+  closed there and nothing is left after the final pipe (which lint drops).
 - **Registers are plain blockwise registers**, so they interoperate with
-  `<C-v>` and with editing outside tablature mode. Source string names are
-  recorded beside the register so that pasting between tabs with different
-  strings (bass into guitar) can match rows from the bottom and refuse when
-  tunings disagree, instead of silently putting notes on the wrong strings.
-- **Visual mode.** Text objects show the real (full-height) extent; a plain `v`
-  selection is widened at operator time instead, so `v` does not move the
-  cursor off its string. Requires fixing the visual `L`/`H` `:call` maps (see
-  Keys).
+  `<C-v>` and with editing outside tablature mode. Source string names are kept
+  in `g:songwriter_register_names` with the register's content; they count only
+  while the register still holds that content. Pasting between tabs with a
+  different number of strings matches rows from the bottom (bass into guitar)
+  and refuses when tuning names disagree, instead of silently putting notes on
+  the wrong strings. A line-wise paste of tab lines next to a tab gets a blank
+  line between them, or the two tabs would become one.
+- **`c` opens its slot** with the existing `a`/`i` slot logic, anchored on the
+  note column that was next to the deleted range (before the next one,
+  else after the previous one, else an empty 5-dash bar), followed through the
+  lint.
+- **`.`** Operators repeat natively. `g@` records every operator, including a
+  yank, so after `ya|` a `.` repeats the yank (native `y` is not repeatable);
+  accepted rather than reimplementing redo. `x`, `X`, `p`, `P` are `<Cmd>`
+  actions, invisible to redo: they record themselves in `b:songwriter_repeat`
+  with the changedtick they left, and the `.` map runs them again while the
+  buffer is unchanged since.
+- **No counts in front of a command.** Digits enter notes in tablature mode
+  (spec 3.4), so `3x` types a 3. Counts work after an operator (`d2ac`, `d3w`)
+  and in visual mode, where digits are not mapped. The entry points still take
+  a count.
+- **Visual mode.** Text objects show the real (full-height) extent as a
+  blockwise selection, and extend when repeated while the selection is still
+  theirs; a plain `v` selection is widened at operator time instead, so `v`
+  does not move the cursor off its string.
 
 ### Outside tablature mode
 
