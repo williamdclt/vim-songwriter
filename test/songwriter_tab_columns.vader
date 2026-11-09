@@ -1,0 +1,185 @@
+" Spec [Tablature][[Editing]] 6: the pure column model behind tablature-mode
+" operators (tab/columns.vim). Lines in, lines/ranges out; columns are
+" 1-indexed, block lines 0-indexed.
+
+" --- 6.1 text object ranges ---
+
+Execute (6.1.1 ic is the note column, ac adds its gap):
+  let lines = ['e|--3--5--7--|', 'B|-----5-----|']
+  AssertEqual [8, 8], songwriter#tab#columns#ColumnObject(lines, 0, 8, 1, 0)
+  AssertEqual [8, 10], songwriter#tab#columns#ColumnObject(lines, 0, 8, 1, 1)
+  AssertEqual [8, 10], songwriter#tab#columns#ColumnObject(lines, 1, 8, 1, 1)
+
+Execute (6.1.1 on a dash: the nearest note column to the left):
+  let lines = ['e|--3--5--7--|']
+  AssertEqual [8, 10], songwriter#tab#columns#ColumnObject(lines, 0, 9, 1, 1)
+  AssertEqual [5, 5], songwriter#tab#columns#ColumnObject(lines, 0, 6, 1, 0)
+
+Execute (6.1.1 on a dash before the bar's first note: that note):
+  let lines = ['e|--3--|']
+  AssertEqual [5, 5], songwriter#tab#columns#ColumnObject(lines, 0, 3, 1, 0)
+
+Execute (6.1.1 the last column's gap runs to the closing pipe):
+  let lines = ['e|--3--5--7--|']
+  AssertEqual [11, 13], songwriter#tab#columns#ColumnObject(lines, 0, 11, 1, 1)
+
+Execute (6.1.1 a two-digit note and another string's longer note):
+  let lines = ['e|--12--5--|', 'B|--3---5--|']
+  AssertEqual [5, 6], songwriter#tab#columns#ColumnObject(lines, 1, 5, 1, 0)
+  AssertEqual [5, 8], songwriter#tab#columns#ColumnObject(lines, 1, 5, 1, 1)
+
+Execute (6.1.1 nothing on a pipe, on the string name, or in an empty bar):
+  let lines = ['e|--3--|--|']
+  AssertEqual [], songwriter#tab#columns#ColumnObject(lines, 0, 1, 1, 1)
+  AssertEqual [], songwriter#tab#columns#ColumnObject(lines, 0, 2, 1, 1)
+  AssertEqual [], songwriter#tab#columns#ColumnObject(lines, 0, 8, 1, 1)
+  AssertEqual [], songwriter#tab#columns#ColumnObject(lines, 0, 10, 1, 1)
+
+Execute (6.1.3 a count takes the next columns, stopping at the bar's end):
+  let lines = ['e|--3--5--7--|--9--|']
+  AssertEqual [5, 10], songwriter#tab#columns#ColumnObject(lines, 0, 5, 2, 1)
+  AssertEqual [5, 11], songwriter#tab#columns#ColumnObject(lines, 0, 5, 3, 0)
+  AssertEqual [8, 13], songwriter#tab#columns#ColumnObject(lines, 0, 8, 9, 1)
+
+Execute (6.1.2 i| is the bar's content, a| adds its closing pipe):
+  let lines = ['e|--3--|--5--|']
+  AssertEqual [3, 7], songwriter#tab#columns#BarObject(lines, 0, 5, 1, 0)
+  AssertEqual [3, 8], songwriter#tab#columns#BarObject(lines, 0, 5, 1, 1)
+  AssertEqual [9, 13], songwriter#tab#columns#BarObject(lines, 0, 11, 1, 0)
+
+Execute (6.1.2 on a pipe: the bar to its right; on the last pipe or name: nothing):
+  let lines = ['e|--3--|--5--|']
+  AssertEqual [9, 13], songwriter#tab#columns#BarObject(lines, 0, 8, 1, 0)
+  AssertEqual [3, 7], songwriter#tab#columns#BarObject(lines, 0, 2, 1, 0)
+  AssertEqual [], songwriter#tab#columns#BarObject(lines, 0, 14, 1, 0)
+  AssertEqual [], songwriter#tab#columns#BarObject(lines, 0, 1, 1, 0)
+
+Execute (6.1.3 a count takes the next bars, stopping at the tab's end):
+  let lines = ['e|--3--|--5--|--7--|']
+  AssertEqual [3, 14], songwriter#tab#columns#BarObject(lines, 0, 5, 2, 1)
+  AssertEqual [9, 20], songwriter#tab#columns#BarObject(lines, 0, 11, 5, 1)
+
+" --- 6.2 snapping a motion's range ---
+
+Execute (6.2 a range from a note to the next note is kept):
+  let lines = ['e|--3--5--7--|']
+  AssertEqual [8, 10], songwriter#tab#columns#Snap(lines, 0, 8, 10)
+
+Execute (6.2 a range starting in a gap snaps to the previous note):
+  let lines = ['e|--3--5--7--|']
+  AssertEqual [8, 10], songwriter#tab#columns#Snap(lines, 0, 9, 10)
+
+Execute (6.2 a range ending on a note takes the whole note and its gap):
+  let lines = ['e|--12--5--|', 'B|--3------|']
+  AssertEqual [5, 8], songwriter#tab#columns#Snap(lines, 1, 5, 5)
+
+Execute (6.2 a range in a bar's leading dashes is kept):
+  let lines = ['e|--3--|']
+  AssertEqual [3, 4], songwriter#tab#columns#Snap(lines, 0, 3, 4)
+
+" --- deleting and extracting ---
+
+Execute (DeleteRange removes the columns on every string and returns them):
+  let res = songwriter#tab#columns#DeleteRange(['e|--3--5--7--|', 'B|-----5-----|'], 8, 10)
+  AssertEqual ['e|--3--7--|', 'B|--------|'], res.lines
+  AssertEqual ['5--', '5--'], res.rows
+
+Execute (DeleteRange across a bar line closes the bar where the range starts):
+  let res = songwriter#tab#columns#DeleteRange(['e|--3--5--|--7--|'], 8, 17)
+  AssertEqual ['e|--3--|'], res.lines
+  AssertEqual ['5--|--7--|'], res.rows
+
+Execute (DeleteRange of a whole bar with its pipe):
+  let res = songwriter#tab#columns#DeleteRange(['e|--3--|--5--|'], 3, 8)
+  AssertEqual ['e|--5--|'], res.lines
+
+Execute (DeleteRange pads short lines):
+  let res = songwriter#tab#columns#DeleteRange(['e|--3--5--|', 'B|--'], 8, 10)
+  AssertEqual ['e|--3--|', 'B|-----'], res.lines
+  AssertEqual ['5--', '---'], res.rows
+
+" --- 6.5 paste ---
+
+Execute (6.5.1 a column is pasted after the cursor's column and its gap):
+  let res = songwriter#tab#columns#Paste(['e|--3--7--|'], 0, 5, ['5--'], [], 0, 1)
+  AssertEqual ['e|--3--5--7--|'], res.lines
+  AssertEqual 8, res.col
+
+Execute (6.5.1 P pastes before the cursor's column):
+  let res = songwriter#tab#columns#Paste(['e|--3--7--|'], 0, 5, ['5--'], [], 1, 1)
+  AssertEqual ['e|--5--3--7--|'], res.lines
+  AssertEqual 5, res.col
+
+Execute (6.5.1 in an empty bar, after its leading dashes):
+  let res = songwriter#tab#columns#Paste(['e|--|'], 0, 3, ['5--'], [], 0, 1)
+  AssertEqual ['e|--5--|'], res.lines
+
+Execute (6.5.2 a bar is pasted after the cursor's bar, never inside it):
+  let res = songwriter#tab#columns#Paste(['e|--3--|--5--|'], 0, 4, ['--7--|'], [], 0, 1)
+  AssertEqual ['e|--3--|--7--|--5--|'], res.lines
+  AssertEqual 11, res.col
+
+Execute (6.5.2 P pastes before the cursor's bar; a leading pipe is dropped):
+  let res = songwriter#tab#columns#Paste(['e|--3--|--5--|'], 0, 11, ['|--7--'], [], 1, 1)
+  AssertEqual ['e|--3--|--7--|--5--|'], res.lines
+
+Execute (6.5.3 a count pastes several copies):
+  let res = songwriter#tab#columns#Paste(['e|--3--|'], 0, 5, ['--7--|'], [], 0, 2)
+  AssertEqual ['e|--3--|--7--|--7--|'], res.lines
+  let res = songwriter#tab#columns#Paste(['e|--3--|'], 0, 5, ['5-'], [], 0, 3)
+  AssertEqual ['e|--3--5-5-5-|'], res.lines
+
+Execute (6.5.4 a bass register lands on a guitar's lowest strings):
+  let lines = ['e|--|', 'B|--|', 'G|--|', 'D|--|', 'A|--|', 'E|--|']
+  let res = songwriter#tab#columns#Paste(lines, 5, 3, ['5--', '---', '---', '3--'], ['G', 'D', 'A', 'E'], 0, 1)
+  AssertEqual ['e|-----|', 'B|-----|', 'G|--5--|', 'D|-----|', 'A|-----|', 'E|--3--|'], res.lines
+  AssertEqual '', res.msg
+
+Execute (6.5.4 filler strings keep a bar register's pipes):
+  let lines = ['e|--|', 'B|--|', 'G|--|']
+  let res = songwriter#tab#columns#Paste(lines, 2, 3, ['--5--|', '--3--|'], ['B', 'G'], 0, 1)
+  AssertEqual ['e|--|-----|', 'B|--|--5--|', 'G|--|--3--|'], res.lines
+
+Execute (6.5.4 different string names where the rows meet: refused):
+  let lines = ['G|--|', 'D|--|', 'A|--|', 'E|--|']
+  let res = songwriter#tab#columns#Paste(lines, 0, 3, ['---', '---', '---', '---', '---', '0--'], ['e', 'B', 'G', 'D', 'A', 'D'], 0, 1)
+  Assert has_key(res, 'error')
+  Assert res.error =~# 'D vs E', res.error
+
+Execute (6.5.4 unknown names: pasted by position, with a message):
+  let lines = ['e|--|', 'B|--|', 'G|--|']
+  let res = songwriter#tab#columns#Paste(lines, 0, 3, ['5--', '3--'], [], 0, 1)
+  AssertEqual ['e|-----|', 'B|--5--|', 'G|--3--|'], res.lines
+  Assert res.msg =~# 'position', res.msg
+
+Execute (6.5.4 dropped rows with notes: pasted, with a count of dropped notes):
+  let lines = ['G|--|', 'D|--|', 'A|--|', 'E|--|']
+  let res = songwriter#tab#columns#Paste(lines, 0, 3, ['3-5h7', '-----', '-----', '-----', '-----', '0----'], ['e', 'B', 'G', 'D', 'A', 'E'], 0, 1)
+  AssertEqual ['G|-------|', 'D|-------|', 'A|-------|', 'E|--0----|'], res.lines
+  Assert res.msg =~# '2 notes', res.msg
+
+" --- 6.7 erasing a note ---
+
+Execute (6.7.1 a note sharing its column becomes dashes):
+  let res = songwriter#tab#columns#EraseNote(['e|--3--5--|', 'B|-----5--|'], 0, 8)
+  AssertEqual ['e|--3-----|', 'B|-----5--|'], res.lines
+  AssertEqual ['5--', '---'], res.rows
+  AssertEqual 8, res.col
+
+Execute (6.7.2 a lone note goes with its gap; the previous note keeps its own):
+  let res = songwriter#tab#columns#EraseNote(['e|--3----5--7--|', 'B|--1----------|'], 0, 10)
+  AssertEqual ['e|--3----7--|', 'B|--1-------|'], res.lines
+  AssertEqual ['5--', '---'], res.rows
+  AssertEqual 10, res.col
+
+Execute (6.7 a two-digit note is erased whole, from either digit):
+  let res = songwriter#tab#columns#EraseNote(['e|--3--12--|'], 0, 9)
+  AssertEqual ['e|--3--|'], res.lines
+
+Execute (6.7 nothing to erase on a dash):
+  AssertEqual {}, songwriter#tab#columns#EraseNote(['e|--3--|'], 0, 6)
+
+" --- clearing ---
+
+Execute (6.3.1 ClearNotes turns every note into dashes, keeping the bars):
+  AssertEqual ['e|' . repeat('-', 10) . '|---|'], songwriter#tab#columns#ClearNotes(['e|--3--5h7--|-x-|'])
