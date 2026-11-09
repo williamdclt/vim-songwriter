@@ -127,6 +127,30 @@ function! songwriter#tab#AddNote(side) abort
   endif
 endfunction
 
+" Spec [Tablature][[Editing]] 5: append a new bar to the end of the tab with a
+" slot in its middle, and land the cursor on it, ready for a note. Like `a`,
+" the block is linted first (4.2) and the slot is remembered (4.3); abandoned,
+" it lints down to an empty bar `|--|`.
+function! songwriter#tab#AddBarSlot() abort
+  let l:block = songwriter#tab#model#Read()
+  if empty(l:block)
+    return
+  endif
+  unlet! b:songwriter_slot
+  let l:block = s:lint_and_follow(l:block)
+  call s:apply(l:block, songwriter#tab#AppendBarSlot(l:block))
+  let b:songwriter_slot = {'line': line('.'), 'tick': b:changedtick}
+endfunction
+
+" Pure. A new bar of five dashes after every string of a linted block (whose
+" strings all end on the same pipe column), with the slot on the middle dash.
+" Returns {'lines', 'col'}.
+function! songwriter#tab#AppendBarSlot(block) abort
+  return {
+        \ 'lines': map(copy(a:block.lines), "v:val . '-----|'"),
+        \ 'col': len(a:block.lines[0]) + 3}
+endfunction
+
 " Pure. The `a` slot: the anchor is the rightmost note end, on any string,
 " among notes of the cursor's bar that start at or before the cursor (so the
 " anchor is the note column under or left of the cursor). Dashes are inserted
@@ -231,7 +255,7 @@ function! songwriter#tab#LintAndFollow(block) abort
   return s:lint_and_follow(a:block)
 endfunction
 
-" Spec 4.3: if the slot opened by `a`/`i` (or `l`, 3.3.2) is still open and
+" Spec 4.3: if the slot opened by `a`/`i` (or `l`, 3.3.2 and 5) is still open and
 " empty (the buffer has not changed since, e.g. only `j`/`k` were pressed),
 " lint its block. Called by the tablature-mode keys that abandon a slot.
 function! songwriter#tab#LintAbandonedSlot() abort
@@ -264,9 +288,11 @@ endfunction
 " Spec [Tablature][[Editing]] 3.3: `l` (dir +1) / `h` (dir -1) move to the
 " next/previous column where any string of the block has a note, crossing bar
 " pipes. Exception (3.3.2): `l` on the last note column of the cursor's bar
-" opens a slot as `a` does (linting first, 4.2); `l` with no note further
-" right does the same. `h` never opens a slot and is a no-op before the first
-" note (3.3.3). An open slot is abandoned first (4.3).
+" opens a slot as `a` does (linting first, 4.2). `l` with no note further
+" right appends a new bar when the cursor is in the tab's last bar (5, see
+" AddBarSlot), and otherwise opens a slot as `a` does. `h` never opens a slot
+" and is a no-op before the first note (3.3.3). An open slot is abandoned
+" first (4.3).
 function! songwriter#tab#MoveColumn(dir) abort
   call songwriter#tab#LintAbandonedSlot()
   let l:block = songwriter#tab#model#Read()
@@ -289,11 +315,27 @@ function! songwriter#tab#MoveColumn(dir) abort
   let l:in_bar = filter(copy(l:cols), 'songwriter#tab#model#InBar(v:val, l:bar)')
   let l:last_in_bar = empty(l:in_bar) ? 0 : max(l:in_bar)
   let l:target = s:nearest(l:cols, l:col, 1)
-  if l:col == l:last_in_bar || l:target == 0
+  if l:col == l:last_in_bar
     call songwriter#tab#AddNote(1)
+  elseif l:target == 0
+    if s:in_last_bar(l:line, l:col)
+      call songwriter#tab#AddBarSlot()
+    else
+      call songwriter#tab#AddNote(1)
+    endif
   else
     call cursor(line('.'), min([l:target, len(l:line)]))
   endif
+endfunction
+
+" True when `col` is in the last bar of a tab line that ends with a pipe:
+" the line's final pipe is the first pipe at or after `col`.
+function! s:in_last_bar(line, col) abort
+  let l:pipes = songwriter#tab#model#Pipes(a:line)
+  if empty(l:pipes) || l:pipes[-1] != len(a:line) || a:col > l:pipes[-1]
+    return 0
+  endif
+  return empty(filter(copy(l:pipes), 'v:val >= a:col && v:val < l:pipes[-1]'))
 endfunction
 
 " The nearest value in `cols` strictly after (dir > 0) or before (dir < 0)

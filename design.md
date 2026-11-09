@@ -18,7 +18,7 @@ never relies on concealing or rendering.
 | `autoload/songwriter/grammar.vim` | The format's patterns (tab line, note, note group, chord, chord highlighting). The only place regexes for the format are written. |
 | `autoload/songwriter/tab/model.vim` | Tab block model: parse, queries, the column-insertion primitive, and `Read`/`Write` (the buffer edges). |
 | `autoload/songwriter/tab/lint.vim` | The linter, as a pure function over a block's lines. |
-| `autoload/songwriter/tab.vim` | Tab operations and motions: buffer entry points plus pure helpers (`AppendSlot`, `PrependSlot`). |
+| `autoload/songwriter/tab.vim` | Tab operations and motions: buffer entry points plus pure helpers (`AppendSlot`, `PrependSlot`, `AppendBarSlot`). |
 | `autoload/songwriter/tab/columns.vim` | The column model behind tablature-mode operators, pure: text object ranges, snapping, delete, extract, paste with row matching, erase. |
 | `autoload/songwriter/tab/operator.vim` | Tablature-mode operators, text objects, `x`/`X`/`p`/`P`, visual mode, registers and `.`: buffer entry points around `columns.vim`. |
 | `autoload/songwriter/chord.vim` | Chord model and chord editing. |
@@ -148,9 +148,17 @@ A buffer-local flag, `b:songwriter_tabmode`, off by default; no teardown needed.
   - *3.3.2, the one special case*: on the last note column of the cursor's
     bar, `l` does not skip ahead; it opens a slot as `a` does, so a note can be
     appended to that bar. Pressing `l` again (now on the slot, not on a note)
-    moves on to the next note, possibly in the next bar. `l` with no note further
-    right also opens a slot. This is the balance sought: easy to append within a
-    bar, easy to keep moving.
+    moves on to the next note, possibly in the next bar. This is the balance
+    sought: easy to append within a bar, easy to keep moving.
+  - *End of the tab (5)*: `l` with no note further right, in the last bar of a
+    tab whose lines end with a pipe (cursor anywhere after the last note, or on
+    the closing pipe), appends a new bar `-----|` to every string and lands on
+    its middle dash, a slot like any other: a digit gives `|--7--|`. It lints
+    first (4.2) and is remembered as a slot (4.3), so abandoning it leaves an
+    empty bar `|--|`. So from the last note, `l` opens a slot in the bar (3.3.2)
+    and a second `l` starts the next bar. Elsewhere, `l` with no note further
+    right opens a slot as `a` does; a line with no closing pipe has no bar to
+    close, so it never gets a new bar.
   - `h` never opens a slot (no mirror of 3.3.2) and is a no-op before the first
     note.
   - Moving does not lint, except to abandon an open slot (4.3, below).
@@ -181,7 +189,8 @@ Tablature-mode edits lint the block:
 
 - **4.1**: a digit enters the note, then the block is linted.
 - **4.2**: `a`/`i` lint, then open the slot. `l` opening a slot (3.3.2) is the
-  same operation as `a` (`MoveColumn` calls `AddNote(1)`), so it lints too.
+  same operation as `a` (`MoveColumn` calls `AddNote(1)`), so it lints too, as
+  does `l` adding a bar at the end of the tab (5, `AddBarSlot`).
 - **4.3**: an opened slot is remembered in `b:songwriter_slot` as
   `{line, tick}`. The next `h`/`l`/`w`/`b`/`a`/`i`/`<Esc>` lints the slot's
   block before doing its own job (`LintAbandonedSlot`). A digit fills the slot

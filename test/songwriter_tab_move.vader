@@ -1,7 +1,8 @@
 " Spec [Tablature][[Editing]] 3.3 (songwriter#tab#MoveColumn): `l`/`h` move to the
 " next/previous note column on any string; `l` on the last note of its bar opens
 " a slot as `a` does (3.3.2); `h` never does, and is a no-op before the first
-" note (3.3.3). Moving does not lint.
+" note (3.3.3). Moving does not lint. Spec 5: `l` at the end of the tab appends
+" a new bar with a slot in it.
 
 Before:
   unlet! b:songwriter_tabmode b:songwriter_slot
@@ -108,3 +109,85 @@ Then:
 Expect:
   e|--4----|
   b|-------|
+
+" --- 5 l at the end of the tab creates a new bar with a slot in it ---
+
+Given songwriter (5 l after the last note of the last bar appends a new bar):
+  e|--3--5--|
+  B|--------|
+
+Execute (5 l after the last note of the last bar appends a new bar):
+  let b:songwriter_tabmode = 1
+  call cursor(2, 9)
+  call songwriter#tab#MoveColumn(1)
+Then:
+  AssertEqual 14, col('.')
+  AssertEqual 2, line('.')
+Expect songwriter:
+  e|--3--5--|-----|
+  B|--------|-----|
+
+Given songwriter (5 l on the closing pipe of the tab appends a new bar):
+  e|--3--|
+
+Execute (5 l on the closing pipe of the tab appends a new bar):
+  let b:songwriter_tabmode = 1
+  call cursor(1, 7)
+  call songwriter#tab#MoveColumn(1)
+Then:
+  AssertEqual 11, col('.')
+Expect songwriter:
+  e|--3--|-----|
+
+Given songwriter (5 the tab is linted before the new bar is added):
+  e|--3-----|
+  B|--5--|
+
+Execute (5 the tab is linted before the new bar is added):
+  let b:songwriter_tabmode = 1
+  call cursor(1, 9)
+  call songwriter#tab#MoveColumn(1)
+Then:
+  AssertEqual 11, col('.')
+Expect songwriter:
+  e|--3--|-----|
+  B|--5--|-----|
+
+Given songwriter (5 l on the last note opens a slot in its bar, a second l makes the new bar, a digit fills it):
+  e|--3--5--|
+
+Execute (5 l on the last note opens a slot in its bar, a second l makes the new bar, a digit fills it):
+  let b:songwriter_tabmode = 1
+  call cursor(1, 8)
+  normal l
+  AssertEqual 'e|--3--5----|', getline(1)
+  normal l
+  AssertEqual 'e|--3--5--|-----|', getline(1)
+  AssertEqual 14, col('.')
+  normal 7
+Then:
+  AssertEqual 14, col('.')
+Expect songwriter:
+  e|--3--5--|--7--|
+
+Given songwriter (5 the new bar's slot abandoned is linted like any slot):
+  e|--3--|
+
+Execute (5 the new bar's slot abandoned is linted like any slot):
+  let b:songwriter_tabmode = 1
+  call cursor(1, 6)
+  normal lh
+Expect songwriter:
+  e|--3--|--|
+
+Given songwriter (5 a bar that is not the last one never gets a new bar after it):
+  e|--4--|--|
+
+Execute (5 a bar that is not the last one never gets a new bar after it):
+  let b:songwriter_tabmode = 1
+  call cursor(1, 6)
+  call songwriter#tab#MoveColumn(1)
+Then:
+  AssertEqual 7, col('.')
+Expect songwriter:
+  e|--4----|--|

@@ -63,7 +63,7 @@ Each line is a guitar string, the numbers are the fretted notes, played sequenti
     4.2 When a note is inserted with `a` or `i`, BEFORE the space for the new note is inserted ✓
     4.3 When a note insertion with `a` or `i` is aborted (esc, `h`, `l`, `w`, `b`... but not `j` or `k`) without a number having been entered ✓
     4.4 There might be other scenarios where it would make sense to trigger linting that are not listed here. They should be added explicitly as they are discovered.
-5. When at the end of the tab, moving right (`l`) should create a new bar. It should start insertion of a new note so it won't be 2 dashes, it will be 5 with the cursor in the middle.
+5. When at the end of the tab, moving right (`l`) should create a new bar. It should start insertion of a new note so it won't be 2 dashes, it will be 5 with the cursor in the middle. ✓
 6. In tablature mode, Vim operators (`d`, `y`, `c`, `p`, `x`...) act on whole time columns across every string of the tab, never on one string alone. Outside tablature mode, everything stays native Vim (single-line editing remains possible there). Spacing between notes is a loose indication of rhythm chosen by the user: operations must preserve it. ✓
     6.1 Text objects. ✓
         6.1.1 `ic` selects the note column under the cursor (on every string); `ac` also includes the gap (dashes) after it, up to the next note column or the bar's closing pipe. On a dash, they select the nearest note column to the left (the bar's first one if there is none). On a pipe, the string name or in an empty bar, they do nothing. ✓
