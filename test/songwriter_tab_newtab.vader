@@ -1,0 +1,156 @@
+" Spec [Tablature][[Editing]] 8: in tablature mode, `o` / `O` add a new, empty
+" tab under / over the current one, with the same string names, kept apart from
+" it by a blank line, and a slot open on the cursor's string.
+
+Before:
+  unlet! b:songwriter_tabmode b:songwriter_slot
+
+Given songwriter (o adds an empty tab under the current one):
+  intro
+  e|--3--|--5--|
+  B|-----|--1--|
+  outro
+
+Execute (o adds an empty tab under the current one):
+  let b:songwriter_tabmode = 1
+  call cursor(2, 5)
+  execute "normal o"
+
+Expect songwriter:
+  intro
+  e|--3--|--5--|
+  B|-----|--1--|
+
+  e|-----|
+  B|-----|
+  outro
+
+Given songwriter (O adds an empty tab over the current one):
+  intro
+  e|--3--|
+  B|--1--|
+
+Execute (O adds an empty tab over the current one):
+  let b:songwriter_tabmode = 1
+  call cursor(3, 5)
+  execute "normal O"
+
+Expect songwriter:
+  intro
+  e|-----|
+  B|-----|
+
+  e|--3--|
+  B|--1--|
+
+Given songwriter (o keeps the string names of the tab, from any of its strings):
+  G|--3--|
+  D|--5--|
+  A|-----|
+  E|--3--|
+
+Execute (o keeps the string names of the tab, from any of its strings):
+  let b:songwriter_tabmode = 1
+  call cursor(3, 5)
+  execute "normal o"
+
+Expect songwriter:
+  G|--3--|
+  D|--5--|
+  A|-----|
+  E|--3--|
+
+  G|-----|
+  D|-----|
+  A|-----|
+  E|-----|
+
+Given songwriter (o lands on the slot, on the cursor's string, so a digit enters a note):
+  e|--3--|
+  B|--1--|
+  G|--0--|
+
+Execute (o lands on the slot, on the cursor's string, so a digit enters a note):
+  let b:songwriter_tabmode = 1
+  call cursor(2, 5)
+  execute "normal o7"
+
+Expect songwriter:
+  e|--3--|
+  B|--1--|
+  G|--0--|
+
+  e|-----|
+  B|--7--|
+  G|-----|
+
+Given songwriter (O lands on the slot, on the cursor's string):
+  e|--3--|
+  B|--1--|
+
+Execute (O lands on the slot, on the cursor's string):
+  let b:songwriter_tabmode = 1
+  call cursor(2, 5)
+  execute "normal O7"
+
+Expect songwriter:
+  e|-----|
+  B|--7--|
+
+  e|--3--|
+  B|--1--|
+
+Given songwriter (An abandoned new tab is linted to one empty bar):
+  e|--3--|
+  B|--1--|
+
+Execute (An abandoned new tab is linted to one empty bar):
+  let b:songwriter_tabmode = 1
+  call cursor(1, 5)
+  execute "normal o\<Esc>"
+
+Expect songwriter:
+  e|--3--|
+  B|--1--|
+
+  e|--|
+  B|--|
+
+Given songwriter (o is a single undo step):
+  e|--3--|
+  B|--1--|
+
+Execute (o is a single undo step):
+  let b:songwriter_tabmode = 1
+  call cursor(1, 5)
+  normal o
+  normal u
+
+Expect songwriter:
+  e|--3--|
+  B|--1--|
+
+Given songwriter (Outside tablature mode, o keeps its native meaning):
+  e|--3--|
+
+Do (Outside tablature mode, o keeps its native meaning):
+  ohello
+
+Expect songwriter:
+  e|--3--|
+  hello
+
+Given songwriter (In tablature mode, o off a tab line keeps its native meaning):
+  prose
+
+Do (In tablature mode, o off a tab line keeps its native meaning):
+  :let b:songwriter_tabmode = 1\<CR>
+  Ohello
+
+Expect songwriter:
+  hello
+  prose
+
+Execute (Pure: EmptyTab keeps the string names and opens a slot in the middle):
+  let block = songwriter#tab#model#Parse(1, ['e|--3--|--5--|', 'B|-----|--1--|'])
+  AssertEqual {'lines': ['e|-----|', 'B|-----|'], 'col': 5}, songwriter#tab#EmptyTab(block)
