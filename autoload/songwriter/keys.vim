@@ -35,6 +35,10 @@ let s:tabmode.n = {
       \ 'D': '=songwriter#tab#operator#Start("d") . "$"',
       \ 'C': '=songwriter#tab#operator#Start("c") . "$"',
       \ 'Y': '=songwriter#tab#operator#Lines("y")',
+      \ 'x': 'call songwriter#tab#operator#Erase(v:count1, v:register)',
+      \ 'X': 'call songwriter#tab#operator#Remove(v:count1, v:register)',
+      \ 'p': 'call songwriter#tab#operator#Put(0, v:count1, v:register)',
+      \ 'P': 'call songwriter#tab#operator#Put(1, v:count1, v:register)',
       \ '.': '=songwriter#tab#operator#Repeat()',
       \ }
 for s:d in range(10)

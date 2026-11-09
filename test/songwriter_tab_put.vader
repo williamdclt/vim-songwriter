@@ -1,0 +1,241 @@
+" Spec [Tablature][[Editing]] 6.3.2, 6.4, 6.5, 6.7, 6.8, 6.10: erasing (x, X)
+" and pasting (p, P) in tablature mode. Typed end-to-end with `normal`.
+
+Before:
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_repeat
+  let b:songwriter_tabmode = 1
+  call setreg('"', [])
+
+" --- 6.7 x ---
+
+Given songwriter (6.7.1 x on a shared column turns the note into dashes):
+  e|--3--5--|
+  B|-----5--|
+
+Execute (6.7.1 x on a shared column turns the note into dashes):
+  call cursor(1, 8)
+  normal x
+  AssertEqual ['5--', '---'], getreg('"', 1, 1)
+  AssertEqual "\<C-V>3", getregtype('"')
+Expect songwriter:
+  e|--3-----|
+  B|-----5--|
+
+Given songwriter (6.7.2 x on a lone note removes it and its gap):
+  e|--3----5--7--|
+
+Execute (6.7.2 x on a lone note removes it and its gap):
+  call cursor(1, 10)
+  normal x
+  AssertEqual 10, col('.')
+Expect songwriter:
+  e|--3----7--|
+
+Given songwriter (6.7.3 xp swaps a note with the next one):
+  e|--3--5--7--|
+
+Execute (6.7.3 xp swaps a note with the next one):
+  call cursor(1, 8)
+  normal xp
+  AssertEqual 11, col('.')
+Expect songwriter:
+  e|--3--7--5--|
+
+Given songwriter (6.7.3 xp on a shared column moves the note one column later):
+  e|--3--5--|
+  B|--1--5--|
+
+Execute (6.7.3 xp on a shared column moves the note one column later):
+  call cursor(1, 5)
+  normal xp
+Expect songwriter:
+  e|-----3--5--|
+  B|--1-----5--|
+
+Given songwriter (6.7 a named register):
+  e|--3--5--|
+
+Execute (6.7 a named register):
+  call setreg('a', [])
+  call cursor(1, 8)
+  normal "ax
+  AssertEqual ['5--'], getreg('a', 1, 1)
+
+Given songwriter (6.7 x on a dash does nothing):
+  e|--3--5--|
+
+Execute (6.7 x on a dash does nothing):
+  call cursor(1, 6)
+  normal x
+Expect songwriter:
+  e|--3--5--|
+
+" --- 6.8 X ---
+
+Given songwriter (6.8 X removes the column and its gap on every string):
+  e|--3--5--7--|
+  B|-----5-----|
+
+Execute (6.8 X removes the column and its gap on every string):
+  call cursor(2, 8)
+  normal X
+  AssertEqual ['5--', '5--'], getreg('"', 1, 1)
+Expect songwriter:
+  e|--3--7--|
+  B|--------|
+
+" --- 6.5 p / P ---
+
+Given songwriter (6.5.1 yac then P duplicates a column before it):
+  e|--3--5--|
+
+Execute (6.5.1 yac then P duplicates a column before it):
+  call cursor(1, 5)
+  normal yacP
+  AssertEqual 5, col('.')
+Expect songwriter:
+  e|--3--3--5--|
+
+Given songwriter (6.5.2 ya| then p duplicates a bar after it):
+  e|--3--5--|--8--|
+  B|--1-----|-----|
+
+Execute (6.5.2 ya| then p duplicates a bar after it):
+  call cursor(1, 5)
+  normal ya|p
+  AssertEqual 14, col('.')
+Expect songwriter:
+  e|--3--5--|--3--5--|--8--|
+  B|--1-----|--1-----|-----|
+
+Given songwriter (6.5.4 a bass bar pasted into a guitar tab lands on the lowest strings):
+  e|--|
+  B|--|
+  G|--|
+  D|--|
+  A|--|
+  E|--|
+
+  G|--5--|
+  D|-----|
+  A|--3--|
+  E|-----|
+
+Execute (6.5.4 a bass bar pasted into a guitar tab lands on the lowest strings):
+  call cursor(8, 4)
+  normal ya|
+  call cursor(1, 3)
+  normal p
+Expect songwriter:
+  e|--|-----|
+  B|--|-----|
+  G|--|--5--|
+  D|--|-----|
+  A|--|--3--|
+  E|--|-----|
+
+  G|--5--|
+  D|-----|
+  A|--3--|
+  E|-----|
+
+Given songwriter (6.5.4 different string names where they meet: refused):
+  e|--0--|
+  B|-----|
+  G|-----|
+  D|-----|
+  A|-----|
+  D|--0--|
+
+  G|--|
+  D|--|
+  A|--|
+  E|--|
+
+Execute (6.5.4 different string names where they meet: refused):
+  call cursor(1, 4)
+  normal ya|
+  call cursor(8, 3)
+  normal p
+Expect songwriter:
+  e|--0--|
+  B|-----|
+  G|-----|
+  D|-----|
+  A|-----|
+  D|--0--|
+
+  G|--|
+  D|--|
+  A|--|
+  E|--|
+
+Given songwriter (6.5.5 a character-wise register is refused):
+  e|--3--|
+
+Execute (6.5.5 a character-wise register is refused):
+  call setreg('"', 'abc', 'c')
+  call cursor(1, 5)
+  normal p
+Expect songwriter:
+  e|--3--|
+
+Given songwriter (6.3.2 a line-wise register goes after the tab, apart from it):
+  e|--3--|
+  B|--1--|
+  end
+
+Execute (6.3.2 a line-wise register goes after the tab, apart from it):
+  call cursor(1, 4)
+  normal yyp
+Expect songwriter:
+  e|--3--|
+  B|--1--|
+
+  e|--3--|
+  B|--1--|
+  end
+
+Given songwriter (6.3.2 P puts a line-wise register before the tab):
+  Intro
+  e|--3--|
+
+Execute (6.3.2 P puts a line-wise register before the tab):
+  call setreg('"', ['Verse'], 'l')
+  call cursor(2, 4)
+  normal P
+Expect songwriter:
+  Intro
+  Verse
+  e|--3--|
+
+" --- 6.10 repeat and undo ---
+
+Given songwriter (6.10 . repeats x):
+  e|--3--5--7--|
+
+Execute (6.10 . repeats x):
+  call cursor(1, 5)
+  normal x.
+Expect songwriter:
+  e|--7--|
+
+Given songwriter (6.10 . repeats p):
+  e|--3--|
+
+Execute (6.10 . repeats p):
+  call cursor(1, 5)
+  normal yacp.
+Expect songwriter:
+  e|--3--3--3--|
+
+Given songwriter (6.10 x is one undo step):
+  e|-----3--5--|
+
+Execute (6.10 x is one undo step):
+  call cursor(1, 11)
+  normal x
+  AssertEqual 'e|--3--|', getline(1)
+  normal u
+Expect songwriter:
+  e|-----3--5--|

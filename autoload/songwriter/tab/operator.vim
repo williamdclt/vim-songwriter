@@ -259,6 +259,136 @@ function! songwriter#tab#operator#Object(kind, around) abort
   call cursor(line('.'), l:range[1])
 endfunction
 
+" === Erase and paste (spec 6.5, 6.7, 6.8) ===
+
+" Spec 6.7: `x`, `count` times on the cursor's string (after the first, from
+" the next note on the string). Writes what was erased to `reg` (6.7.3).
+function! songwriter#tab#operator#Erase(count, reg) abort
+  let l:block = songwriter#tab#LintAndFollow(songwriter#tab#model#Read())
+  if empty(l:block)
+    return
+  endif
+  let l:rows = []
+  let l:lone = 0
+  for l:i in range(max([a:count, 1]))
+    let l:lin = line('.') - l:block.start
+    if l:i > 0 && !s:on_note(getline('.'), col('.'))
+      let l:next = filter(map(songwriter#tab#columns#Atoms(getline('.')), 'v:val.col'), 'v:val > col(".")')
+      if empty(l:next)
+        break
+      endif
+      call cursor(line('.'), l:next[0])
+    endif
+    let l:res = songwriter#tab#columns#EraseNote(l:block.lines, l:lin, col('.'))
+    if empty(l:res)
+      break
+    endif
+    let l:lone = len(l:res.lines[l:lin]) < len(l:block.lines[l:lin])
+    let l:rows = empty(l:rows) ? l:res.rows : map(l:rows, 'v:val . l:res.rows[v:key]')
+    call songwriter#tab#model#Write(l:block, l:res.lines)
+    call cursor(line('.'), l:res.col)
+    let l:block = songwriter#tab#LintAndFollow(songwriter#tab#model#Read())
+  endfor
+  if empty(l:rows)
+    return
+  endif
+  call s:setreg(a:reg, l:rows, 'b', s:names(l:block.lines))
+  if l:lone
+    call s:to_next_column()
+  endif
+  call s:record("songwriter#tab#operator#Erase(%d, '" . a:reg . "')", a:count)
+endfunction
+
+function! s:on_note(line, col) abort
+  return !empty(filter(songwriter#tab#columns#Atoms(a:line),
+        \ 'v:val.col <= a:col && a:col < v:val.col + v:val.len'))
+endfunction
+
+" Spec 6.8: `X` is `dac`, from normal mode.
+function! songwriter#tab#operator#Remove(count, reg) abort
+  let l:block = songwriter#tab#LintAndFollow(songwriter#tab#model#Read())
+  if empty(l:block)
+    return
+  endif
+  let l:range = songwriter#tab#columns#ColumnObject(l:block.lines,
+        \ line('.') - l:block.start, col('.'), a:count, 1)
+  if empty(l:range)
+    return
+  endif
+  call cursor(line('.'), l:range[0])
+  call s:columnwise('d', a:reg, l:block, l:range[0], l:range[1])
+  call s:record("songwriter#tab#operator#Remove(%d, '" . a:reg . "')", a:count)
+endfunction
+
+" Spec 6.5 / 6.3.2: `p` (before 0) / `P` (before 1) from register `reg`.
+function! songwriter#tab#operator#Put(before, count, reg) abort
+  let l:block = songwriter#tab#LintAndFollow(songwriter#tab#model#Read())
+  if empty(l:block)
+    return
+  endif
+  let l:type = getregtype(a:reg)
+  let l:rows = getreg(a:reg, 1, 1)
+  if l:type ==# 'V'
+    call s:put_lines(l:block, l:rows, a:before, a:count)
+  elseif l:type[0] ==# "\<C-V>" && !empty(l:rows)
+    let l:res = songwriter#tab#columns#Paste(l:block.lines, line('.') - l:block.start,
+          \ col('.'), l:rows, songwriter#tab#operator#RegisterNames(a:reg), a:before, a:count)
+    if has_key(l:res, 'error')
+      call s:error(l:res.error)
+      return
+    endif
+    call songwriter#tab#model#Write(l:block, l:res.lines)
+    call cursor(line('.'), l:res.col)
+    call songwriter#tab#LintAndFollow(songwriter#tab#model#Read())
+    if !empty(l:res.msg)
+      echo l:res.msg
+    endif
+  else
+    call s:error('songwriter: cannot paste a character-wise register into a tab')
+    return
+  endif
+  call s:record(printf("songwriter#tab#operator#Put(%d, %%d, '%s')", a:before, a:reg), a:count)
+endfunction
+
+" A line-wise register goes after the tab (before it for `P`), never between
+" its strings; a blank line keeps pasted tab lines from joining the tab.
+function! s:put_lines(block, rows, before, count) abort
+  let l:rows = []
+  for l:i in range(max([a:count, 1]))
+    call extend(l:rows, a:rows)
+  endfor
+  if empty(l:rows)
+    return
+  endif
+  if a:before
+    if songwriter#grammar#IsTabLine(l:rows[-1])
+      call add(l:rows, '')
+    endif
+    let l:at = a:block.start - 1
+    let l:first = l:at + 1
+  else
+    if songwriter#grammar#IsTabLine(l:rows[0])
+      call insert(l:rows, '')
+    endif
+    let l:at = a:block.start + len(a:block.lines) - 1
+    let l:first = l:at + 1 + (l:rows[0] ==# '' ? 1 : 0)
+  endif
+  call append(l:at, l:rows)
+  call cursor(l:first, 1)
+endfunction
+
+function! s:error(msg) abort
+  echohl ErrorMsg
+  echo a:msg
+  echohl None
+endfunction
+
+" Remember an action that is not an operator for `.` (see Repeat): `fmt` is a
+" call with a %d for the count.
+function! s:record(fmt, count) abort
+  let b:songwriter_repeat = {'fmt': a:fmt, 'count': a:count, 'tick': b:changedtick}
+endfunction
+
 " === Repeat (spec 6.10) ===
 
 " `.` in tablature mode. Operators repeat natively (g@ records itself; note
