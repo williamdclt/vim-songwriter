@@ -147,3 +147,62 @@ function! s:to_columns(moves, lines, lineparts) abort
   endfor
   return l:res
 endfunction
+
+" Pure. Where column `col` of block line `lin` (0-indexed) lands once `lines`
+" are linted into `result` (the return of Lint), so the cursor stays put
+" relative to the music:
+"   - on a note of that line: the same digit of that note;
+"   - on a pipe: the same pipe;
+"   - elsewhere in a bar: the same distance from the nearest note starting at or
+"     before `col` (on any string), kept before the next note start and inside
+"     the bar. Notes starting before / after `col` stay before / after it, so
+"     the `a`/`i` anchors are unchanged.
+"   - on the string name: unchanged; past the final pipe: the line end.
+function! songwriter#tab#lint#FollowColumn(lines, result, lin, col) abort
+  let l:old_pipes = songwriter#tab#model#Pipes(a:lines[a:lin])
+  let l:new_pipes = songwriter#tab#model#Pipes(a:result.lines[a:lin])
+  if empty(l:old_pipes) || a:col < l:old_pipes[0]
+    return a:col
+  endif
+  if a:col > l:old_pipes[-1]
+    return len(a:result.lines[a:lin])
+  endif
+  let l:k = index(l:old_pipes, a:col)
+  if l:k >= 0
+    return l:new_pipes[l:k]
+  endif
+  let l:bar = len(filter(copy(l:old_pipes), 'v:val < a:col')) - 1
+
+  " This bar's notes on every string: [from, to, len].
+  let l:notes = []
+  for l:m in a:result.moves
+    let l:p = songwriter#tab#model#Pipes(a:lines[l:m.line])
+    if l:bar + 1 < len(l:p) && l:m.from > l:p[l:bar] && l:m.from < l:p[l:bar + 1]
+      let l:len = len(matchstr(a:lines[l:m.line], '^' . songwriter#grammar#Note(), l:m.from - 1))
+      if l:m.line == a:lin && a:col >= l:m.from && a:col < l:m.from + l:len
+        return l:m.to + a:col - l:m.from
+      endif
+      call add(l:notes, [l:m.from, l:m.to, l:len])
+    endif
+  endfor
+
+  let l:lo = l:new_pipes[l:bar] + 1
+  let l:hi = l:new_pipes[l:bar + 1] - 1
+  let l:prev = filter(copy(l:notes), 'v:val[0] <= a:col')
+  let l:next = filter(copy(l:notes), 'v:val[0] > a:col')
+  if !empty(l:next)
+    let l:hi = min([l:hi, min(map(copy(l:next), 'v:val[1]')) - 1])
+  endif
+  if !empty(l:prev)
+    let l:from = max(map(copy(l:prev), 'v:val[0]'))
+    let l:to = max(map(filter(copy(l:prev), 'v:val[0] == l:from'), 'v:val[1]'))
+    let l:lo = max([l:lo, l:to])
+    let l:c = l:to + a:col - l:from
+  elseif !empty(l:next)
+    let l:first = sort(copy(l:next), {a, b -> a[0] - b[0]})[0]
+    let l:c = l:first[1] - (l:first[0] - a:col)
+  else
+    let l:c = l:lo + a:col - l:old_pipes[l:bar] - 1
+  endif
+  return max([l:lo, min([l:c, l:hi])])
+endfunction

@@ -4,7 +4,7 @@
 " note (3.3.3). Moving does not lint.
 
 Before:
-  unlet! b:songwriter_tabmode
+  unlet! b:songwriter_tabmode b:songwriter_slot
 
 " --- 3.3.1 l/h move to the next/previous note column on any string ---
 
@@ -73,7 +73,7 @@ Then:
   AssertEqual 7, col('.')
 Expect:
   e|--4----|--2--|
-  b|--------|------|
+  b|-------|-----|
 
 " --- 3.3.3 `h` at the first note column is a no-op ---
 
@@ -107,4 +107,4 @@ Then:
   AssertEqual 7, col('.')
 Expect:
   e|--4----|
-  b|--------|
+  b|-------|

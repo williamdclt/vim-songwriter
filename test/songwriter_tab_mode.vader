@@ -5,7 +5,7 @@
 " since off a tab line the keys fall back to their default behaviour.
 
 Before:
-  unlet! b:songwriter_tabmode
+  unlet! b:songwriter_tabmode b:songwriter_slot
 
 " --- 3.2 w/b: note on the current line, skipping dashes and pipes ---
 

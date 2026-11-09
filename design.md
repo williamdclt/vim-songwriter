@@ -144,8 +144,7 @@ A buffer-local flag, `b:songwriter_tabmode`, off by default; no teardown needed.
     bar, easy to keep moving.
   - `h` never opens a slot (no mirror of 3.3.2) and is a no-op before the first
     note.
-  - Moving does not lint; leftover dashes stay until `||` (spec item 4 is not
-    implemented yet).
+  - Moving does not lint, except to abandon an open slot (4.3, below).
 - **`a`/`i` (3.1)**: open a slot for a new note on every string and land on it.
   `a` anchors on the rightmost note end, on any string, among notes starting at
   or before the cursor within the cursor's bar (bounded by the bar's closing
@@ -154,11 +153,38 @@ A buffer-local flag, `b:songwriter_tabmode`, off by default; no teardown needed.
   one dash after the anchor while the next pipe keeps a 2-dash gap (a next note,
   1 dash): `e|--4--|` -> `e|--4----|`. `i` mirrors this to the left of the
   leftmost note at or after the cursor, keeping the preceding pipe 2 dashes away.
-  No anchor note: no-op. `a`/`i` do not lint.
+  No anchor note: no-op. `a`/`i` lint first (4.2, below).
 - **Digits (3.4)**: a digit on a dash replaces it; on a digit it is appended to
-  its right, so a two-digit fret is typed one key at a time (the linter fixes
-  the spacing). Off tablature mode or a tab line, digits keep their count
-  meaning.
+  its right, so a two-digit fret is typed one key at a time; the block is then
+  linted (4.1, below), which fixes the spacing. Off tablature mode or a tab
+  line, digits keep their count meaning.
+
+### Linting after edits (spec [Tablature][[Editing]] 4)
+
+Tablature-mode edits lint the block:
+
+- **4.1**: a digit enters the note, then the block is linted.
+- **4.2**: `a`/`i` lint, then open the slot. `l` opening a slot (3.3.2) is the
+  same operation as `a` (`MoveColumn` calls `AddNote(1)`), so it lints too.
+- **4.3**: an opened slot is remembered in `b:songwriter_slot` as
+  `{line, tick}`. The next `h`/`l`/`w`/`b`/`a`/`i`/`<Esc>` lints the slot's
+  block before doing its own job (`LintAbandonedSlot`). A digit fills the slot
+  and clears it. `j`/`k` are not mapped, so the slot survives them and a later
+  abandon still lints. The slot counts only while `b:changedtick` is unchanged:
+  any other buffer change (undo, `x`…) drops it, since the block it pointed to
+  may no longer be there.
+
+**The cursor follows the music** (`lint#FollowColumn`): on a note it stays on
+the same digit of that note; elsewhere in a bar it keeps its distance from the
+nearest note starting at or before it (any string), clamped before the next
+note and inside the bar. Notes before/after the cursor stay before/after it, so
+`a`/`i` find the same anchor after the lint as before. `||` lints without
+moving the cursor.
+
+`<Esc>` is a context key like the others. Outside tablature mode `Dispatch`
+returns the key itself. Special keys are written in `<>` notation in the
+tables, and the ftplugin passes them to `Dispatch` as `<lt>Esc>`, since
+`<Esc>` would otherwise be translated in the map's right side.
 
 ### Outside tablature mode
 

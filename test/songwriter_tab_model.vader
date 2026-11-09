@@ -29,3 +29,15 @@ Execute (Lint reports where each note moved):
   let r = songwriter#tab#lint#Lint(['e|-----4---|--1|', 'B|-------5-|---|'])
   AssertEqual ['e|--4----|--1--|', 'B|----5--|-----|'], r.lines
   AssertEqual [{'line': 0, 'from': 8, 'to': 5}, {'line': 1, 'from': 10, 'to': 7}, {'line': 0, 'from': 15, 'to': 13}], r.moves
+
+Execute (FollowColumn: on a note, follow it; between notes, keep the gap within the new bounds):
+  let lines = ['e|-----4---12-|', 'B|-------5----|']
+  let r = songwriter#tab#lint#Lint(lines)
+  AssertEqual ['e|--4---12--|', 'B|----5-----|'], r.lines
+  AssertEqual 5, songwriter#tab#lint#FollowColumn(lines, r, 0, 8)
+  AssertEqual 10, songwriter#tab#lint#FollowColumn(lines, r, 0, 13)
+  AssertEqual 6, songwriter#tab#lint#FollowColumn(lines, r, 0, 9)
+  AssertEqual 2, songwriter#tab#lint#FollowColumn(lines, r, 0, 2)
+  AssertEqual 3, songwriter#tab#lint#FollowColumn(lines, r, 0, 4)
+  AssertEqual 10, songwriter#tab#lint#FollowColumn(lines, r, 1, 13)
+  AssertEqual 13, songwriter#tab#lint#FollowColumn(lines, r, 1, 15)

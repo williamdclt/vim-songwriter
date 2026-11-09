@@ -2,7 +2,7 @@
 " stop on notes, string names and pipes (never dashes); `L`/`H` jump between pipes.
 
 Before:
-  unlet! b:songwriter_tabmode
+  unlet! b:songwriter_tabmode b:songwriter_slot
 
 Given songwriter (w skips over dashes, stops on next note):
   e|-----------4--|--1-----------|

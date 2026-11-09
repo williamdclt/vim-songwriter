@@ -27,8 +27,11 @@ for [s:key, s:plug] in items(s:plug_keys)
 endfor
 
 " Context-dependent keys (tab line, tablature mode): see autoload/songwriter/keys.vim.
+" The key name is passed with `<` as <lt>, so a special key such as <Esc> reaches
+" Dispatch as its name rather than being translated in the map's right side.
 for s:key in songwriter#keys#ContextKeys()
-  execute printf('nnoremap <buffer> <expr> %s songwriter#keys#Dispatch(%s)', s:key, string(s:key))
+  execute printf('nnoremap <buffer> <expr> %s songwriter#keys#Dispatch(%s)',
+        \ s:key, substitute(string(s:key), '<', '<lt>', 'g'))
   let b:undo_ftplugin .= '| silent! nunmap <buffer> ' . s:key
 endfor
 onoremap <buffer> <expr> L songwriter#keys#Dispatch('L')

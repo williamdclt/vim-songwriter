@@ -3,31 +3,31 @@
 " smoke tests at the end that type the keys.
 
 Before:
-  unlet! b:songwriter_tabmode
+  unlet! b:songwriter_tabmode b:songwriter_slot
 
 " --- 3.4 EnterNote: replace a dash with the digit on the current tab line ---
 
 Given songwriter (a digit enters the note on an empty slot):
-  e|---|
+  e|-----|
 
 Execute (a digit enters the note on an empty slot):
-  call cursor(1, 4)
+  call cursor(1, 5)
   call songwriter#tab#EnterNote('5')
-Then:
-  AssertEqual 4, col('.')
-Expect:
-  e|-5-|
-
-Given songwriter (a second digit appends to keep a two-digit fret):
-  e|-1-|
-
-Execute (a second digit appends to keep a two-digit fret):
-  call cursor(1, 4)
-  call songwriter#tab#EnterNote('8')
 Then:
   AssertEqual 5, col('.')
 Expect:
-  e|-18-|
+  e|--5--|
+
+Given songwriter (a second digit appends to keep a two-digit fret):
+  e|--1--|
+
+Execute (a second digit appends to keep a two-digit fret):
+  call cursor(1, 5)
+  call songwriter#tab#EnterNote('8')
+Then:
+  AssertEqual 6, col('.')
+Expect:
+  e|--18--|
 
 Given (a digit is a no-op off a tab line):
   I walk a
@@ -98,13 +98,13 @@ Expect:
   B|--4----|--|
 
 Given songwriter (typing a digit in tablature mode enters the note):
-  e|----|
+  e|-----|
 
 Execute (typing a digit in tablature mode enters the note):
   let b:songwriter_tabmode = 1
-  call cursor(1, 3)
+  call cursor(1, 5)
   normal 4
 Then:
-  AssertEqual 3, col('.')
+  AssertEqual 5, col('.')
 Expect:
-  e|4---|
+  e|--4--|

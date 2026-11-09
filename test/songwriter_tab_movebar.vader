@@ -3,7 +3,7 @@
 " `l` (from the slot) moves on to the next bar's note. `h` crosses back.
 
 Before:
-  unlet! b:songwriter_tabmode
+  unlet! b:songwriter_tabmode b:songwriter_slot
 
 Given songwriter (l on the last note of bar 1 opens a slot in bar 1 (does not skip to bar 2)):
   e|--4--|--2--|
@@ -17,7 +17,7 @@ Then:
   AssertEqual 7, col('.')
 Expect:
   e|--4----|--2--|
-  b|--------|------|
+  b|-------|-----|
 
 Given songwriter (pressing l again from the opened space crosses the bar to bar 2's note):
   e|--4----|--2--|

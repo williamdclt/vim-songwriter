@@ -1,0 +1,149 @@
+" Spec [Tablature][[Editing]] 4: edits in tablature mode lint the block
+" (4.1 entering a note, 4.2 before `a`/`i` open a slot, 4.3 when an open slot
+" is abandoned without a note). The cursor follows the note (or the gap between
+" notes) it was on. Typed end-to-end with `normal`.
+
+Before:
+  unlet! b:songwriter_tabmode b:songwriter_slot
+  let b:songwriter_tabmode = 1
+
+" --- 4.1 entering a note lints ---
+
+Given songwriter (4.1 a digit lints the block and the cursor stays on the note):
+  e|-------|
+
+Execute (4.1 a digit lints the block and the cursor stays on the note):
+  call cursor(1, 7)
+  normal 7
+Then:
+  AssertEqual 5, col('.')
+Expect songwriter:
+  e|--7--|
+
+Given songwriter (4.1 a second digit realigns the pipes and the cursor stays on it):
+  e|--1--|
+  B|--3--|
+
+Execute (4.1 a second digit realigns the pipes and the cursor stays on it):
+  call cursor(1, 5)
+  normal 2
+Then:
+  AssertEqual 6, col('.')
+Expect songwriter:
+  e|--12--|
+  B|--3---|
+
+Given songwriter (4.1 a slot then a digit: the note is kept, nothing left pending):
+  e|--4--|
+
+Execute (4.1 a slot then a digit: the note is kept, nothing left pending):
+  call cursor(1, 5)
+  normal a5h
+Then:
+  AssertEqual 5, col('.')
+Expect songwriter:
+  e|--4-5--|
+
+" --- 4.2 a/i lint before opening the slot ---
+
+Given songwriter (4.2 a lints before opening the slot):
+  e|-----4-----|
+
+Execute (4.2 a lints before opening the slot):
+  call cursor(1, 8)
+  normal a
+Then:
+  AssertEqual 7, col('.')
+Expect songwriter:
+  e|--4----|
+
+Given songwriter (4.2 i lints before opening the slot):
+  e|-----4-----|
+
+Execute (4.2 i lints before opening the slot):
+  call cursor(1, 8)
+  normal i
+Then:
+  AssertEqual 5, col('.')
+Expect songwriter:
+  e|----4--|
+
+" --- 4.3 abandoning an open slot lints ---
+
+Given songwriter (4.3 Esc after a removes the empty slot):
+  e|--4--|
+
+Execute (4.3 Esc after a removes the empty slot):
+  call cursor(1, 5)
+  execute "normal a\<Esc>"
+Expect songwriter:
+  e|--4--|
+
+Given songwriter (4.3 h after a lints, then moves):
+  e|--4--|--1--|
+
+Execute (4.3 h after a lints, then moves):
+  call cursor(1, 5)
+  normal ah
+Then:
+  AssertEqual 5, col('.')
+Expect songwriter:
+  e|--4--|--1--|
+
+Given songwriter (4.3 w after a lints, then moves):
+  e|--4--|--1--|
+
+Execute (4.3 w after a lints, then moves):
+  call cursor(1, 5)
+  normal aw
+Then:
+  AssertEqual 11, col('.')
+Expect songwriter:
+  e|--4--|--1--|
+
+Given songwriter (4.3 l on an open slot lints, then moves on to the next bar):
+  e|--4--|--1--|
+
+Execute (4.3 l on an open slot lints, then moves on to the next bar):
+  call cursor(1, 5)
+  normal ll
+Then:
+  AssertEqual 11, col('.')
+Expect songwriter:
+  e|--4--|--1--|
+
+Given songwriter (4.3 j/k do not abandon the slot; a later h does):
+  e|--4--|
+  B|--4--|
+
+Execute (4.3 j/k do not abandon the slot; a later h does):
+  call cursor(1, 5)
+  normal aj
+  AssertEqual ['e|--4----|', 'B|--4----|'], getline(1, 2)
+  normal h
+Then:
+  AssertEqual 2, line('.')
+  AssertEqual 5, col('.')
+Expect songwriter:
+  e|--4--|
+  B|--4--|
+
+Given songwriter (4.3 moving without an open slot does not lint):
+  e|----4----|
+
+Execute (4.3 moving without an open slot does not lint):
+  call cursor(1, 9)
+  normal h
+Then:
+  AssertEqual 7, col('.')
+Expect songwriter:
+  e|----4----|
+
+Given songwriter (Esc without an open slot leaves the tab alone):
+  e|----4----|
+
+Execute (Esc without an open slot leaves the tab alone):
+  call cursor(1, 9)
+  execute "normal \<Esc>"
+Expect songwriter:
+  e|----4----|

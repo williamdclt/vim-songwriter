@@ -9,7 +9,8 @@
 "   2. s:tabline_keys - cursor on a tab line
 "   3. the key itself
 " An action is an Ex command, run with <Cmd> (no mode change, no command-line
-" echo). To add a context key: add it to a table and to s:context_keys.
+" echo). Special keys are written in <> notation ('<Esc>'). To add a context
+" key: add it to a table.
 
 " Spec [Tablature][[Editing]] 3.
 let s:tabmode_keys = {
@@ -19,6 +20,7 @@ let s:tabmode_keys = {
       \ 'h': 'call songwriter#tab#MoveColumn(-1)',
       \ 'a': 'call songwriter#tab#AddNote(1)',
       \ 'i': 'call songwriter#tab#AddNote(-1)',
+      \ '<Esc>': 'call songwriter#tab#LintAbandonedSlot()',
       \ }
 for s:d in range(10)
   let s:tabmode_keys[s:d] = 'call songwriter#tab#EnterNote(' . s:d . ')'
@@ -47,7 +49,7 @@ function! songwriter#keys#Dispatch(key) abort
       return "\<Cmd>" . s:tabline_keys[a:key] . "\<CR>"
     endif
   endif
-  return a:key
+  return a:key =~# '^<.\+>$' ? eval('"\' . a:key . '"') : a:key
 endfunction
 
 " Tablature mode: a buffer-local flag, off by default.

@@ -8,6 +8,7 @@ Execute (Dispatch: a context key off a tab line falls back to its default):
   setfiletype songwriter
   let b:songwriter_tabmode = 1
   AssertEqual 'l', songwriter#keys#Dispatch('l')
+  AssertEqual "\<Esc>", songwriter#keys#Dispatch('<Esc>')
 
 Execute (Dispatch: tablature mode wins over the plain tab-line action):
   call setline(1, 'e|--4--|')
@@ -20,6 +21,6 @@ Execute (Leaving the filetype removes every buffer map and restores options):
   setfiletype songwriter
   Assert !empty(maparg('_', 'n'))
   set filetype=text
-  AssertEqual [], filter(['_', '||', '<C-A>', 'w', '5', 'L', 'H'], '!empty(maparg(v:val, "n"))')
+  AssertEqual [], filter(['_', '||', '<C-A>', 'w', '5', 'L', 'H', '<Esc>'], '!empty(maparg(v:val, "n"))')
   AssertEqual '', maparg('L', 'o') . maparg('L', 'x')
   AssertEqual 1, &l:wrap
