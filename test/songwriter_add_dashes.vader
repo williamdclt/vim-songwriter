@@ -9,7 +9,7 @@ Execute:
   call append(4, 'A|--4--3--------|--1-----1-----|')
   call append(5, 'E|--3-----------|--1-----------|')
   call cursor(6, 1)
-  call SongwriterAddDashes()
+  call songwriter#tab#AddDashes()
 Then:
   AssertEqual 'e|-----------4--|--1-----------|--', getline(1)
   AssertEqual 'B|--------1-----|-----2-----2--|--', getline(2)
@@ -29,7 +29,7 @@ Execute:
   call append(4, 'A|---------|')
   call append(5, 'E|---------|')
   call cursor(3, 1)
-  call SongwriterAddDashes()
+  call songwriter#tab#AddDashes()
 Then:
   AssertEqual 'e|---------|--', getline(1)
   AssertEqual 'B|---------|--', getline(2)
@@ -51,7 +51,7 @@ Execute:
   call append(6, 'some prose line')
   call append(7, 'another line')
   call cursor(1, 1)
-  call SongwriterAddDashes()
+  call songwriter#tab#AddDashes()
 Then:
   AssertEqual 'e|---------|--', getline(1)
   AssertEqual 'some prose line', getline(7)

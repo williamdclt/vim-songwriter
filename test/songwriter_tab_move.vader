@@ -16,7 +16,7 @@ Execute:
   setfiletype songwriter
   let b:songwriter_tabmode = 1
   call cursor(1, 3)
-  call SongwriterMoveColumn(1)
+  call songwriter#tab#MoveColumn(1)
 Then:
   AssertEqual 6, col('.')
 
@@ -30,7 +30,7 @@ Execute:
   setfiletype songwriter
   let b:songwriter_tabmode = 1
   call cursor(1, 8)
-  call SongwriterMoveColumn(-1)
+  call songwriter#tab#MoveColumn(-1)
 Then:
   AssertEqual 7, col('.')
 
@@ -46,7 +46,7 @@ Execute:
   setfiletype songwriter
   let b:songwriter_tabmode = 1
   call cursor(1, 5)
-  call SongwriterMoveColumn(1)
+  call songwriter#tab#MoveColumn(1)
 Then:
   AssertEqual 'e|--4----|', getline(1)
   AssertEqual 'b|--4----|', getline(2)
@@ -62,7 +62,7 @@ Execute:
   setfiletype songwriter
   let b:songwriter_tabmode = 1
   call cursor(1, 5)
-  call SongwriterMoveColumn(1)
+  call songwriter#tab#MoveColumn(1)
 Then:
   AssertEqual 8, col('.')
   AssertEqual 'e|--4--1--|', getline(1)
@@ -78,7 +78,7 @@ Execute:
   setfiletype songwriter
   let b:songwriter_tabmode = 1
   call cursor(1, 5)
-  call SongwriterMoveColumn(1)
+  call songwriter#tab#MoveColumn(1)
 Then:
   AssertEqual 'e|--4----|--2--|', getline(1)
   AssertEqual 'b|--------|------|', getline(2)
@@ -96,7 +96,7 @@ Execute:
   setfiletype songwriter
   let b:songwriter_tabmode = 1
   call cursor(1, 5)
-  call SongwriterMoveColumn(-1)
+  call songwriter#tab#MoveColumn(-1)
 Then:
   AssertEqual 'e|--4--|', getline(1)
   AssertEqual 'b|--4--|', getline(2)
@@ -116,7 +116,7 @@ Execute:
   setfiletype songwriter
   let b:songwriter_tabmode = 1
   call cursor(2, 5)
-  call SongwriterMoveColumn(1)
+  call songwriter#tab#MoveColumn(1)
 Then:
   AssertEqual 'e|--4----|', getline(1)
   AssertEqual 'b|--------|', getline(2)

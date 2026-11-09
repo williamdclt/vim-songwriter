@@ -132,11 +132,11 @@ Execute:
 Then:
   AssertEqual 0, get(b:, 'songwriter_tabmode', 0)
 Execute:
-  call SongwriterToggleTabMode()
+  call songwriter#keys#ToggleTabMode()
 Then:
   AssertEqual 1, b:songwriter_tabmode
 Execute:
-  call SongwriterToggleTabMode()
+  call songwriter#keys#ToggleTabMode()
 Then:
   AssertEqual 0, b:songwriter_tabmode
 
@@ -148,7 +148,7 @@ Execute:
   setfiletype songwriter
   let b:songwriter_tabmode = 1
   call cursor(1, 1)
-  call SongwriterMoveNote(1)
+  call songwriter#tab#MoveNote(1)
 Then:
   AssertEqual 1, col('.')
 
@@ -160,6 +160,6 @@ Execute:
   setfiletype songwriter
   let b:songwriter_tabmode = 1
   call cursor(1, 1)
-  call SongwriterMoveColumn(1)
+  call songwriter#tab#MoveColumn(1)
 Then:
   AssertEqual 1, col('.')

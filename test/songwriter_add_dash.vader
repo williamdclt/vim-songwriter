@@ -9,7 +9,7 @@ Execute:
   call append(4, 'A|----|')
   call append(5, 'E|----|')
   call cursor(1, 4)
-  call SongwriterAddDash()
+  call songwriter#tab#AddDash()
 Then:
   AssertEqual 'e|-----|', getline(1)
   AssertEqual 'B|-----|', getline(2)
@@ -26,7 +26,7 @@ Execute:
   call append(1, 'B|----4--|')
   call append(2, 'G|----4--|')
   call cursor(1, 6)
-  call SongwriterAddDash()
+  call songwriter#tab#AddDash()
 Then:
   AssertEqual 'e|-----4--|', getline(1)
   AssertEqual 'B|-----4--|', getline(2)
@@ -40,7 +40,7 @@ Execute:
   call append(1, 'B|----|')
   call append(2, 'G|----|')
   call cursor(3, 4)
-  call SongwriterAddDash()
+  call songwriter#tab#AddDash()
 Then:
   AssertEqual 'e|-----|', getline(1)
   AssertEqual 'B|-----|', getline(2)
@@ -53,7 +53,7 @@ Execute:
   call setline(1, 'some prose line')
   call append(1, 'another line')
   call cursor(1, 1)
-  call SongwriterAddDash()
+  call songwriter#tab#AddDash()
 Then:
   AssertEqual 'some prose line', getline(1)
   AssertEqual 'another line', getline(2)

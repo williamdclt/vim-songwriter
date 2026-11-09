@@ -9,7 +9,7 @@ Execute:
   call append(4, 'A|--4--3--------|--1-----1-----|')
   call append(5, 'E|--3-----------|--1-----------|')
   call cursor(1, 14)
-  call SongwriterTabChord('Am7')
+  call songwriter#tab#TabChord('Am7')
 Then:
   AssertEqual '             Am7', getline(1)
   AssertEqual 'e|-----------4--|--1-----------|', getline(2)
@@ -26,7 +26,7 @@ Execute:
   call append(4, 'A|------|-----|')
   call append(5, 'E|------|-----|')
   call cursor(1, 1)
-  call SongwriterTabChord('C')
+  call songwriter#tab#TabChord('C')
 Then:
   AssertEqual 'C', getline(1)
   AssertEqual 'e|--4--|--1--|', getline(2)
@@ -42,7 +42,7 @@ Execute:
   call append(4, 'A|------|-----|')
   call append(5, 'E|------|-----|')
   call cursor(3, 8)
-  call SongwriterTabChord('Dm')
+  call songwriter#tab#TabChord('Dm')
 Then:
   AssertEqual '       Dm', getline(1)
   AssertEqual 'e|--4--|--1--|', getline(2)
@@ -53,7 +53,7 @@ Execute:
   enew!
   call setline(1, 'this is prose')
   call cursor(1, 1)
-  call SongwriterTabChord('Am')
+  call songwriter#tab#TabChord('Am')
 Then:
   AssertEqual 'this is prose', getline(1)
   AssertEqual 1, line('$')

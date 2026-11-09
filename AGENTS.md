@@ -13,7 +13,7 @@
 - `autoload/songwriter/grammar.vim` is the single source of truth for the format's patterns (tab line, note, chord root...). Never write one of these regexes inline elsewhere.
 - `autoload/songwriter/tab/model.vim` parses a tab block once into a structured model and offers queries (note columns, bar bounds...) and the one column-insertion primitive. New tab features compose these; do not re-scan raw strings.
 - Keep logic pure (lines + cursor in, lines + cursor out). Only thin entry points read/write the buffer (`getline`/`setline`/`cursor`).
-- Key mappings are declared in tables in `ftplugin/songwriter.vim` and dispatched through `songwriter#keys#`. Use `<Cmd>…<CR>`, never `:call …<CR>`. Don't hand-write near-identical map lines.
+- Context-dependent keys (tab line, tablature mode) are declared in the tables in `autoload/songwriter/keys.vim` and dispatched by `songwriter#keys#Dispatch()`; plain keys map to `<Plug>(songwriter-…)` via the table in `ftplugin/songwriter.vim`. Every buffer map must be undone in `b:undo_ftplugin`. Use `<Cmd>…<CR>`, never `:call …<CR>`. Don't hand-write near-identical map lines.
 - Public functions live in autoload (`songwriter#module#Name`). No global `Songwriter*()` functions; tests call the autoload functions directly. User-facing entry points are `:Songwriter*` commands and `<Plug>(songwriter-…)` maps.
 
 ## Code style (Vim script)

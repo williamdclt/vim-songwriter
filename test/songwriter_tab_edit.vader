@@ -13,7 +13,7 @@ Execute:
   call setline(1, 'e|---|')
   setfiletype songwriter
   call cursor(1, 4)
-  call SongwriterEnterNote('5')
+  call songwriter#tab#EnterNote('5')
 Then:
   AssertEqual 'e|-5-|', getline(1)
   AssertEqual 4, col('.')
@@ -26,7 +26,7 @@ Execute:
   call setline(1, 'e|-1-|')
   setfiletype songwriter
   call cursor(1, 4)
-  call SongwriterEnterNote('8')
+  call songwriter#tab#EnterNote('8')
 Then:
   AssertEqual 'e|-18-|', getline(1)
   AssertEqual 5, col('.')
@@ -55,7 +55,7 @@ Execute:
   call append(1, 'B|--4--|--|')
   setfiletype songwriter
   call cursor(1, 5)
-  call SongwriterAddNote(1)
+  call songwriter#tab#AddNote(1)
 Then:
   AssertEqual 'e|--4----|--|', getline(1)
   AssertEqual 'B|--4----|--|', getline(2)
@@ -71,7 +71,7 @@ Execute:
   call append(1, 'B|--|--4--|')
   setfiletype songwriter
   call cursor(1, 8)
-  call SongwriterAddNote(-1)
+  call songwriter#tab#AddNote(-1)
 Then:
   AssertEqual 'e|--|----4--|', getline(1)
   AssertEqual 'B|--|----4--|', getline(2)
@@ -84,7 +84,7 @@ Execute:
   enew!
   call setline(1, 'I walk a')
   call cursor(1, 1)
-  call SongwriterAddNote(1)
+  call songwriter#tab#AddNote(1)
 Then:
   AssertEqual 'I walk a', getline(1)
 

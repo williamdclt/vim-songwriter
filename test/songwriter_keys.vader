@@ -1,0 +1,26 @@
+" Key dispatch (autoload/songwriter/keys.vim) and ftplugin setup/teardown.
+
+Before:
+  filetype plugin on
+  enew!
+
+Execute (Dispatch: a context key off a tab line falls back to its default):
+  call setline(1, 'some prose')
+  setfiletype songwriter
+  let b:songwriter_tabmode = 1
+  AssertEqual 'l', songwriter#keys#Dispatch('l')
+
+Execute (Dispatch: tablature mode wins over the plain tab-line action):
+  call setline(1, 'e|--4--|')
+  setfiletype songwriter
+  AssertEqual "\<Cmd>call songwriter#keys#TabWord(1)\<CR>", songwriter#keys#Dispatch('w')
+  let b:songwriter_tabmode = 1
+  AssertEqual "\<Cmd>call songwriter#tab#MoveNote(1)\<CR>", songwriter#keys#Dispatch('w')
+
+Execute (Leaving the filetype removes every buffer map and restores options):
+  setfiletype songwriter
+  Assert !empty(maparg('_', 'n'))
+  set filetype=text
+  AssertEqual [], filter(['_', '||', '<C-A>', 'w', '5', 'L', 'H'], '!empty(maparg(v:val, "n"))')
+  AssertEqual '', maparg('L', 'o') . maparg('L', 'x')
+  AssertEqual 1, &l:wrap

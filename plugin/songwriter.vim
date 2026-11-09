@@ -1,63 +1,27 @@
-" plugin/songwriter.vim - Songwriter: thin global wrappers over the autoload
-" implementation plus the :command definitions. The public Songwriter*() names
-" are kept stable so the test-suite and the ftplugin mappings bind unchanged;
-" the real logic lives in autoload/songwriter/{util,tab,chord}.vim.
+" plugin/songwriter.vim - user-facing entry points: :Songwriter* commands and
+" <Plug>(songwriter-*) maps. The logic lives in autoload/songwriter/.
 
 if exists('g:loaded_songwriter_plugin')
   finish
 endif
 let g:loaded_songwriter_plugin = 1
 
-" --- Thin wrappers over autoload/songwriter/tab.vim ---
-function! SongwriterAddDashes()
-  call songwriter#tab#AddDashes()
-endfunction
-function! SongwriterAddDash()
-  call songwriter#tab#AddDash()
-endfunction
-function! SongwriterAddBar()
-  call songwriter#tab#AddBar()
-endfunction
-function! SongwriterLint()
-  call songwriter#tab#Lint()
-endfunction
-function! SongwriterTabChord(chord)
-  call songwriter#tab#TabChord(a:chord)
-endfunction
-function! SongwriterMoveNote(dir)
-  call songwriter#tab#MoveNote(a:dir)
-endfunction
-function! SongwriterMoveColumn(dir)
-  call songwriter#tab#MoveColumn(a:dir)
-endfunction
-function! SongwriterEnterNote(digit)
-  call songwriter#tab#EnterNote(a:digit)
-endfunction
-function! SongwriterAddNote(side)
-  call songwriter#tab#AddNote(a:side)
-endfunction
-
-" --- Thin wrappers over autoload/songwriter/chord.vim ---
-function! SongwriterTransposeChord(dir)
-  call songwriter#chord#TransposeChord(a:dir)
-endfunction
-function! SongwriterChordAbove(chord)
-  call songwriter#chord#ChordAbove(a:chord)
-endfunction
-function! SongwriterChordQuality(q)
-  call songwriter#chord#ChordQuality(a:q)
-endfunction
-function! SongwriterToggleMinorMajor()
-  call songwriter#chord#ToggleMinorMajor()
-endfunction
-
 " === Ex commands ===
-command! -nargs=0 SongwriterAddBar call SongwriterAddBar()
-command! -nargs=0 SongwriterAddDash call SongwriterAddDash()
-command! -nargs=0 SongwriterAddDashes call SongwriterAddDashes()
-command! -nargs=0 SongwriterLint call SongwriterLint()
-command! -nargs=1 SongwriterTabChord call SongwriterTabChord(<q-args>)
-command! -nargs=1 SongwriterChordAbove call SongwriterChordAbove(<q-args>)
-command! -nargs=1 SongwriterChordQuality call SongwriterChordQuality(<q-args>)
-command! -nargs=1 SongwriterTransposeChord call SongwriterTransposeChord(<q-args>)
-command! -nargs=0 SongwriterToggleMinorMajor call SongwriterToggleMinorMajor()
+command! -nargs=0 SongwriterAddBar call songwriter#tab#AddBar()
+command! -nargs=0 SongwriterAddDash call songwriter#tab#AddDash()
+command! -nargs=0 SongwriterAddDashes call songwriter#tab#AddDashes()
+command! -nargs=0 SongwriterLint call songwriter#tab#Lint()
+command! -nargs=1 SongwriterTabChord call songwriter#tab#TabChord(<q-args>)
+command! -nargs=1 SongwriterChordAbove call songwriter#chord#ChordAbove(<q-args>)
+command! -nargs=1 SongwriterChordQuality call songwriter#chord#ChordQuality(<q-args>)
+command! -nargs=1 SongwriterTransposeChord call songwriter#chord#TransposeChord(<q-args>)
+command! -nargs=0 SongwriterToggleMinorMajor call songwriter#chord#ToggleMinorMajor()
+command! -nargs=0 SongwriterToggleTabMode call songwriter#keys#ToggleTabMode()
+
+" === <Plug> maps (bound to default keys in ftplugin/songwriter.vim) ===
+nnoremap <Plug>(songwriter-lint) <Cmd>call songwriter#tab#Lint()<CR>
+nnoremap <Plug>(songwriter-add-dash) <Cmd>call songwriter#tab#AddDash()<CR>
+nnoremap <Plug>(songwriter-transpose-up) <Cmd>call songwriter#chord#TransposeChord(1)<CR>
+nnoremap <Plug>(songwriter-transpose-down) <Cmd>call songwriter#chord#TransposeChord(-1)<CR>
+nnoremap <Plug>(songwriter-toggle-minor-major) <Cmd>call songwriter#chord#ToggleMinorMajor()<CR>
+nnoremap <Plug>(songwriter-toggle-tabmode) <Cmd>call songwriter#keys#ToggleTabMode()<CR>

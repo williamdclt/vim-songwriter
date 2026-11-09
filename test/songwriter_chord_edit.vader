@@ -4,7 +4,7 @@ Execute:
   enew!
   call setline(1, 'Hello world')
   call cursor(1, 8)
-  call SongwriterChordAbove('Am7')
+  call songwriter#chord#ChordAbove('Am7')
 Then:
   AssertEqual 2, line('$')
   AssertEqual '       Am7', getline(1)
@@ -16,7 +16,7 @@ Execute:
   enew!
   call setline(1, 'Hello world')
   call cursor(1, 1)
-  call SongwriterChordAbove('C')
+  call songwriter#chord#ChordAbove('C')
 Then:
   AssertEqual 2, line('$')
   AssertEqual 'C', getline(1)
@@ -28,7 +28,7 @@ Execute:
   enew!
   call setline(1, '             Am7')
   call cursor(1, 14)
-  call SongwriterChordQuality('maj7')
+  call songwriter#chord#ChordQuality('maj7')
 Then:
   AssertEqual '             Amaj7', getline(1)
 
@@ -38,7 +38,7 @@ Execute:
   enew!
   call setline(1, 'Am')
   call cursor(1, 1)
-  call SongwriterToggleMinorMajor()
+  call songwriter#chord#ToggleMinorMajor()
 Then:
   AssertEqual 'A', getline(1)
 
@@ -48,7 +48,7 @@ Execute:
   enew!
   call setline(1, 'C')
   call cursor(1, 1)
-  call SongwriterToggleMinorMajor()
+  call songwriter#chord#ToggleMinorMajor()
 Then:
   AssertEqual 'Cm', getline(1)
 
@@ -58,6 +58,6 @@ Execute:
   enew!
   call setline(1, 'Am7')
   call cursor(1, 1)
-  call SongwriterToggleMinorMajor()
+  call songwriter#chord#ToggleMinorMajor()
 Then:
   AssertEqual 'A7', getline(1)
