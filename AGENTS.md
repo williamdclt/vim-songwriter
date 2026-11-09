@@ -4,6 +4,7 @@
 - Read README.md, specification.song.txt and design.md for context.
 
 ## Workflow
+- Always work in a dedicated git worktree (under `.worktrees/`), on its own branch. Once the work is done, merge it back into the main branch and remove the worktree, unless the user explicitly asked to confirm before merging; in that case, stop and wait for their go-ahead.
 - Use TDD: write expected behaviour in the form of a Vader test first (failing), then implement it until the tests are passing. If implementation proves to be difficult or impossible, check in with the user to decide on compromises.
 - Refactors must not change behaviour: the existing tests are the oracle. If a refactor would fix or change a behaviour, stop and check with the user first. Known bugs are listed in specification.song.txt under [[Bugs]]; do not fix them as a side effect.
 - Commit every time you make a successful change (tests green, enforced by the pre-commit hook).
