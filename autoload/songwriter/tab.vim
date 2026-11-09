@@ -324,25 +324,111 @@ function! songwriter#tab#EnterNote(digit) abort
   endif
 endfunction
 
-" 3.4: open 3 dashes of space for a note to be entered, on every string of the
-" block, and put the cursor on the 2nd of the new dashes. side +1 ('a') makes
-" the gap sit to the RIGHT of the cursor; side -1 ('i') to the LEFT (the
-" mirrored opposite). No-op off a tab block.
+" 3.1: open room for a new note on every string of the block, landing the cursor
+" on the new slot. side +1 ('a') opens the slot to the RIGHT of the current note
+" (the last digit run at/left of the cursor); side -1 ('i') mirrors to the LEFT
+" of the current note. The slot sits exactly one dash from the current note and
+" keeps the following/preceding pipe at a 2-dash gap, so we add as many dashes as
+" needed to hold both invariants (the old "always 3 dashes" is obsolete). A line
+" with no digit run in the direction asked is a no-op.
 function! songwriter#tab#AddNote(side) abort
   let l:block = songwriter#util#find_tab_block()
   if empty(l:block[2])
     return
   endif
-  let l:ln = line('.')
-  let l:col = col('.')
-  let l:at = (a:side > 0) ? l:col + 1 : l:col    " 1-indexed column of the 1st new dash
-  for l:i in range(len(l:block[2]))
-    let l:line = l:block[2][l:i]
-    while len(l:line) < l:at
-      let l:line .= '-'
-    endwhile
-    call setline(l:block[0] + l:i, strpart(l:line, 0, l:at - 1) . '---' . strpart(l:line, l:at - 1))
+  if a:side > 0
+    call s:append_note_right(l:block)
+  else
+    call s:prepend_note_left(l:block)
+  endif
+endfunction
+
+" End column (1-indexed) of the last digit run starting at or before `col` on
+" the line - the "current note" for a rightward insert. 0 when there is none.
+function! s:current_note_end(line, col) abort
+  let l:e = 0
+  for l:a in s:extract_atoms(a:line)
+    let l:start = l:a[0] + 1
+    if l:start <= a:col && l:a[0] + len(l:a[1]) > l:e
+      let l:e = l:a[0] + len(l:a[1])
+    endif
   endfor
-  call cursor(l:ln, l:at + 1)    " the 2nd of the three new dashes
+  return l:e
+endfunction
+
+" Start column (1-indexed) of the first digit run starting at or after `col` on
+" the line - the "current note" for a leftward insert. 0 when there is none.
+function! s:current_note_start(line, col) abort
+  let l:s = 0
+  for l:a in s:extract_atoms(a:line)
+    let l:start = l:a[0] + 1
+    if l:start >= a:col && (l:s == 0 || l:start < l:s)
+      let l:s = l:start
+    endif
+  endfor
+  return l:s
+endfunction
+
+" 'a': place a new-note slot one dash to the right of the current note and push
+" the following pipe (or a following note) right to keep its 2-dash / 1-dash gap.
+" Inserts N dashes across every string, then lands the cursor on the slot.
+function! s:append_note_right(block) abort
+  let l:line = getline(line('.'))
+  let l:e = s:current_note_end(l:line, col('.'))
+  if l:e == 0
+    return
+  endif
+  let l:rest = strpart(l:line, l:e)       " chars strictly right of the note
+  let l:m = match(l:rest, '[0-9|]')
+  let l:N = 0
+  if l:m >= 0
+    let l:b = l:e + 1 + l:m                " 1-indexed column of the next note/pipe
+       " 1 dash + the slot, then 2 dashes before the pipe (or 1 dash before note).
+    let l:want = (l:rest[l:m] ==# '|') ? l:e + 5 : l:e + 4
+    let l:N = l:want - l:b
+    if l:N < 0
+      let l:N = 0
+    endif
+  endif
+  for l:i in range(len(a:block[2]))
+    let l:l = a:block[2][l:i]
+    while len(l:l) < l:e
+      let l:l .= '-'
+    endwhile
+    call setline(a:block[0] + l:i, strpart(l:l, 0, l:e) . repeat('-', l:N) . strpart(l:l, l:e))
+  endfor
+  call cursor(line('.'), l:e + 2)         " the new slot, one dash from the note
+endfunction
+
+" 'i': mirror of s:append_note_right. Opens the slot to the LEFT of the current
+" note and pushes the note (and everything after) right to keep the preceding pipe
+" 2 dashes away. Inserts N dashes across every string, then lands on the slot.
+function! s:prepend_note_left(block) abort
+  let l:line = getline(line('.'))
+  let l:s = s:current_note_start(l:line, col('.'))
+  if l:s == 0
+    return
+  endif
+     " pcol: last pipe column (1-indexed) strictly left of the note.
+  let l:pcol = 0
+  for l:i in range(l:s - 2, 1, -1)
+    if l:line[l:i - 1] ==# '|'
+      let l:pcol = l:i
+      break
+    endif
+  endfor
+     " 2 dashes after the pipe + the slot, so keep the note 5 columns right of it.
+  let l:N = (l:pcol == 0) ? 0 : l:pcol + 5 - l:s
+  if l:N < 0
+    let l:N = 0
+  endif
+  for l:i in range(len(a:block[2]))
+    let l:l = a:block[2][l:i]
+    while len(l:l) < l:s - 1
+      let l:l .= '-'
+    endwhile
+    call setline(a:block[0] + l:i, strpart(l:l, 0, l:s - 1) . repeat('-', l:N) . strpart(l:l, l:s - 1))
+  endfor
+  call cursor(line('.'), l:s + l:N - 2)       " the new slot, one dash left of note
 endfunction
 
