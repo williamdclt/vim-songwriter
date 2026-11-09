@@ -1,55 +1,64 @@
 # Goal
 
-Get the 3.3 `l`/`h` motion to its final behaviour after the user's clarifications:
+Get the 3.3 `l`/`h` motion to its final, cross-bar behaviour after the user's
+clarification:
 
-* `l`/`h` move to the next/previous note column **within the current bar** (on any
-  string); the bar-scoping stays.
-* `l` at the **last note of the bar** appends a new-note slot on every string
-  (3.3.2) — it must open slot at the *bar* end, not skip to the next bar's note.
-* No linting on the move (spec item 4, lint-on-edit, is out of scope): the linter
-  does not run on `l`/`h`; leftover dashes stay until `||` tidies.
-* Empty-string bug fixed: when the cursor is on an empty string's last-note column
-  (the last note lives on a neighbouring string), `l` still opens a slot on it.
+- `l`/`h` advance to the next/previous note column, **block-wide** — a pipe is
+   not an obstacle, so a plain move may land on a note in a neighbouring bar.
+- The ONE special case (3.3.2): when `l` sits on the **last note of the current
+   bar**, it does *not* skip that bar — it behaves as `a`, opening a new-note
+   slot on every string. Pressing `l` again (now on the slot, not a note) does the
+   normal block-wide advance to the next note, which may be in a later bar.
+- `h` (3.3.3/3.3.4) advances block-wide and has **no** `i`-style append at a bar
+   start; it is a no-op at the tablature's first note.
+- No linting on the move (spec item 4 out of scope): `||` tidies on demand.
+- Empty-string edge: an empty string at the last-note column still opens a slot.
+
+# The balance the user is after
+
+"Easy to add a note in a bar" (the auto-created blank slot) *vs* "easy to move
+on" (from the blank space just go to the next note, even across the bar). The
+append is **bar-scoped** (it fires at the last note of the *bar*); the plain move
+is **block-wide** (it crosses bars). That is the whole design.
 
 # Decisions
 
-- **Bar-scoped search, end-of-bar append.** `MoveColumn` collects digit-run
-  columns in the current bar (`s:in_bar`) across every string and moves to the
-  nearest on the asked side. `l` with no in-bar note to its right
-   (`s:append_note_right`) appends a slot; `h` with none to the left is a no-op
-    (3.3.3, no `i` mirror).
-- **No lint on the move.** Removed the `SongwriterLint()` calls; the `||` key
-  still tidies on demand, and leftover dashes are acceptable to the user.
-   (Spec item 4 "an edit should trigger linting" is genuinely not implemented and
-    stays that way.)
-- **Empty-string bug.** `s:append_note_right` / `s:prepend_note_left` anchor `N`
-   on the **block-wide** last/first note column, not the cursor line's, so an
-    empty string is widened just like its neighbours:
-     `e|--4--|` / `b|------|` + `l` -> `e|--4----|` / `b|--------|` (col 7).
-- **Regression guard the user reported.** `l` at the last note of an *earlier* bar
-   (`e|--4--|--2--|`, col 5) appends in bar 1 — `e|--4----|--2--|` — and does **not**
-    skip to bar 2's `2`.
+- **Bar-aware append.** `s:append_note_right` now bounds its "last note" to the
+  cursor's current bar (new `s:bar_end` helper: the first pipe strictly right of
+  the cursor). So appending at the end of a *non-final* bar widens the space after
+   *that* bar's last note and keeps its pipe aligned, instead of using the
+   block-wide last note. Single-bar 3.1 cases are identical (bar_end-1 >= the
+   note, same `e`).
+- **MoveColumn model.** `cols` = all note columns block-wide. `last_in_bar` = the
+   max note column inside the cursor's current bar (via `s:in_bar`). `l`
+   appends when `col == last_in_bar`, otherwise advances block-wide (or appends at
+   the very end). `h` advances block-wide, no-op at the first note, no append.
+- No lint on the move (item 4 stays out of scope).
 
 # Steps
 
-- [x] 1. Reproduce: `l` at end of bar 1 in a 2-bar block jumped to bar 2 (block-wide
-   change had broken 3.3.2); empty-string case was the earlier TDD target.
-- [x] 2. TDD: add/fail the "end of an earlier bar appends in that bar" test.
-- [x] 3. Rework `MoveColumn` back to bar-scoped (restore `s:in_bar`), drop the
-        lint calls, keep the block-wide anchored `s:append_note_right`. — check:
-          `make test` green.
-- [x] 4. Update `design.md` (bar-scoped, end-of-bar append, no lint, empty-string
-        edge), tick spec `3.3.x`; the earlier "block-wide" wording was reverted.
+- [x] 1. TDD: `songwriter_tab_movebar.vader` — l on last note of bar 1 opens the
+      slot in bar 1 (no skip to bar 2); a second l from the slot advances to bar
+      2; h crosses back. — check: the l-append case is RED before the fix.
+- [x] 2. Add `s:bar_end`; make `s:append_note_right` bar-bound (`e` = last note end
+          within the current bar); fix a stray `a:col` (the fn's arg is `block`, so
+          use `l:col`). — check: movebar l cases pass, 3.1 `a`/`i` still pass.
+- [x] 3. Rewrite `MoveColumn` to the cross-bar model (bar-aware append on the last
+          note of the bar; block-wide advance otherwise; `h` no-op at first note).
+          — check: `make test` green.
+- [x] 4. Update `design.md` (cross-bar move + bar-scoped append) and `PLAN.md`;
+          spec 3.3 already reads "last note of the bar" and matches.
           — check: `make test` still green.
 
 # Done when
 
-- `make test` green incl. the end-of-bar append and empty-string tests.
-- `l`/`h` bar-scoped, no on-move lint, empty-string slot opens.
-- Design + spec recorded; one commit per green phase.
+- `make test` green incl. the cross-bar append/advance tests.
+- `l` opens a slot at a bar's end and still advances to the next bar's note on the
+  next press; `h` is a no-op at the first note.
+- Design/spec recorded; one commit per green phase.
 
 # Result
 
-All green (78/78). `l` at end of bar 1 of `e|--4--|--2--|` gives `e|--4----|--2--|`
-(col 7, no skip to bar 2); the empty-string edge still opens a slot; a plain move
-no longer lints.
+All green (81/81). On `e|--4--|--2--|` / `b|------|------|`, `l` on bar 1's last
+note gives `e|--4----|--2--|` / `b|--------|------|` (slot in bar 1, no skip); a
+second `l` from that slot advances to bar 2's `2` (col 13). `a`/`i` 3.1 unchanged.

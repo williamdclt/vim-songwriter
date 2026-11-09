@@ -184,30 +184,38 @@ the key motions w/b/l/h become note-level (the actual movement lives in
   the left digit). w goes to the next run start to the right of the cursor, b the
   one to the left, in either case ignoring the dashes and pipes between. The
   guard `!SongwriterIsTablatureLine(getline('.'))` no-ops on a prose line.
-- **l/h — across notes within the current bar (spec 3.3).** `MoveColumn`
-    collects the digit-run start columns in the **current bar** (the notes
-    strictly between the pipes that bound the cursor, `s:in_bar`) on *every*
-    string, and moves to the nearest one on the requested side
-     (`SongwriterMoveColumn(+1/-1) = l/h`). It is bar-scoped: a note in another
-     bar is **not** a target, so `l` stops at a bar’s end and opens a slot there
-     (3.3.2) rather than skipping to the next bar; `w`/`b` stay on the current
-     line and `L`/`H` jump between bars.
-       - **3.3.1** l/h land on the nearest in-bar note column, on any string.
-       - **3.3.2** at the **last note of the bar** (no in-bar note to the right),
-      `l` *behaves as `a`*: `s:append_note_right` opens a new-note slot on every
-      string of that bar instead of jumping to the next one. `h` is the mirror but
-      , per 3.3.3, has **no** `i`-style append at the first note (it is a no-op).
-       - **No linting on the move.** Spec item 4 (lint-on-edit) is not yet
-      implemented and is out of scope, so a plain `l`/`h` move does **not** run the
-      linter; a slot opened in passing keeps its dashes until the user presses `||`.
-      The user confirmed leftover dashes after a note insert are acceptable.
-       - **The empty-string edge.** When the cursor sits on an empty string’s
+- **l/h — cross-bar note-column navigation (spec 3.3).** `MoveColumn`
+    collects the digit-run start columns on *every* string of the block and
+    moves to the nearest one on the requested side
+      (`SongwriterMoveColumn(+1/-1) = l/h`). A plain move is **block-wide**: a
+      pipe is not an obstacle, so `l`/`h` may land on a note in a neighbouring
+      bar. `w`/`b` stay on the current line; `L`/`H` jump between bars.
+        - **3.3.2 — the one special case.** When the cursor sits on the **last
+      note of its current bar**, `l` does *not* skip that bar: it *behaves as
+      `a`*, opening a new-note slot on every string (`s:append_note_right`), so a
+      fresh note can be typed there. Pressing `l` again — the cursor is now on
+      the opened slot, not on a note — performs the normal block-wide advance to
+      the next note, which may be the first note of the following bar. This is the
+      balance the user is after: easy to append a note in a bar *and* easy to keep
+      moving on; the resulting dashes are tidied on demand with `||`.
+        - **3.3.3/3.3.4 — `h`.** `h` advances block-wide to the previous note and
+      has **no** `i`-style append at a bar’s start (3.3.3, no mirror). At the
+      tablature’s very first note there is nothing to the left, so `h` is a
+      no-op (3.3.4).
+        - **Bar-aware append.** `s:append_note_right` bounds its “last note” to
+      the cursor’s current bar (via the new `s:bar_end` helper) so that opening a
+      slot at the end of a *non-final* bar widens the space after **that** bar’s
+      last note and keeps its pipe aligned — it does *not* reach across to a
+      later bar. The 1-dash / 2-dash spacing from the 3.1 work is untouched; only
+      the note it measures from is now the current bar’s last note.
+        - **Empty-string edge.** When the cursor sits on an empty string’s
       last-note column — the last note itself lives on a neighbouring string — the
-      slot must still open on that empty string. `s:append_note_right` (and its
-      mirror `s:prepend_note_left`) anchor `N` on the **block-wide** last/first
-      note column, not the cursor line’s, so an empty string is widened just like
-      its neighbours: `e|--4--|` / `b|------|` with the cursor on the empty
-      string’s last-note column and `l` yields `e|--4----|` / `b|--------|`.
+      slot still opens on it, because `s:append_note_right` anchors `e` on the
+      current bar’s last note *across the block*, not the cursor line alone:
+        `e|--4--|` / `b|------|` with the cursor on the empty string yields
+        `e|--4----|` / `b|--------|`.
+        - **No linting on the move.** Spec item 4 (lint-on-edit) is out of
+      scope, so `l`/`h` do not run the linter; a slot’s dashes stay until `||`.
 
 - **3.3 digits — enter a note.** A digit 0-9 in tablature mode on a tab line
   goes into the cell under the cursor: on a dash/blank it is a straight
@@ -258,6 +266,7 @@ stay character-wise), so nothing outside tablature mode is disturbed. The toggle
 L/H jump to the next/previous bar pipe `|` on the current tab line. They use
 `search('|', 'W'/'bW')` so the pipe is always found (the `W` flag ignores
 `iskeyword`); off a tab line the mapping falls back to the default `L`/`H`.
+
 
 
 

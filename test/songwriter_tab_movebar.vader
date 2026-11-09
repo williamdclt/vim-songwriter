@@ -1,0 +1,46 @@
+" 3.3 final model: l moves block-wide, but on the LAST NOTE OF THE CURRENT BAR it
+" opens a new-note slot instead; pressing l again (now on the space, not a note)
+" performs the normal cross-bar move. h has no mirror.
+
+" Test: l on the last note of bar 1 opens a slot in bar 1 (does not skip to bar 2)
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|--4--|--2--|')
+  call append(1, 'b|------|------|')
+  setfiletype songwriter
+  let b:songwriter_tabmode = 1
+  call cursor(1, 5)
+  call SongwriterMoveColumn(1)
+Then:
+  AssertEqual 'e|--4----|--2--|', getline(1)
+  AssertEqual 'b|--------|------|', getline(2)
+  AssertEqual 7, col('.')
+
+" Test: pressing l again from the opened space crosses the bar to bar 2's note
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|--4----|--2--|')
+  call append(1, 'b|--------|------|')
+  setfiletype songwriter
+  let b:songwriter_tabmode = 1
+  call cursor(1, 7)
+  call SongwriterMoveColumn(1)
+Then:
+  AssertEqual 13, col('.')
+  AssertEqual 'e|--4----|--2--|', getline(1)
+
+" Test: h moves block-wide back across the bar to the previous note (no prepend)
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|--4--|--2--|')
+  call append(1, 'b|------|------|')
+  setfiletype songwriter
+  let b:songwriter_tabmode = 1
+  call cursor(1, 11)
+  call SongwriterMoveColumn(-1)
+Then:
+  AssertEqual 5, col('.')
+  AssertEqual 'e|--4--|--2--|', getline(1)
