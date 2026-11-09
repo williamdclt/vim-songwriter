@@ -23,6 +23,45 @@ Execute (an empty bar (no notes) becomes exactly two dashes):
 Expect:
   e|--|
 
+Given (a line without a closing pipe keeps its notes, its bar is closed):
+  e|--3--5--
+
+Execute (a line without a closing pipe keeps its notes, its bar is closed):
+  call cursor(1, 1)
+  call songwriter#tab#Lint()
+Expect:
+  e|--3--5--|
+
+Given (unclosed last bars are closed and aligned with closed ones):
+  e|--3--|--5----
+  B|--1--|--7--|
+
+Execute (unclosed last bars are closed and aligned with closed ones):
+  call cursor(1, 1)
+  call songwriter#tab#Lint()
+Expect:
+  e|--3--|--5--|
+  B|--1--|--7--|
+
+Given (whitespace after the final pipe is not a bar):
+  e|--3--|   
+
+Execute (whitespace after the final pipe is not a bar):
+  call cursor(1, 1)
+  call songwriter#tab#Lint()
+Expect:
+  e|--3--|
+
+Given songwriter (a cursor on a note of an unclosed bar stays on it):
+  e|----3--5--
+
+Execute (a cursor on a note of an unclosed bar stays on it):
+  call cursor(1, 10)
+  call songwriter#tab#LintAndFollow(songwriter#tab#model#Read())
+  AssertEqual 8, col('.')
+Expect songwriter:
+  e|--3--5--|
+
 Given (aligns misaligned bar pipes across strings, trims to two dashes (1.1/1.2)):
   e|-----5-----|
   B|---0--0-----|

@@ -102,6 +102,12 @@ after the cursor column (at column `col+1`) on every string of the block.
 The linter works on the block around the cursor, bar by bar. It is a re-flow,
 not a full formatter.
 
+**An unclosed last bar is closed first.** A line with anything but whitespace
+after its final pipe (`e|--3--5--`) gets a pipe appended before parsing, so its
+last bar is linted rather than discarded. Appending at the end keeps every
+earlier column, so note moves and the cursor-following (FollowColumn) still
+refer to the caller's original columns.
+
 **Note order is sacred.** Relative note order on each string defines when notes
 are played: `e|---5--4--|` is a sequence, and collapsing the two notes onto one
 column would change the music. So the invariant is: never move a note onto the

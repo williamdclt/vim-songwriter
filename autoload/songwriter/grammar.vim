@@ -5,6 +5,10 @@
 " A tablature line: a string name immediately followed by a bar pipe (`e|--`).
 let s:tab_line = '^\a[|]'
 
+" A tab line whose last bar is closed: nothing but whitespace after its final
+" pipe (`e|--3--|`, not `e|--3--`).
+let s:closed_tab_line = '[|]\s*$'
+
 " A note on a tab line: a run of digits (a fret; `12` is one note).
 let s:note = '[0-9]\+'
 let s:note_char = '[0-9]'
@@ -48,6 +52,9 @@ function! songwriter#grammar#TabLine() abort
 endfunction
 function! songwriter#grammar#IsTabLine(line) abort
   return a:line =~# s:tab_line
+endfunction
+function! songwriter#grammar#IsClosedTabLine(line) abort
+  return a:line =~# s:closed_tab_line
 endfunction
 function! songwriter#grammar#Note() abort
   return s:note

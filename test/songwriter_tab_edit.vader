@@ -206,6 +206,30 @@ Expect:
   e|--4----|--|
   B|--4----|--|
 
+Given songwriter (typing a in tablature mode on a tab without a closing pipe keeps its notes):
+  e|--4--5--
+
+Execute (typing a in tablature mode on a tab without a closing pipe keeps its notes):
+  let b:songwriter_tabmode = 1
+  call cursor(1, 5)
+  normal a
+Then:
+  AssertEqual 7, col('.')
+Expect:
+  e|--4---5--|
+
+Given songwriter (typing a digit in tablature mode on a tab without a closing pipe enters the note):
+  e|-----
+
+Execute (typing a digit in tablature mode on a tab without a closing pipe enters the note):
+  let b:songwriter_tabmode = 1
+  call cursor(1, 5)
+  normal 4
+Then:
+  AssertEqual 5, col('.')
+Expect:
+  e|--4--|
+
 Given songwriter (typing a digit in tablature mode enters the note):
   e|-----|
 

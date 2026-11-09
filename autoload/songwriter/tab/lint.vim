@@ -9,8 +9,9 @@
 "              cursor on the same note after linting.
 " }
 function! songwriter#tab#lint#Lint(lines) abort
-  let l:nl = len(a:lines)
-  let l:regions = s:bar_regions(a:lines)
+  let l:lines = s:close_bars(a:lines)
+  let l:nl = len(l:lines)
+  let l:regions = s:bar_regions(l:lines)
   let l:nbars = max(map(copy(l:regions), 'len(v:val)'))
 
   let l:lineparts = map(range(l:nl), '[]')
@@ -49,10 +50,21 @@ function! songwriter#tab#lint#Lint(lines) abort
 
   let l:out = []
   for l:k in range(l:nl)
-    call add(l:out, strpart(a:lines[l:k], 0, 1) . '|' . join(l:lineparts[l:k], '|') . '|')
+    call add(l:out, strpart(l:lines[l:k], 0, 1) . '|' . join(l:lineparts[l:k], '|') . '|')
   endfor
-  return {'lines': l:out, 'moves': s:to_columns(l:moves, a:lines, l:lineparts)}
+  return {'lines': l:out, 'moves': s:to_columns(l:moves, l:lines, l:lineparts)}
 endfunction
+
+" Close every line's last bar: a line with anything but whitespace after its
+" final pipe (`e|--3--5--`) gets a pipe after its last non-blank character, so
+" that content is linted as a bar rather than dropped. Only appends, so every
+" earlier column is unchanged (moves and FollowColumn stay valid for the
+" caller's lines).
+function! s:close_bars(lines) abort
+  return map(copy(a:lines), {_, l ->
+        \ songwriter#grammar#IsClosedTabLine(l) ? l : substitute(l, '\s*$', '|', '')})
+endfunction
+
 
 " Split each line on pipes into its bar regions, dropping the string-name
 " prefix and anything after the final pipe.
@@ -160,7 +172,8 @@ endfunction
 "     the `a`/`i` anchors are unchanged.
 "   - on the string name: unchanged; past the final pipe: the line end.
 function! songwriter#tab#lint#FollowColumn(lines, result, lin, col) abort
-  let l:old_pipes = songwriter#tab#model#Pipes(a:lines[a:lin])
+  let l:lines = s:close_bars(a:lines)
+  let l:old_pipes = songwriter#tab#model#Pipes(l:lines[a:lin])
   let l:new_pipes = songwriter#tab#model#Pipes(a:result.lines[a:lin])
   if empty(l:old_pipes) || a:col < l:old_pipes[0]
     return a:col
@@ -177,9 +190,9 @@ function! songwriter#tab#lint#FollowColumn(lines, result, lin, col) abort
   " This bar's notes on every string: [from, to, len].
   let l:notes = []
   for l:m in a:result.moves
-    let l:p = songwriter#tab#model#Pipes(a:lines[l:m.line])
+    let l:p = songwriter#tab#model#Pipes(l:lines[l:m.line])
     if l:bar + 1 < len(l:p) && l:m.from > l:p[l:bar] && l:m.from < l:p[l:bar + 1]
-      let l:len = len(matchstr(a:lines[l:m.line], '^' . songwriter#grammar#TabAtom(), l:m.from - 1))
+      let l:len = len(matchstr(l:lines[l:m.line], '^' . songwriter#grammar#TabAtom(), l:m.from - 1))
       if l:m.line == a:lin && a:col >= l:m.from && a:col < l:m.from + l:len
         return l:m.to + a:col - l:m.from
       endif
