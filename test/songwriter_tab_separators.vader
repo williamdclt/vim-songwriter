@@ -207,3 +207,47 @@ Execute (f and r add a separator in tablature mode):
   normal f-rh
 Expect songwriter:
   e|--5h7--|
+
+" --- x on a dash enters a muted note (3.4.3) ---
+
+Given songwriter (x on a dash enters a muted note and lints):
+  e|--3-----5--|
+  B|-----------|
+
+Execute (x on a dash enters a muted note and lints):
+  call cursor(1, 8)
+  normal x
+  AssertEqual 8, col('.')
+Expect songwriter:
+  e|--3--x--5--|
+  B|-----------|
+
+Given songwriter (x fills an open slot):
+  e|--3--|
+
+Execute (x fills an open slot):
+  call cursor(1, 5)
+  normal a
+  normal x
+  AssertEqual 7, col('.')
+  Assert empty(songwriter#tab#state#Get('slot'))
+Expect songwriter:
+  e|--3-x--|
+
+Given songwriter (x on a note still erases it):
+  e|--3--5--|
+
+Execute (x on a note still erases it):
+  call cursor(1, 5)
+  normal x
+Expect songwriter:
+  e|--5--|
+
+Given songwriter (x on a separator does nothing):
+  e|--5h7--|
+
+Execute (x on a separator does nothing):
+  call cursor(1, 6)
+  normal x
+Expect songwriter:
+  e|--5h7--|
