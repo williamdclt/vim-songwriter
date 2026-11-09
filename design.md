@@ -184,28 +184,30 @@ the key motions w/b/l/h become note-level (the actual movement lives in
   the left digit). w goes to the next run start to the right of the cursor, b the
   one to the left, in either case ignoring the dashes and pipes between. The
   guard `!SongwriterIsTablatureLine(getline('.'))` no-ops on a prose line.
-- **l/h — across notes on any string, block-wide (spec 3.3).** `MoveColumn`
-   collects the digit-run start columns of *every* string in the block and moves to
-   the nearest one on the requested side (`SongwriterMoveColumn(+1/-1) = l/h`). The
-   motion is **block-wide, not bar-scoped**: a note column on another bar or
-   string is a valid target, so `l`/`h` may crop a pipe; `w`/`b` still move within
-   the current line only, and `L`/`H` jump between bars.
-    - **3.3.1** l/h land on the nearest note column, on any string.
-    - **3.3.2** at the **last note of the tablature**, `l` finds no note column to
-    its right and so *behaves as `a`*, opening a new-note slot on every string via
-    `s:append_note_right`. `h` is the mirror but, per 3.3.3, has **no** `i`-style
-     append at the first note: it is a no-op.
-    - **No linting on the move.** Spec item 4 (lint-on-edit) is not yet implemented
-    and is out of scope, so a plain `l`/`h` move does **not** run the linter; a slot
-    opened in passing is tidied when the user presses `||`, and leftover dashes are
-    acceptable. (This was the old lint-on-move behaviour, now removed.)
-    - **The empty-string edge.** When the cursor sits on an empty string’s last-note
-    column (the last note itself lives on a neighbouring string), the slot must still
-    open on that empty string. `s:append_note_right` and its mirror
-    `s:prepend_note_left` therefore anchor on the **block-wide** last/first note
-     column, not the cursor line’s, so an empty string gets the same widening:
-    `e|--4--|` / `b|------|` with the cursor on the empty string’s last-note column and
-    `l` yields `e|--4----|` / `b|--------|` — the slot opens on every string.
+- **l/h — across notes within the current bar (spec 3.3).** `MoveColumn`
+    collects the digit-run start columns in the **current bar** (the notes
+    strictly between the pipes that bound the cursor, `s:in_bar`) on *every*
+    string, and moves to the nearest one on the requested side
+     (`SongwriterMoveColumn(+1/-1) = l/h`). It is bar-scoped: a note in another
+     bar is **not** a target, so `l` stops at a bar’s end and opens a slot there
+     (3.3.2) rather than skipping to the next bar; `w`/`b` stay on the current
+     line and `L`/`H` jump between bars.
+       - **3.3.1** l/h land on the nearest in-bar note column, on any string.
+       - **3.3.2** at the **last note of the bar** (no in-bar note to the right),
+      `l` *behaves as `a`*: `s:append_note_right` opens a new-note slot on every
+      string of that bar instead of jumping to the next one. `h` is the mirror but
+      , per 3.3.3, has **no** `i`-style append at the first note (it is a no-op).
+       - **No linting on the move.** Spec item 4 (lint-on-edit) is not yet
+      implemented and is out of scope, so a plain `l`/`h` move does **not** run the
+      linter; a slot opened in passing keeps its dashes until the user presses `||`.
+      The user confirmed leftover dashes after a note insert are acceptable.
+       - **The empty-string edge.** When the cursor sits on an empty string’s
+      last-note column — the last note itself lives on a neighbouring string — the
+      slot must still open on that empty string. `s:append_note_right` (and its
+      mirror `s:prepend_note_left`) anchor `N` on the **block-wide** last/first
+      note column, not the cursor line’s, so an empty string is widened just like
+      its neighbours: `e|--4--|` / `b|------|` with the cursor on the empty
+      string’s last-note column and `l` yields `e|--4----|` / `b|--------|`.
 
 - **3.3 digits — enter a note.** A digit 0-9 in tablature mode on a tab line
   goes into the cell under the cursor: on a dash/blank it is a straight
@@ -256,6 +258,7 @@ stay character-wise), so nothing outside tablature mode is disturbed. The toggle
 L/H jump to the next/previous bar pipe `|` on the current tab line. They use
 `search('|', 'W'/'bW')` so the pipe is always found (the `W` flag ignores
 `iskeyword`); off a tab line the mapping falls back to the default `L`/`H`.
+
 
 
 
