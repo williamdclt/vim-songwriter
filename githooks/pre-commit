@@ -1,0 +1,4 @@
+#!/bin/sh
+# Tests must be green to commit. Enable with: make hooks
+set -e
+make test

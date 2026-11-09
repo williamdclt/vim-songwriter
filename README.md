@@ -16,7 +16,7 @@ This plugin is tested with Vader.vim (`test/` folder) to prevent regressions. Va
 
 Run tests: `make test`.
 
-Tests MUST be green to commit, which is enforced by pre-commit hook.
+Tests MUST be green to commit, which is enforced by the pre-commit hook in `githooks/` (run `make hooks` once after cloning to enable it). Vader is cloned automatically on first `make test`.
 
 ## Potential inspiration
 
