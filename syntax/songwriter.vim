@@ -7,10 +7,10 @@ if exists('b:current_syntax')
 endif
 
 " Subsection markers: [[Rendering]], [[Motions]], etc.
-syn match songwriterSection '\[\[\s*[A-Za-z][A-Za-z0-9 -]*\s*\]\]'
-
-" Section markers: [Intro], [Verse 1], [Chorus], etc.
-syn match songwriterSection '\[\s*[A-Za-z][A-Za-z0-9 -]*\s*\]'
+" and section markers: [Intro], [Verse 1], [Chorus], etc.
+for s:pat in songwriter#grammar#SectionSyntax()
+  execute 'syn match songwriterSection ' . string(s:pat)
+endfor
 
 " === Chords (patterns from songwriter#grammar, most specific first) ===
 for s:pat in songwriter#grammar#ChordSyntax()
@@ -24,16 +24,16 @@ execute 'syn region songwriterTabLine start=' . string(songwriter#grammar#TabLin
       \ . " end='$' contains=songwriterTabPrefix,songwriterTabFret,songwriterTabBar,songwriterTabDash"
 
 " Tab string prefix letter (e.g. "e" in "e|")
-syn match songwriterTabPrefix '^\s*[A-Ga-g]\ze|' contained
+execute 'syn match songwriterTabPrefix ' . string(songwriter#grammar#TabPrefixSyntax()) . ' contained'
 
 " Tab fret numbers
-syn match songwriterTabFret '\d\+' contained
+execute 'syn match songwriterTabFret ' . string(songwriter#grammar#Note()) . ' contained'
 
 " Tab bar separator
-syn match songwriterTabBar '|' contained
+execute 'syn match songwriterTabBar ' . string(songwriter#grammar#Pipe()) . ' contained'
 
 " Tab dash (empty string)
-syn match songwriterTabDash '-' contained
+execute 'syn match songwriterTabDash ' . string(songwriter#grammar#Dash()) . ' contained'
 
 " === Highlighting ===
 hi def songwriterChord gui=bold cterm=bold guifg=#aa00ff ctermfg=Magenta

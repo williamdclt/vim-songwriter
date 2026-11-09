@@ -153,4 +153,4 @@ Expect songwriter:
 
 Execute (Pure: EmptyTab keeps the string names and opens a slot in the middle):
   let block = songwriter#tab#model#Parse(1, ['e|--3--|--5--|', 'B|-----|--1--|'])
-  AssertEqual {'lines': ['e|-----|', 'B|-----|'], 'col': 5}, songwriter#tab#EmptyTab(block)
+  AssertEqual {'lines': ['e|-----|', 'B|-----|'], 'col': 5}, songwriter#tab#slots#EmptyTab(block)

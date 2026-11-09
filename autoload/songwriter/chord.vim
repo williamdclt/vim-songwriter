@@ -3,6 +3,9 @@
 
 " === Chord model (constants + private helpers) ===
 
+" The column Vim reports and accepts for "to the end of the line".
+let s:eol = 2147483647
+
 " {name, root, quality, bass} for a whole chord token, or {} when the token is
 " not a chord (grammar ParseChord). `bass` is '' for a chord without `/bass`.
 function! s:chord_parse(name) abort
@@ -30,27 +33,47 @@ endfunction
 function! s:splice_chord(line, found, newc) abort
   return strpart(a:line, 0, a:found.start) . a:newc . strpart(a:line, a:found.end + 1)
 endfunction
-" The chord under 0-indexed column `col` of `line`: {'start', 'end' (0-indexed,
-" inclusive), 'chord' (parsed)}, or {} when the token of chord characters under
-" the cursor is not a whole chord. Tab lines hold no chords.
-function! s:find_chord_at_cursor(line, col) abort
+" Every whole chord among the tokens of chord characters on `line`, left to
+" right: [{'start', 'end' (0-indexed, inclusive), 'chord' (parsed)}]. Tab lines
+" hold no chords.
+function! s:chord_tokens(line) abort
   if songwriter#grammar#IsTabLine(a:line)
-    return {}
+    return []
   endif
-  let l:tokchar = songwriter#grammar#ChordTokenChar()
-  if a:col >= len(a:line) || a:line[a:col] !~# l:tokchar
-    return {}
+  let l:tokens = []
+  let l:pat = songwriter#grammar#ChordTokenChar() . '\+'
+  let l:start = match(a:line, l:pat)
+  while l:start >= 0
+    let l:end = matchend(a:line, l:pat, l:start) - 1
+    let l:parsed = s:chord_parse(strpart(a:line, l:start, l:end - l:start + 1))
+    if !empty(l:parsed)
+      call add(l:tokens, {'start': l:start, 'end': l:end, 'chord': l:parsed})
+    endif
+    let l:start = match(a:line, l:pat, l:end + 1)
+  endwhile
+  return l:tokens
+endfunction
+
+" The chord token over 0-indexed column `col` of `line`, or {}.
+function! s:find_chord_at_cursor(line, col) abort
+  for l:token in s:chord_tokens(a:line)
+    if l:token.start <= a:col && a:col <= l:token.end
+      return l:token
+    endif
+  endfor
+  return {}
+endfunction
+
+" Replace the chord under the cursor by Transform(parsed chord). Returns whether
+" there was one.
+function! s:edit_at_cursor(Transform) abort
+  let l:line = getline('.')
+  let l:found = s:find_chord_at_cursor(l:line, col('.') - 1)
+  if empty(l:found)
+    return 0
   endif
-  let l:start = a:col
-  while l:start > 0 && a:line[l:start - 1] =~# l:tokchar
-    let l:start -= 1
-  endwhile
-  let l:end = a:col
-  while l:end < len(a:line) - 1 && a:line[l:end + 1] =~# l:tokchar
-    let l:end += 1
-  endwhile
-  let l:parsed = s:chord_parse(strpart(a:line, l:start, l:end - l:start + 1))
-  return empty(l:parsed) ? {} : {'start': l:start, 'end': l:end, 'chord': l:parsed}
+  call setline('.', s:splice_chord(l:line, l:found, a:Transform(l:found.chord)))
+  return 1
 endfunction
 
 " === Public chord operations ===
@@ -60,19 +83,16 @@ endfunction
 " fall back to Vim's own <Ctrl-A>/<Ctrl-X> on the next number of the line.
 function! songwriter#chord#TransposeChord(semitones) abort
   let l:n = str2nr(a:semitones)
-  let l:line = getline('.')
-  let l:found = s:find_chord_at_cursor(l:line, col('.') - 1)
-  if empty(l:found)
-    call s:native_increment(l:n, songwriter#grammar#IsTabLine(l:line))
-    return
+  if !s:edit_at_cursor({chord -> s:chord_transpose(chord, l:n)})
+    call s:native_increment('', l:n, songwriter#grammar#IsTabLine(getline('.')))
   endif
-  call setline('.', s:splice_chord(l:line, l:found, s:chord_transpose(l:found.chord, l:n)))
 endfunction
 
-" Vim's own <Ctrl-A> (n > 0) / <Ctrl-X> (n < 0), |n| times. On a tab line the
-" dashes are not minus signs (`--3` is fret 3, not -3), so numbers are read as
-" unsigned there.
-function! s:native_increment(n, unsigned) abort
+" Run `prefix` (normal-mode keys, such as a visual selection) then Vim's own
+" <Ctrl-A> (n > 0) / <Ctrl-X> (n < 0), |n| times. On a tab line the dashes are
+" not minus signs (`--3` is fret 3, not -3), so numbers are read as unsigned
+" there.
+function! s:native_increment(prefix, n, unsigned) abort
   if a:n == 0
     return
   endif
@@ -81,7 +101,7 @@ function! s:native_increment(n, unsigned) abort
     setlocal nrformats+=unsigned
   endif
   try
-    execute 'normal! ' . abs(a:n) . (a:n > 0 ? "\<C-A>" : "\<C-X>")
+    execute 'normal! ' . a:prefix . abs(a:n) . (a:n > 0 ? "\<C-A>" : "\<C-X>")
   finally
     let &l:nrformats = l:saved
   endtry
@@ -90,20 +110,7 @@ endfunction
 " `line` with every chord token that overlaps 0-indexed columns [first, last]
 " transposed by `semitones`. Tab lines hold no chords and are returned as is.
 function! songwriter#chord#TransposeChordsIn(line, first, last, semitones) abort
-  if songwriter#grammar#IsTabLine(a:line)
-    return a:line
-  endif
-  let l:tokens = []
-  let l:pat = songwriter#grammar#ChordTokenChar() . '\+'
-  let l:start = match(a:line, l:pat)
-  while l:start >= 0
-    let l:end = matchend(a:line, l:pat, l:start) - 1
-    let l:parsed = s:chord_parse(strpart(a:line, l:start, l:end - l:start + 1))
-    if !empty(l:parsed) && l:end >= a:first && l:start <= a:last
-      call add(l:tokens, {'start': l:start, 'end': l:end, 'chord': l:parsed})
-    endif
-    let l:start = match(a:line, l:pat, l:end + 1)
-  endwhile
+  let l:tokens = filter(s:chord_tokens(a:line), 'v:val.end >= a:first && v:val.start <= a:last')
   let l:out = a:line
   " Right to left, so a wider chord (A -> A#) leaves the others' columns intact.
   for l:found in reverse(l:tokens)
@@ -120,22 +127,21 @@ endfunction
 function! songwriter#chord#TransposeVisual(semitones) abort
   let l:n = str2nr(a:semitones)
   let l:mode = mode()
-  let l:to_eol = winsaveview().curswant >= 2147483647
+  let l:to_eol = winsaveview().curswant >= s:eol
   let [l:p, l:q] = [getpos('v'), getpos('.')]
   execute "normal! \<Esc>"
   if l:p[1] > l:q[1] || (l:p[1] == l:q[1] && l:p[2] > l:q[2])
     let [l:p, l:q] = [l:q, l:p]
   endif
-  let l:eol = 2147483647
   let [l:lcol, l:rcol] = [min([l:p[2], l:q[2]]) - 1, max([l:p[2], l:q[2]]) - 1]
   for l:lnum in range(l:p[1], l:q[1])
     if l:mode ==# 'V'
-      let [l:first, l:last] = [0, l:eol]
+      let [l:first, l:last] = [0, s:eol]
     elseif l:mode ==# 'v'
       let l:first = l:lnum == l:p[1] ? l:p[2] - 1 : 0
-      let l:last = l:lnum == l:q[1] ? l:q[2] - 1 : l:eol
+      let l:last = l:lnum == l:q[1] ? l:q[2] - 1 : s:eol
     else
-      let [l:first, l:last] = [l:lcol, l:to_eol ? l:eol : l:rcol]
+      let [l:first, l:last] = [l:lcol, l:to_eol ? s:eol : l:rcol]
     endif
     let l:line = getline(l:lnum)
     if l:first >= len(l:line)
@@ -157,17 +163,9 @@ function! s:native_visual_increment(lnum, first, last, n) abort
   if a:n == 0
     return
   endif
-  let l:saved = &l:nrformats
-  if songwriter#grammar#IsTabLine(getline(a:lnum))
-    setlocal nrformats+=unsigned
-  endif
-  try
-    call cursor(a:lnum, a:first + 1)
-    execute 'normal! v' . (a:last - a:first > 0 ? (a:last - a:first) . 'l' : '')
-          \ . abs(a:n) . (a:n > 0 ? "\<C-A>" : "\<C-X>")
-  finally
-    let &l:nrformats = l:saved
-  endtry
+  call cursor(a:lnum, a:first + 1)
+  call s:native_increment('v' . (a:last - a:first > 0 ? (a:last - a:first) . 'l' : ''),
+        \ a:n, songwriter#grammar#IsTabLine(getline(a:lnum)))
 endfunction
 
 function! songwriter#chord#ChordAbove(chord) abort
@@ -180,26 +178,18 @@ endfunction
 " Change the quality of the chord under the cursor (e.g. Am7 -> Amaj7), keeping
 " its root and bass. No-op off a chord.
 function! songwriter#chord#ChordQuality(quality) abort
-  let l:line = getline('.')
-  let l:found = s:find_chord_at_cursor(l:line, col('.') - 1)
-  if empty(l:found)
-    return
-  endif
-  let l:c = l:found.chord
-  call setline('.', s:splice_chord(l:line, l:found, s:chord_build(l:c.root, a:quality, l:c.bass)))
+  call s:edit_at_cursor({chord -> s:chord_build(chord.root, a:quality, chord.bass)})
 endfunction
 
 " Toggle the chord under the cursor between major and minor (A <-> Am, D/F# <->
 " Dm/F#), leaving the rest of the quality (7, m7 -> 7, maj7 -> mmaj7) and the
 " bass intact. No-op off a chord.
 function! songwriter#chord#ToggleMinorMajor() abort
-  let l:line = getline('.')
-  let l:found = s:find_chord_at_cursor(l:line, col('.') - 1)
-  if empty(l:found)
-    return
-  endif
-  let l:c = l:found.chord
-  let l:minor = matchstr(l:c.quality, '^\%(min\|m\%(aj\)\@!\)')
-  let l:q = empty(l:minor) ? 'm' . l:c.quality : strpart(l:c.quality, len(l:minor))
-  call setline('.', s:splice_chord(l:line, l:found, s:chord_build(l:c.root, l:q, l:c.bass)))
+  call s:edit_at_cursor(function('s:toggle_minor'))
+endfunction
+
+function! s:toggle_minor(chord) abort
+  let l:minor = matchstr(a:chord.quality, songwriter#grammar#MinorPrefix())
+  let l:q = empty(l:minor) ? 'm' . a:chord.quality : strpart(a:chord.quality, len(l:minor))
+  return s:chord_build(a:chord.root, l:q, a:chord.bass)
 endfunction

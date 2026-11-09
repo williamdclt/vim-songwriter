@@ -185,7 +185,7 @@ Execute (6.3.1 ClearNotes turns every note into dashes, keeping the bars):
   AssertEqual ['e|' . repeat('-', 10) . '|---|'], songwriter#tab#columns#ClearNotes(['e|--3--5h7--|-x-|'])
 
 Execute (6.6 EmptyBarSlot opens a 5-dash bar with the cursor in the middle):
-  let res = songwriter#tab#columns#EmptyBarSlot(['e|--3--|--|', 'B|-----|--|'], 0, 9)
+  let res = songwriter#tab#slots#EmptyBar(['e|--3--|--|', 'B|-----|--|'], 0, 9)
   AssertEqual ['e|--3--|-----|', 'B|-----|-----|'], res.lines
   AssertEqual 11, res.col
 

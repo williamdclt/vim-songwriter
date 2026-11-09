@@ -23,7 +23,7 @@ function! songwriter#tab#strings#Move(lines, lin, col, dir, keep_pitch, column) 
       if l:a.col == l:c
         let l:to = l:i + a:dir
         if l:to < 0 || l:to >= len(a:lines)
-          return {'error': printf('no string %s %s', a:dir < 0 ? 'above' : 'below', s:name(a:lines, l:i))}
+          return {'error': printf('no string %s %s', a:dir < 0 ? 'above' : 'below', songwriter#tab#model#Name(a:lines[l:i]))}
         endif
         let l:text = a:keep_pitch ? s:repitch(a:lines, l:i, l:to, l:a.text) : l:a.text
         if type(l:text) == v:t_dict
@@ -96,17 +96,17 @@ function! s:make_room(lines, to, c, len) abort
   let l:c = a:c
   let l:t = l:lines[a:to]
   if s:is_atom(l:t, l:c)
-    return {'error': printf('string %s already has a note there', s:name(l:lines, a:to))}
+    return {'error': printf('string %s already has a note there', songwriter#tab#model#Name(l:lines[a:to]))}
   endif
   if l:c > 1 && s:is_atom(l:t, l:c - 1)
     if s:splits(l:lines, l:c - 1)
-      return {'error': printf('no room on string %s', s:name(l:lines, a:to))}
+      return {'error': printf('no room on string %s', songwriter#tab#model#Name(l:lines[a:to]))}
     endif
     let l:lines = songwriter#tab#model#InsertColumns(l:lines, l:c - 1, 1, '-')
     let l:c += 1
     let l:t = l:lines[a:to]
   endif
-  let l:free = len(matchstr(l:t, '^-*', l:c - 1))
+  let l:free = len(matchstr(l:t, songwriter#grammar#DashRun(), l:c - 1))
   let l:next = l:t[l:c - 1 + l:free : l:c - 1 + l:free]
   if l:next ==# ''
     let l:lines[a:to] = l:t . repeat('-', l:c - 1 + a:len - len(l:t))
@@ -122,7 +122,7 @@ function! s:make_room(lines, to, c, len) abort
     let l:o -= 1
   endwhile
   if l:o < l:c
-    return {'error': printf('no room on string %s', s:name(l:lines, a:to))}
+    return {'error': printf('no room on string %s', songwriter#tab#model#Name(l:lines[a:to]))}
   endif
   return {'lines': songwriter#tab#model#InsertColumns(l:lines, l:o, l:k, '-'), 'col': l:c}
 endfunction
@@ -139,13 +139,8 @@ endfunction
 
 " True when column `col` of `line` is part of a note group.
 function! s:is_atom(line, col) abort
-  return a:col >= 3 && a:col <= len(a:line)
+  return a:col > songwriter#tab#model#BodyOffset() && a:col <= len(a:line)
         \ && a:line[a:col - 1] =~# '^' . songwriter#grammar#TabAtom() . '$'
-endfunction
-
-" The string name of line `lin`.
-function! s:name(lines, lin) abort
-  return a:lines[a:lin][0]
 endfunction
 
 " Spec 7.3: `text` (a note group on line `from`) with every fret shifted by the
@@ -154,49 +149,43 @@ endfunction
 " strings less than an octave apart: the interval is read from pitch classes.
 " A mark without a fret (`x`) is returned unchanged.
 function! s:repitch(lines, from, to, text) abort
-  if a:text !~# '\d'
+  if a:text !~# songwriter#grammar#Note()
     return a:text
   endif
   for l:lin in [a:from, a:to]
-    if songwriter#pitch#Class(s:name(a:lines, l:lin)) < 0
-      return {'error': printf('string name %s is not a note', s:name(a:lines, l:lin))}
+    if songwriter#pitch#Class(songwriter#tab#model#Name(a:lines[l:lin])) < 0
+      return {'error': printf('string name %s is not a note', songwriter#tab#model#Name(a:lines[l:lin]))}
     endif
   endfor
   let [l:hi, l:lo] = a:to < a:from ? [a:to, a:from] : [a:from, a:to]
-  let l:interval = (songwriter#pitch#Class(s:name(a:lines, l:hi))
-        \ - songwriter#pitch#Class(s:name(a:lines, l:lo)) + 12) % 12
+  let l:interval = (songwriter#pitch#Class(songwriter#tab#model#Name(a:lines[l:hi]))
+        \ - songwriter#pitch#Class(songwriter#tab#model#Name(a:lines[l:lo])) + 12) % 12
   if l:interval == 0
     return {'error': printf('cannot tell the interval between strings %s and %s',
-          \ s:name(a:lines, l:hi), s:name(a:lines, l:lo))}
+          \ songwriter#tab#model#Name(a:lines[l:hi]), songwriter#tab#model#Name(a:lines[l:lo]))}
   endif
   let l:shift = a:to < a:from ? -l:interval : l:interval
-  let l:frets = map(filter(split(a:text, '\D\+'), '!empty(v:val)'), 'str2nr(v:val, 10) + l:shift')
+  let l:frets = map(filter(split(a:text, songwriter#grammar#NotFret()), '!empty(v:val)'), 'str2nr(v:val, 10) + l:shift')
   if min(l:frets) < 0
-    return {'error': printf('the fret would go below 0 on string %s', s:name(a:lines, a:to))}
+    return {'error': printf('the fret would go below 0 on string %s', songwriter#tab#model#Name(a:lines[a:to]))}
   endif
-  return substitute(a:text, '\d\+', '\=str2nr(submatch(0), 10) + l:shift', 'g')
+  return substitute(a:text, songwriter#grammar#Note(), '\=str2nr(submatch(0), 10) + l:shift', 'g')
 endfunction
 
 " Spec 7: the buffer entry point for `s`/`S` + `k`/`j`/`K`/`J`. Lints first
 " (closing any open slot), moves, lints again with the cursor on the moved
 " note, and records itself for `.` (6.10). A refusal is echoed.
 function! songwriter#tab#strings#Change(dir, keep_pitch, column) abort
-  call songwriter#tab#LintAbandonedSlot()
-  let l:block = songwriter#tab#LintAndFollow(songwriter#tab#model#Read())
-  if empty(l:block)
+  call songwriter#tab#slots#Abandon()
+  if empty(songwriter#tab#edit#Run(function('s:move', [a:dir, a:keep_pitch, a:column])))
     return
   endif
-  let l:res = songwriter#tab#strings#Move(l:block.lines, line('.') - l:block.start,
-        \ col('.'), a:dir, a:keep_pitch, a:column)
-  if has_key(l:res, 'error')
-    echohl ErrorMsg
-    echo 'songwriter: ' . l:res.error
-    echohl None
-    return
-  endif
-  call songwriter#tab#model#Write(l:block, l:res.lines)
-  call cursor(l:block.start + l:res.lin, l:res.col)
-  call songwriter#tab#LintAndFollow(songwriter#tab#model#Read(l:block.start))
-  call songwriter#tab#operator#Record(printf('songwriter#tab#strings#Change(%d, %d, %d)',
+  call songwriter#tab#repeat#Record(printf('songwriter#tab#strings#Change(%d, %d, %d)',
         \ a:dir, a:keep_pitch, a:column), 1)
+endfunction
+
+function! s:move(dir, keep_pitch, column, ctx) abort
+  let l:res = songwriter#tab#strings#Move(a:ctx.block.lines, a:ctx.lin, a:ctx.col,
+        \ a:dir, a:keep_pitch, a:column)
+  return has_key(l:res, 'error') ? {'error': 'songwriter: ' . l:res.error} : l:res
 endfunction

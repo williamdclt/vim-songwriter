@@ -15,12 +15,18 @@ never relies on concealing or rendering.
 
 | File | Role |
 |---|---|
-| `autoload/songwriter/grammar.vim` | The format's patterns (tab line, note, note group, chord, chord highlighting). The only place regexes for the format are written. |
+| `autoload/songwriter/grammar.vim` | The format's patterns (tab line, note, note group, chord, highlighting). The only place regexes for the format are written. |
 | `autoload/songwriter/tab/model.vim` | Tab block model: parse, queries, the column-insertion primitive, and `Read`/`Write` (the buffer edges). |
+| `autoload/songwriter/tab/edit.vim` | The buffer side of a tablature edit: `Commit` a pure function's result (write, cursor, lint and follow, message or refusal), `Run` a whole edit at the cursor. |
+| `autoload/songwriter/tab/slots.vim` | Slots: where a new note's room goes (pure) and the buffer's one open slot. |
+| `autoload/songwriter/tab/state.vim` | Buffer state valid only while `b:changedtick` is unchanged (slot, digit being typed, `.`). |
 | `autoload/songwriter/tab/lint.vim` | The linter, as a pure function over a block's lines. |
-| `autoload/songwriter/tab.vim` | Tab operations and motions: buffer entry points plus pure helpers (`AppendSlot`, `PrependSlot`, `AppendBarSlot`). |
+| `autoload/songwriter/tab.vim` | Tab operations and motions: buffer entry points around the model. |
 | `autoload/songwriter/tab/columns.vim` | The column model behind tablature-mode operators, pure: text object ranges, snapping, delete, extract, paste with row matching, erase. |
-| `autoload/songwriter/tab/operator.vim` | Tablature-mode operators, text objects, `x`/`X`/`p`/`P`, visual mode, registers and `.`: buffer entry points around `columns.vim`. |
+| `autoload/songwriter/tab/operator.vim` | Tablature-mode operators, text objects, `x`/`p`/`P`, `>>`/`<<`, `gp`: buffer entry points around `columns.vim`. |
+| `autoload/songwriter/tab/visual.vim` | Tablature-mode visual mode: selections, motions, operators on a selection. |
+| `autoload/songwriter/tab/register.vim` | Blockwise tab registers and the string names of their source tab. |
+| `autoload/songwriter/tab/repeat.vim` | `.` for actions that are not operators. |
 | `autoload/songwriter/tab/strings.vim` | Moving notes and time columns to another string, keeping the fret or the pitch: pure `Move()` and its entry point. |
 | `autoload/songwriter/chord.vim` | Chord model and chord editing. |
 | `autoload/songwriter/pitch.vim` | Pitch classes: note names to semitones and back (sharp spelling). Shared by chords and tab string intervals. |
@@ -40,7 +46,9 @@ An operation is a thin buffer entry point around pure logic:
    `{}` off a tab line, which every entry point treats as a no-op);
 2. a pure function computes the result: new lines and/or a cursor column
    (`{'lines': [...], 'col': n}`, `{}` for "nothing to do");
-3. the entry point writes it back (`model#Write`, `cursor()`).
+3. the entry point writes it back (`edit#Commit` lints and follows too;
+   `edit#Apply` only writes and moves the cursor). `edit#Run` is the whole
+   sequence for an edit at the cursor.
 
 Pure functions are testable without buffer setup and composable: spec item 4
 (lint after an edit) is "edit, then lint, then follow the moved note", which is
@@ -83,10 +91,13 @@ the block.
 
 ### Block model
 
-`model#Parse(start, lines)` gives `{start, lines, strings}` with each string's
+`model#Parse(start, lines)` gives `{start, end, lines, strings}` with each string's
 notes (`{col, len, text}`) and pipe columns. Columns are 1-indexed byte columns,
 as `col()` returns (tab lines are ASCII). Queries: `NoteColumns` (block-wide,
-sorted, unique), `BarAt`, `InBar`. The single mutation primitive is
+sorted, unique), `BarAt`, `InBar`, `Advance` (through a list of stops); and
+`Cursor`, the cursor as `{block, lin, col, line}`. Pure functions address the
+cursor as `lin` (0-indexed in the block) and `col`. The width of a line's
+prefix is known only to `Name`, `Names` and `BodyOffset`. The single mutation primitive is
 `InsertColumns(lines, offset, n, char)`: pad every line with dashes up to
 `offset`, then insert `n` copies of `char` after it, on every string, so pipes
 and notes stay vertically aligned.
@@ -149,7 +160,7 @@ The pass is capped at 200 iterations (never reached in practice): pushing one
 note can collide with another on a neighbouring string.
 
 **Output**: `lint#Lint(lines)` returns `{lines, moves}`; `moves` lists every
-note's line and its column before and after, so callers can keep the cursor on
+note's line, bar, width and column before and after, so callers can keep the cursor on
 the same note. Only the string name's first character is kept, and anything
 after the final pipe is dropped.
 
@@ -209,7 +220,7 @@ Tablature-mode edits lint the block:
   does `l` adding a bar at the end of the tab (5, `AddBarSlot`).
 - **4.3**: an opened slot is remembered in `b:songwriter_slot` as
   `{line, tick}`. The next `h`/`l`/`w`/`b`/`a`/`i`/`<Esc>` lints the slot's
-  block before doing its own job (`LintAbandonedSlot`). A digit fills the slot
+  block before doing its own job (`slots#Abandon`). A digit fills the slot
   and clears it. `j`/`k` are not mapped, so the slot survives them and a later
   abandon still lints. The slot counts only while `b:changedtick` is unchanged:
   any other buffer change (undo, `x`…) drops it, since the block it pointed to
@@ -246,7 +257,7 @@ The spec items carry the behaviour; this records why, and how it is built.
   operatorfunc, so the operator, register and "exact target" flag are kept in
   `s:pending`.
 - **Spacing is rhythm.** The gap after a note belongs to it: `ac`, a snapped
-  motion range, `x` on a lone note and `X` remove it with the note, so the
+  motion range and `x` on a lone note remove it with the note, so the
   previous note keeps its length and what follows moves earlier. Rests exist
   only where the user put them with `_`; erasing never creates one, except that
   `x` on a shared column leaves the other strings' timing intact.
@@ -293,7 +304,7 @@ The spec items carry the behaviour; this records why, and how it is built.
   yank, so after `ya|` a `.` repeats the yank (native `y` is not repeatable);
   accepted rather than reimplementing redo. `x`, `p`, `P`, `>>`, `<<` are `<Cmd>`
   actions, invisible to redo: they record themselves in `b:songwriter_repeat`
-  (`operator#Record`) with the changedtick they left, and the `.` map runs
+  (`repeat#Record`) with the changedtick they left, and the `.` map runs
   them again while the buffer is unchanged since. The string moves (spec 7)
   record themselves the same way.
 - **No counts in front of a command.** Digits enter notes in tablature mode

@@ -4,9 +4,10 @@
 
 " Lint `lines` (one tab block). Returns {
 "   'lines': the linted lines,
-"   'moves': [{'line': 0-indexed line in the block, 'from': old column,
-"              'to': new column}] for every note, so callers can keep the
-"              cursor on the same note after linting.
+"   'moves': [{'line': 0-indexed line in the block, 'bar': 0-indexed bar,
+"              'len': width, 'from': old column, 'to': new column}] for every
+"              note, so callers can keep the cursor on the same note after
+"              linting.
 " }
 function! songwriter#tab#lint#Lint(lines) abort
   let l:lines = s:close_bars(a:lines)
@@ -18,14 +19,14 @@ function! songwriter#tab#lint#Lint(lines) abort
   let l:moves = []
   let l:empty = []
   for l:j in range(l:nbars)
-    " This bar's note groups ([lin, c0, text], c0 = 0-indexed offset in the
+    " This bar's note groups ({lin, c0, text}, c0 = 0-indexed offset in the
     " bar region): notes with their playing techniques (`5h7`, `x`), kept
     " verbatim. And its leftmost offset.
     let l:atoms = []
     for l:lin in range(l:nl)
       if l:j < len(l:regions[l:lin])
         for l:n in songwriter#tab#model#Atoms(l:regions[l:lin][l:j])
-          call add(l:atoms, [l:lin, l:n.col - 1, l:n.text])
+          call add(l:atoms, {'lin': l:lin, 'c0': l:n.col - 1, 'text': l:n.text})
         endfor
       endif
     endfor
@@ -39,14 +40,14 @@ function! songwriter#tab#lint#Lint(lines) abort
       continue
     endif
 
-    let l:mincol = min(map(copy(l:atoms), 'v:val[1]'))
+    let l:mincol = min(map(copy(l:atoms), 'v:val.c0'))
     let l:work = s:relax_bar(l:atoms, l:mincol)
     let l:rendered = s:render_bar(l:work, l:nl)
     for l:lin in range(l:nl)
       call add(l:lineparts[l:lin], l:rendered[l:lin])
     endfor
     for l:a in l:work
-      call add(l:moves, {'line': l:a.lin, 'bar': l:j, 'c0': l:a.c0, 'start': l:a.start})
+      call add(l:moves, {'line': l:a.lin, 'bar': l:j, 'len': l:a.len, 'c0': l:a.c0, 'start': l:a.start})
     endfor
   endfor
 
@@ -63,7 +64,7 @@ function! songwriter#tab#lint#Lint(lines) abort
 
   let l:out = []
   for l:k in range(l:nl)
-    call add(l:out, strpart(l:lines[l:k], 0, 1) . '|' . join(l:lineparts[l:k], '|') . '|')
+    call add(l:out, songwriter#tab#model#Name(l:lines[l:k]) . '|' . join(l:lineparts[l:k], '|') . '|')
   endfor
   return {'lines': l:out, 'moves': s:to_columns(l:moves, l:lines, l:lineparts)}
 endfunction
@@ -75,7 +76,7 @@ endfunction
 " caller's lines).
 function! s:close_bars(lines) abort
   return map(copy(a:lines), {_, l ->
-        \ songwriter#grammar#IsClosedTabLine(l) ? l : substitute(l, '\s*$', '|', '')})
+        \ songwriter#grammar#IsClosedTabLine(l) ? l : substitute(l, songwriter#grammar#TrailingSpace(), '|', '')})
 endfunction
 
 " Split each line on pipes into its bar regions, dropping the string-name
@@ -83,7 +84,7 @@ endfunction
 function! s:bar_regions(lines) abort
   let l:regions = []
   for l:ln in a:lines
-    let l:parts = split(l:ln, '[|]', 1)
+    let l:parts = split(l:ln, songwriter#grammar#Pipe(), 1)
     call remove(l:parts, 0)
     call remove(l:parts, len(l:parts) - 1)
     call add(l:regions, l:parts)
@@ -100,11 +101,11 @@ function! s:relax_bar(atoms, mincol) abort
   let l:work = []
   for l:a in a:atoms
     call add(l:work, {
-          \ 'lin': l:a[0],
-          \ 'c0': l:a[1],
-          \ 'num': l:a[2],
-          \ 'len': len(l:a[2]),
-          \ 'start': l:a[1] - a:mincol + 2})
+          \ 'lin': l:a.lin,
+          \ 'c0': l:a.c0,
+          \ 'num': l:a.text,
+          \ 'len': len(l:a.text),
+          \ 'start': l:a.c0 - a:mincol + 2})
   endfor
 
   let l:iter = 0
@@ -167,6 +168,8 @@ function! s:to_columns(moves, lines, lineparts) abort
     endfor
     call add(l:res, {
           \ 'line': l:m.line,
+          \ 'bar': l:m.bar,
+          \ 'len': l:m.len,
           \ 'from': l:old_pipe + l:m.c0 + 1,
           \ 'to': l:new_region + l:m.start + 1})
   endfor
@@ -203,34 +206,29 @@ function! songwriter#tab#lint#FollowColumn(lines, result, lin, col) abort
     return l:new_pipes[-1]
   endif
 
-  " This bar's notes on every string: [from, to, len].
-  let l:notes = []
-  for l:m in a:result.moves
-    let l:p = songwriter#tab#model#Pipes(l:lines[l:m.line])
-    if l:bar + 1 < len(l:p) && l:m.from > l:p[l:bar] && l:m.from < l:p[l:bar + 1]
-      let l:len = len(matchstr(l:lines[l:m.line], '^' . songwriter#grammar#TabAtom(), l:m.from - 1))
-      if l:m.line == a:lin && a:col >= l:m.from && a:col < l:m.from + l:len
-        return l:m.to + a:col - l:m.from
-      endif
-      call add(l:notes, [l:m.from, l:m.to, l:len])
+  " This bar's notes on every string.
+  let l:notes = filter(copy(a:result.moves), 'v:val.bar == l:bar')
+  for l:m in l:notes
+    if l:m.line == a:lin && a:col >= l:m.from && a:col < l:m.from + l:m.len
+      return l:m.to + a:col - l:m.from
     endif
   endfor
 
   let l:lo = l:new_pipes[l:bar] + 1
   let l:hi = l:new_pipes[l:bar + 1] - 1
-  let l:prev = filter(copy(l:notes), 'v:val[0] <= a:col')
-  let l:next = filter(copy(l:notes), 'v:val[0] > a:col')
+  let l:prev = filter(copy(l:notes), 'v:val.from <= a:col')
+  let l:next = filter(copy(l:notes), 'v:val.from > a:col')
   if !empty(l:next)
-    let l:hi = min([l:hi, min(map(copy(l:next), 'v:val[1]')) - 1])
+    let l:hi = min([l:hi, min(map(copy(l:next), 'v:val.to')) - 1])
   endif
   if !empty(l:prev)
-    let l:from = max(map(copy(l:prev), 'v:val[0]'))
-    let l:to = max(map(filter(copy(l:prev), 'v:val[0] == l:from'), 'v:val[1]'))
+    let l:from = max(map(copy(l:prev), 'v:val.from'))
+    let l:to = max(map(filter(copy(l:prev), 'v:val.from == l:from'), 'v:val.to'))
     let l:lo = max([l:lo, l:to])
     let l:c = l:to + a:col - l:from
   elseif !empty(l:next)
-    let l:first = sort(copy(l:next), {a, b -> a[0] - b[0]})[0]
-    let l:c = l:first[1] - (l:first[0] - a:col)
+    let l:first = sort(copy(l:next), {a, b -> a.from - b.from})[0]
+    let l:c = l:first.to - (l:first.from - a:col)
   else
     let l:c = l:lo + a:col - l:old_pipes[l:bar] - 1
   endif

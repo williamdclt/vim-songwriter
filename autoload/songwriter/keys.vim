@@ -25,7 +25,7 @@ let s:tabmode.n = {
       \ 'h': 'call songwriter#tab#MoveColumn(-1)',
       \ 'a': 'call songwriter#tab#AddNote(1)',
       \ 'i': 'call songwriter#tab#AddNote(-1)',
-      \ '<Esc>': 'call songwriter#tab#LintAbandonedSlot()',
+      \ '<Esc>': 'call songwriter#tab#slots#Abandon()',
       \ 'd': '=songwriter#tab#operator#Start("d")',
       \ 'y': '=songwriter#tab#operator#Start("y")',
       \ 'c': '=songwriter#tab#operator#Start("c")',
@@ -38,10 +38,10 @@ let s:tabmode.n = {
       \ 'x': 'call songwriter#tab#operator#Erase(v:count1, v:register)',
       \ 'p': 'call songwriter#tab#operator#Put(0, v:count1, v:register)',
       \ 'P': 'call songwriter#tab#operator#Put(1, v:count1, v:register)',
-      \ '.': '=songwriter#tab#operator#Repeat()',
+      \ '.': '=songwriter#tab#repeat#Repeat()',
       \ 'o': 'call songwriter#tab#NewTab(1)',
       \ 'O': 'call songwriter#tab#NewTab(0)',
-      \ 'V': 'call songwriter#tab#operator#VisualColumn()',
+      \ 'V': 'call songwriter#tab#visual#Column()',
       \ }
 " Spec 7: `s` (keep the fret) / `S` (keep the pitch), then `k`/`j` (the note
 " under the cursor) or `K`/`J` (its whole time column), up/down a string.
@@ -76,24 +76,24 @@ let s:tabmode.o = {
       \ }
 " Spec 6.9.
 let s:tabmode.x = {
-      \ 'w': 'call songwriter#tab#operator#VisualMotion("w")',
-      \ 'b': 'call songwriter#tab#operator#VisualMotion("b")',
-      \ 'l': 'call songwriter#tab#operator#VisualMotion("l")',
-      \ 'h': 'call songwriter#tab#operator#VisualMotion("h")',
-      \ 'ic': 'call songwriter#tab#operator#VisualObject("c", 0)',
-      \ 'ac': 'call songwriter#tab#operator#VisualObject("c", 1)',
-      \ 'i|': 'call songwriter#tab#operator#VisualObject("|", 0)',
-      \ 'a|': 'call songwriter#tab#operator#VisualObject("|", 1)',
-      \ 'in': 'call songwriter#tab#operator#VisualNoteObject(0)',
-      \ 'an': 'call songwriter#tab#operator#VisualNoteObject(1)',
-      \ 'd': 'call songwriter#tab#operator#VisualOp("d", v:register)',
-      \ 'x': 'call songwriter#tab#operator#VisualOp("d", v:register)',
-      \ 'y': 'call songwriter#tab#operator#VisualOp("y", v:register)',
-      \ 'c': 'call songwriter#tab#operator#VisualOp("c", v:register)',
-      \ 'p': 'call songwriter#tab#operator#VisualPut(v:register)',
-      \ 'P': 'call songwriter#tab#operator#VisualPut(v:register)',
-      \ 'j': '=songwriter#tab#operator#VisualVertical("j")',
-      \ 'k': '=songwriter#tab#operator#VisualVertical("k")',
+      \ 'w': 'call songwriter#tab#visual#Motion("w")',
+      \ 'b': 'call songwriter#tab#visual#Motion("b")',
+      \ 'l': 'call songwriter#tab#visual#Motion("l")',
+      \ 'h': 'call songwriter#tab#visual#Motion("h")',
+      \ 'ic': 'call songwriter#tab#visual#Object("c", 0)',
+      \ 'ac': 'call songwriter#tab#visual#Object("c", 1)',
+      \ 'i|': 'call songwriter#tab#visual#Object("|", 0)',
+      \ 'a|': 'call songwriter#tab#visual#Object("|", 1)',
+      \ 'in': 'call songwriter#tab#visual#NoteObject(0)',
+      \ 'an': 'call songwriter#tab#visual#NoteObject(1)',
+      \ 'd': 'call songwriter#tab#visual#Op("d", v:register)',
+      \ 'x': 'call songwriter#tab#visual#Op("d", v:register)',
+      \ 'y': 'call songwriter#tab#visual#Op("y", v:register)',
+      \ 'c': 'call songwriter#tab#visual#Op("c", v:register)',
+      \ 'p': 'call songwriter#tab#visual#Put(v:register)',
+      \ 'P': 'call songwriter#tab#visual#Put(v:register)',
+      \ 'j': '=songwriter#tab#visual#Vertical("j")',
+      \ 'k': '=songwriter#tab#visual#Vertical("k")',
       \ }
 
 " Spec [Tablature][[Motions]].
@@ -154,5 +154,5 @@ endfunction
 " Spec [Tablature][[Motions]] 3-4: `L`/`H` jump to the next/previous pipe.
 function! songwriter#keys#JumpBarLine(dir) abort
   let v:searchforward = a:dir > 0
-  call search('|', a:dir > 0 ? 'W' : 'bW')
+  call search(songwriter#grammar#Pipe(), a:dir > 0 ? 'W' : 'bW')
 endfunction
