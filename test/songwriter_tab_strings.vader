@@ -1,0 +1,158 @@
+" Spec [Tablature][[Editing]] 7: moving notes to another string, keeping their
+" time column. Pure cases call songwriter#tab#strings#Move(lines, lin, col,
+" dir, keep_pitch, column) (block lines 0-indexed, columns 1-indexed, dir -1
+" up / +1 down); key cases type the keys in tablature mode.
+
+Before:
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_repeat
+  let b:songwriter_tabmode = 1
+
+" --- 7.1, 7.2 one note, keeping the fret ---
+
+Execute (7.2 a note moves up a string, unchanged):
+  let r = songwriter#tab#strings#Move(['e|-----|', 'B|--5--|'], 1, 5, -1, 0, 0)
+  AssertEqual ['e|--5--|', 'B|-----|'], r.lines
+  AssertEqual [0, 5], [r.lin, r.col]
+
+Execute (7.2 a two-digit note moves down; the cursor keeps its digit):
+  let r = songwriter#tab#strings#Move(['e|--12--|', 'B|------|'], 0, 6, 1, 0, 0)
+  AssertEqual ['e|------|', 'B|--12--|'], r.lines
+  AssertEqual [1, 6], [r.lin, r.col]
+
+Execute (7.2 a note keeps its playing technique):
+  let r = songwriter#tab#strings#Move(['G|--5h7--|', 'D|-------|'], 0, 6, 1, 0, 0)
+  AssertEqual ['G|-------|', 'D|--5h7--|'], r.lines
+
+Execute (7.2 other notes of the column stay):
+  let r = songwriter#tab#strings#Move(['e|-----|', 'B|--5--|', 'G|--5--|'], 2, 5, -1, 0, 0)
+  Assert has_key(r, 'error')
+  let r = songwriter#tab#strings#Move(['e|-----|', 'B|--5--|', 'G|--4--|'], 1, 5, -1, 0, 0)
+  AssertEqual ['e|--5--|', 'B|-----|', 'G|--4--|'], r.lines
+
+" --- 7.1 the whole time column ---
+
+Execute (7.1 a column moves down, every note by one string):
+  let lines = ['e|--------|', 'B|--5--3--|', 'G|--5-----|', 'D|--------|']
+  let r = songwriter#tab#strings#Move(lines, 1, 5, 1, 0, 1)
+  AssertEqual ['e|--------|', 'B|-----3--|', 'G|--5-----|', 'D|--5-----|'], r.lines
+  AssertEqual [2, 5], [r.lin, r.col]
+
+Execute (7.1 a column moves from a dash on another string of it):
+  let lines = ['e|--------|', 'B|--5--3--|', 'G|--5-----|', 'D|--------|']
+  let r = songwriter#tab#strings#Move(lines, 3, 5, -1, 0, 1)
+  AssertEqual ['e|--5-----|', 'B|--5--3--|', 'G|--------|', 'D|--------|'], r.lines
+  AssertEqual [2, 5], [r.lin, r.col]
+
+Execute (7.1 a column takes only the notes starting on it):
+  let lines = ['e|--3--5--|', 'B|-----5--|', 'G|--------|']
+  let r = songwriter#tab#strings#Move(lines, 0, 5, 1, 0, 1)
+  AssertEqual ['e|-----5--|', 'B|--3--5--|', 'G|--------|'], r.lines
+
+" --- 7.4 refusals ---
+
+Execute (7.4 no note under the cursor):
+  let r = songwriter#tab#strings#Move(['e|-----|', 'B|--5--|'], 0, 5, 1, 0, 0)
+  AssertEqual 'no note under the cursor', r.error
+
+Execute (7.4 no time column under the cursor):
+  let r = songwriter#tab#strings#Move(['e|--3--|', 'B|-----|'], 1, 4, -1, 0, 1)
+  AssertEqual 'no time column under the cursor', r.error
+  let r = songwriter#tab#strings#Move(['e|--3--|', 'B|-----|'], 1, 2, -1, 0, 1)
+  AssertEqual 'no time column under the cursor', r.error
+
+Execute (7.4 no string in that direction):
+  let r = songwriter#tab#strings#Move(['e|--5--|', 'B|-----|'], 0, 5, -1, 0, 0)
+  AssertEqual 'no string above e', r.error
+  let r = songwriter#tab#strings#Move(['e|-----|', 'B|--5--|'], 1, 5, 1, 0, 0)
+  AssertEqual 'no string below B', r.error
+  let r = songwriter#tab#strings#Move(['e|--5--|', 'B|--5--|'], 1, 5, -1, 0, 1)
+  AssertEqual 'no string above e', r.error
+
+Execute (7.4 the destination string already has a note there):
+  let r = songwriter#tab#strings#Move(['e|--3--|', 'B|--5--|'], 1, 5, -1, 0, 0)
+  AssertEqual 'string e already has a note there', r.error
+  let r = songwriter#tab#strings#Move(['e|--12--|', 'B|---5--|'], 1, 6, -1, 0, 0)
+  AssertEqual 'string e already has a note there', r.error
+
+" --- 7.5 making room ---
+
+Execute (7.5 a wider note touching the next note: dashes on every string):
+  let r = songwriter#tab#strings#Move(['e|--12-----|', 'B|----3-----|'], 0, 5, 1, 0, 0)
+  AssertEqual ['e|----------|', 'B|--12-3-----|'], r.lines
+  AssertEqual [1, 5], [r.lin, r.col]
+
+Execute (7.5 a note right before the destination: a dash before the column):
+  let r = songwriter#tab#strings#Move(['e|--3---|', 'B|---5--|'], 1, 6, -1, 0, 0)
+  AssertEqual ['e|--3-5--|', 'B|-------|'], r.lines
+  AssertEqual [0, 7], [r.lin, r.col]
+
+" --- keys (7.1, 7.5, 7.6) ---
+
+Given songwriter (sk moves the note up and the cursor with it):
+  e|--------|
+  B|--5--3--|
+
+Execute (sk moves the note up and the cursor with it):
+  call cursor(2, 5)
+  normal sk
+Then:
+  AssertEqual [1, 5], [line('.'), col('.')]
+Expect songwriter:
+  e|--5-----|
+  B|-----3--|
+
+Given songwriter (sJ moves the whole column down, then the tab is linted):
+  e|--7--------|
+  B|--8--------|
+  G|--9--------|
+  D|-----------|
+
+Execute (sJ moves the whole column down, then the tab is linted):
+  call cursor(4, 5)
+  normal sJ
+Then:
+  AssertEqual [4, 5], [line('.'), col('.')]
+Expect songwriter:
+  e|-----|
+  B|--7--|
+  G|--8--|
+  D|--9--|
+
+Given songwriter (a refused move leaves the tab unchanged):
+  e|--3--|
+  B|--5--|
+
+Execute (a refused move leaves the tab unchanged):
+  call cursor(2, 5)
+  normal sk
+Expect songwriter:
+  e|--3--|
+  B|--5--|
+
+Given songwriter (a move and its lint are one undo step):
+  e|---------|
+  B|--12--3--|
+
+Execute (a move and its lint are one undo step):
+  call cursor(2, 5)
+  normal sk
+  normal u
+Expect songwriter:
+  e|---------|
+  B|--12--3--|
+
+Given songwriter (. repeats the move):
+  e|-----|
+  B|-----|
+  G|--5--|
+
+Execute (. repeats the move):
+  call cursor(3, 5)
+  normal sk
+  normal .
+Then:
+  AssertEqual [1, 5], [line('.'), col('.')]
+Expect songwriter:
+  e|--5--|
+  B|-----|
+  G|-----|

@@ -296,7 +296,7 @@ function! songwriter#tab#operator#Erase(count, reg) abort
   if l:lone
     call s:to_next_column()
   endif
-  call s:record("songwriter#tab#operator#Erase(%d, '" . a:reg . "')", a:count)
+  call songwriter#tab#operator#Record("songwriter#tab#operator#Erase(%d, '" . a:reg . "')", a:count)
 endfunction
 
 function! s:on_note(line, col) abort
@@ -317,7 +317,7 @@ function! songwriter#tab#operator#Remove(count, reg) abort
   endif
   call cursor(line('.'), l:range[0])
   call s:columnwise('d', a:reg, l:block, l:range[0], l:range[1])
-  call s:record("songwriter#tab#operator#Remove(%d, '" . a:reg . "')", a:count)
+  call songwriter#tab#operator#Record("songwriter#tab#operator#Remove(%d, '" . a:reg . "')", a:count)
 endfunction
 
 " Spec 6.5 / 6.3.2: `p` (before 0) / `P` (before 1) from register `reg`.
@@ -347,7 +347,7 @@ function! songwriter#tab#operator#Put(before, count, reg) abort
     call s:error('songwriter: cannot paste a character-wise register into a tab')
     return
   endif
-  call s:record(printf("songwriter#tab#operator#Put(%d, %%d, '%s')", a:before, a:reg), a:count)
+  call songwriter#tab#operator#Record(printf("songwriter#tab#operator#Put(%d, %%d, '%s')", a:before, a:reg), a:count)
 endfunction
 
 " A line-wise register goes after the tab (before it for `P`), never between
@@ -384,8 +384,8 @@ function! s:error(msg) abort
 endfunction
 
 " Remember an action that is not an operator for `.` (see Repeat): `fmt` is a
-" call with a %d for the count.
-function! s:record(fmt, count) abort
+" call, with a %d for the count when the action takes one.
+function! songwriter#tab#operator#Record(fmt, count) abort
   let b:songwriter_repeat = {'fmt': a:fmt, 'count': a:count, 'tick': b:changedtick}
 endfunction
 
@@ -538,7 +538,8 @@ endfunction
 function! songwriter#tab#operator#Repeat() abort
   let l:r = get(b:, 'songwriter_repeat', {})
   if !empty(l:r) && l:r.tick == b:changedtick
-    return printf("\<Cmd>call %s\<CR>", call('printf', [l:r.fmt, v:count ? v:count : l:r.count]))
+    let l:call = l:r.fmt =~# '%d' ? printf(l:r.fmt, v:count ? v:count : l:r.count) : l:r.fmt
+    return printf("\<Cmd>call %s\<CR>", l:call)
   endif
   return '.'
 endfunction
