@@ -106,7 +106,7 @@ function! s:make_room(lines, to, c, len) abort
     let l:c += 1
     let l:t = l:lines[a:to]
   endif
-  let l:free = len(matchstr(l:t, '^-*', l:c - 1))
+  let l:free = len(matchstr(l:t, songwriter#grammar#DashRun(), l:c - 1))
   let l:next = l:t[l:c - 1 + l:free : l:c - 1 + l:free]
   if l:next ==# ''
     let l:lines[a:to] = l:t . repeat('-', l:c - 1 + a:len - len(l:t))
@@ -149,7 +149,7 @@ endfunction
 " strings less than an octave apart: the interval is read from pitch classes.
 " A mark without a fret (`x`) is returned unchanged.
 function! s:repitch(lines, from, to, text) abort
-  if a:text !~# '\d'
+  if a:text !~# songwriter#grammar#Note()
     return a:text
   endif
   for l:lin in [a:from, a:to]
@@ -165,11 +165,11 @@ function! s:repitch(lines, from, to, text) abort
           \ songwriter#tab#model#Name(a:lines[l:hi]), songwriter#tab#model#Name(a:lines[l:lo]))}
   endif
   let l:shift = a:to < a:from ? -l:interval : l:interval
-  let l:frets = map(filter(split(a:text, '\D\+'), '!empty(v:val)'), 'str2nr(v:val, 10) + l:shift')
+  let l:frets = map(filter(split(a:text, songwriter#grammar#NotFret()), '!empty(v:val)'), 'str2nr(v:val, 10) + l:shift')
   if min(l:frets) < 0
     return {'error': printf('the fret would go below 0 on string %s', songwriter#tab#model#Name(a:lines[a:to]))}
   endif
-  return substitute(a:text, '\d\+', '\=str2nr(submatch(0), 10) + l:shift', 'g')
+  return substitute(a:text, songwriter#grammar#Note(), '\=str2nr(submatch(0), 10) + l:shift', 'g')
 endfunction
 
 " Spec 7: the buffer entry point for `s`/`S` + `k`/`j`/`K`/`J`. Lints first

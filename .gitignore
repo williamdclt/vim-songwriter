@@ -1,3 +1,5 @@
 .opencode/node_modules/
 *.swp
 .worktrees/
+.sw?
+.swpx

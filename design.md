@@ -15,7 +15,7 @@ never relies on concealing or rendering.
 
 | File | Role |
 |---|---|
-| `autoload/songwriter/grammar.vim` | The format's patterns (tab line, note, note group, chord, chord highlighting). The only place regexes for the format are written. |
+| `autoload/songwriter/grammar.vim` | The format's patterns (tab line, note, note group, chord, highlighting). The only place regexes for the format are written. |
 | `autoload/songwriter/tab/model.vim` | Tab block model: parse, queries, the column-insertion primitive, and `Read`/`Write` (the buffer edges). |
 | `autoload/songwriter/tab/edit.vim` | The buffer side of a tablature edit: `Commit` a pure function's result (write, cursor, lint and follow, message or refusal), `Run` a whole edit at the cursor. |
 | `autoload/songwriter/tab/slots.vim` | Slots: where a new note's room goes (pure) and the buffer's one open slot. |
@@ -257,7 +257,7 @@ The spec items carry the behaviour; this records why, and how it is built.
   operatorfunc, so the operator, register and "exact target" flag are kept in
   `s:pending`.
 - **Spacing is rhythm.** The gap after a note belongs to it: `ac`, a snapped
-  motion range, `x` on a lone note and `X` remove it with the note, so the
+  motion range and `x` on a lone note remove it with the note, so the
   previous note keeps its length and what follows moves earlier. Rests exist
   only where the user put them with `_`; erasing never creates one, except that
   `x` on a shared column leaves the other strings' timing intact.

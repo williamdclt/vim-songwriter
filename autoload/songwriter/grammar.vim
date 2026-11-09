@@ -18,6 +18,20 @@ let s:note_char = '[0-9]'
 " notes (`5h7`, `3/5`, `12b14`) and stand-alone marks (`x`) as one unit.
 let s:tab_atom = '[^-|[:space:]]\+'
 
+" Pieces of a tab line.
+let s:pipe = '[|]'
+let s:not_pipe = '[^|]'
+let s:leading_pipe = '^|'
+let s:final_pipe = '|$'
+let s:dash = '-'
+let s:dash_run = '^-*'
+let s:only_dashes = '^-\+$'
+let s:trailing_space = '\s*$'
+" What separates the note groups of a register row.
+let s:note_separators = '[-|]\+'
+" What separates the frets of a note group.
+let s:not_fret = '\D\+'
+
 " Where tab-line `w`/`b` stop outside tablature mode (notes, names, pipes).
 " Kept in map-ready form: the `|` is written `\\|` so it survives the mapping.
 let s:tab_word_stop = '[0-9a-zA-Z\\|]'
@@ -31,6 +45,9 @@ let s:chord_token_char = '[A-Za-z0-9#/+]'
 let s:chord = '\C^\(' . s:chord_root . '\)'
       \ . '\(\%(maj\|min\|m\|dim\|aug\|sus\|add\|M\|[0-9]\|[#b+]\)*\)'
       \ . '\%(/\(' . s:chord_root . '\)\)\=$'
+
+" A leading minor quality (`m`, `min`, but not `maj`).
+let s:minor_prefix = '^\%(min\|m\%(aj\)\@!\)'
 
 " Chords for highlighting, most specific first.
 let s:chord_syntax = [
@@ -46,6 +63,14 @@ let s:chord_syntax = [
 " s:tab_line (leading whitespace allowed, string name limited to A-G); the two
 " are kept as-is so highlighting and editing behaviour stay unchanged.
 let s:tab_line_syntax = '^\s*[A-Ga-g]|'
+" The string name on a highlighted tab line.
+let s:tab_prefix_syntax = '^\s*[A-Ga-g]\ze|'
+
+" Section markers for highlighting: subsections (`[[Rendering]]`) first.
+let s:section_syntax = [
+      \ '\[\[\s*[A-Za-z][A-Za-z0-9 -]*\s*\]\]',
+      \ '\[\s*[A-Za-z][A-Za-z0-9 -]*\s*\]',
+      \ ]
 
 function! songwriter#grammar#TabLine() abort
   return s:tab_line
@@ -58,6 +83,42 @@ function! songwriter#grammar#IsClosedTabLine(line) abort
 endfunction
 function! songwriter#grammar#Note() abort
   return s:note
+endfunction
+function! songwriter#grammar#Pipe() abort
+  return s:pipe
+endfunction
+function! songwriter#grammar#NotPipe() abort
+  return s:not_pipe
+endfunction
+function! songwriter#grammar#LeadingPipe() abort
+  return s:leading_pipe
+endfunction
+function! songwriter#grammar#FinalPipe() abort
+  return s:final_pipe
+endfunction
+function! songwriter#grammar#Dash() abort
+  return s:dash
+endfunction
+function! songwriter#grammar#DashRun() abort
+  return s:dash_run
+endfunction
+function! songwriter#grammar#OnlyDashes() abort
+  return s:only_dashes
+endfunction
+function! songwriter#grammar#TrailingSpace() abort
+  return s:trailing_space
+endfunction
+function! songwriter#grammar#NoteSeparators() abort
+  return s:note_separators
+endfunction
+function! songwriter#grammar#NotFret() abort
+  return s:not_fret
+endfunction
+function! songwriter#grammar#MinorPrefix() abort
+  return s:minor_prefix
+endfunction
+function! songwriter#grammar#TabPrefixSyntax() abort
+  return s:tab_prefix_syntax
 endfunction
 function! songwriter#grammar#IsNoteChar(char) abort
   return a:char =~# s:note_char
@@ -78,6 +139,9 @@ function! songwriter#grammar#ChordTokenChar() abort
 endfunction
 function! songwriter#grammar#ChordSyntax() abort
   return copy(s:chord_syntax)
+endfunction
+function! songwriter#grammar#SectionSyntax() abort
+  return copy(s:section_syntax)
 endfunction
 function! songwriter#grammar#TabLineSyntax() abort
   return s:tab_line_syntax

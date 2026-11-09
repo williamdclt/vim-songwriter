@@ -224,7 +224,7 @@ function! songwriter#tab#columns#MatchRows(names, rows, regnames) abort
   if l:ns == l:nr
     return {'rows': l:rows, 'msg': ''}
   endif
-  let l:filler = substitute(l:rows[0], '[^|]', '-', 'g')
+  let l:filler = substitute(l:rows[0], songwriter#grammar#NotPipe(), '-', 'g')
   let l:out = []
   for l:i in range(l:ns)
     let l:j = l:i - (l:ns - l:nr)
@@ -244,7 +244,7 @@ function! songwriter#tab#columns#MatchRows(names, rows, regnames) abort
   endif
   let l:dropped = 0
   for l:j in range(max([l:nr - l:ns, 0]))
-    let l:dropped += len(filter(split(l:rows[l:j], '[-|]\+'), '!empty(v:val)'))
+    let l:dropped += len(filter(split(l:rows[l:j], songwriter#grammar#NoteSeparators()), '!empty(v:val)'))
   endfor
   if l:dropped > 0
     call add(l:msgs, l:dropped . ' notes dropped')
@@ -268,8 +268,8 @@ function! songwriter#tab#columns#Paste(lines, lin, col, rows, regnames, before, 
   let l:line = a:lines[a:lin]
   let l:col = max([a:col, songwriter#tab#model#BodyOffset()])
   if !empty(filter(copy(l:rows), "stridx(v:val, '|') >= 0"))
-    call map(l:rows, "substitute(v:val, '^|', '', '')")
-    call map(l:rows, "v:val =~# '|$' ? v:val : v:val . '|'")
+    call map(l:rows, "substitute(v:val, songwriter#grammar#LeadingPipe(), '', '')")
+    call map(l:rows, "v:val =~# songwriter#grammar#FinalPipe() ? v:val : v:val . '|'")
     let l:pipes = songwriter#tab#model#Pipes(l:line)
     if index(l:pipes, l:col) >= 0
       let l:offset = l:col
@@ -427,7 +427,7 @@ function! songwriter#tab#columns#Overlay(lines, lin, col, rows, regnames) abort
     for l:a in l:atoms[l:i]
       let l:s = l:c + l:a.col - l:qmin
       let l:line = s:pad(l:out[l:i], l:s + l:a.len)
-      if strpart(l:line, l:s - 1, l:a.len) !~# '^-\+$'
+      if strpart(l:line, l:s - 1, l:a.len) !~# songwriter#grammar#OnlyDashes()
         return {'error': printf('songwriter: gp would replace a note on string %s', songwriter#tab#model#Name(a:lines[l:i]))}
       endif
       let l:out[l:i] = strpart(l:line, 0, l:s - 1) . l:a.text . strpart(l:line, l:s - 1 + l:a.len)

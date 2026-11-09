@@ -76,7 +76,7 @@ endfunction
 " caller's lines).
 function! s:close_bars(lines) abort
   return map(copy(a:lines), {_, l ->
-        \ songwriter#grammar#IsClosedTabLine(l) ? l : substitute(l, '\s*$', '|', '')})
+        \ songwriter#grammar#IsClosedTabLine(l) ? l : substitute(l, songwriter#grammar#TrailingSpace(), '|', '')})
 endfunction
 
 " Split each line on pipes into its bar regions, dropping the string-name
@@ -84,7 +84,7 @@ endfunction
 function! s:bar_regions(lines) abort
   let l:regions = []
   for l:ln in a:lines
-    let l:parts = split(l:ln, '[|]', 1)
+    let l:parts = split(l:ln, songwriter#grammar#Pipe(), 1)
     call remove(l:parts, 0)
     call remove(l:parts, len(l:parts) - 1)
     call add(l:regions, l:parts)

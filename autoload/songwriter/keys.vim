@@ -154,5 +154,5 @@ endfunction
 " Spec [Tablature][[Motions]] 3-4: `L`/`H` jump to the next/previous pipe.
 function! songwriter#keys#JumpBarLine(dir) abort
   let v:searchforward = a:dir > 0
-  call search('|', a:dir > 0 ? 'W' : 'bW')
+  call search(songwriter#grammar#Pipe(), a:dir > 0 ? 'W' : 'bW')
 endfunction
