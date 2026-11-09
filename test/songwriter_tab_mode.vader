@@ -8,67 +8,55 @@
 " tested at the function level, because on a non-tab line the keys fall back to
 " their default behaviour (so the mapping cannot show the no-op directly).
 
+Before:
+  unlet! b:songwriter_tabmode
+
 " --- 3.1 w/b: note on the current line, skipping dashes and pipes ---
 
-" Test: w in tablature mode skips dashes to the next note
+Given songwriter (w in tablature mode skips dashes to the next note):
+  e|--4--|--1--|
 
-Execute:
-  filetype plugin on
-  enew!
-  call setline(1, 'e|--4--|--1--|')
-  setfiletype songwriter
+Execute (w in tablature mode skips dashes to the next note):
   let b:songwriter_tabmode = 1
   call cursor(1, 3)
   normal w
 Then:
   AssertEqual 5, col('.')
 
-" Test: w in tablature mode skips the bar pipe and dashes to the next note
+Given songwriter (w in tablature mode skips the bar pipe and dashes to the next note):
+  e|--4--|--1--|
 
-Execute:
-  filetype plugin on
-  enew!
-  call setline(1, 'e|--4--|--1--|')
-  setfiletype songwriter
+Execute (w in tablature mode skips the bar pipe and dashes to the next note):
   let b:songwriter_tabmode = 1
   call cursor(1, 5)
   normal w
 Then:
   AssertEqual 11, col('.')
 
-" Test: w in tablature mode lands on the first digit of a two-digit fret
+Given songwriter (w in tablature mode lands on the first digit of a two-digit fret):
+  e|---12---|
 
-Execute:
-  filetype plugin on
-  enew!
-  call setline(1, 'e|---12---|')
-  setfiletype songwriter
+Execute (w in tablature mode lands on the first digit of a two-digit fret):
   let b:songwriter_tabmode = 1
   call cursor(1, 3)
   normal w
 Then:
   AssertEqual 6, col('.')
 
-" Test: b in tablature mode skips dashes to the previous note
+Given songwriter (b in tablature mode skips dashes to the previous note):
+  e|--4--|--1--|
 
-Execute:
-  filetype plugin on
-  enew!
-  call setline(1, 'e|--4--|--1--|')
-  setfiletype songwriter
+Execute (b in tablature mode skips dashes to the previous note):
   let b:songwriter_tabmode = 1
   call cursor(1, 6)
   normal b
 Then:
   AssertEqual 5, col('.')
 
-" Test: b in tablature mode lands on the first digit of a two-digit fret
+Given songwriter (b in tablature mode lands on the first digit of a two-digit fret):
+  e|--4---12--|
 
-Execute:
-  filetype plugin on
-  enew!
-  call setline(1, 'e|--4---12--|')
-  setfiletype songwriter
+Execute (b in tablature mode lands on the first digit of a two-digit fret):
   let b:songwriter_tabmode = 1
   call cursor(1, 10)
   normal b
@@ -77,14 +65,11 @@ Then:
 
 " --- 3.2 l/h: the next/prev column where ANY line has a note ---
 
-" Test: l in tablature mode skips to a note column that only exists on another string
+Given songwriter (l in tablature mode skips to a note column that only exists on another string):
+  e|----4----|
+  B|---2-----|
 
-Execute:
-  filetype plugin on
-  enew!
-  call setline(1, 'e|----4----|')
-  call append(1, 'B|---2-----|')
-  setfiletype songwriter
+Execute (l in tablature mode skips to a note column that only exists on another string):
   let b:songwriter_tabmode = 1
   call cursor(1, 3)
   normal l
@@ -92,28 +77,22 @@ Then:
   AssertEqual 1, line('.')
   AssertEqual 6, col('.')
 
-" Test: l in tablature mode skips to the next note column on another string
+Given songwriter (l in tablature mode skips to the next note column on another string):
+  e|----4----|
+  B|---2-----|
 
-Execute:
-  filetype plugin on
-  enew!
-  call setline(1, 'e|----4----|')
-  call append(1, 'B|---2-----|')
-  setfiletype songwriter
+Execute (l in tablature mode skips to the next note column on another string):
   let b:songwriter_tabmode = 1
   call cursor(1, 6)
   normal l
 Then:
   AssertEqual 7, col('.')
 
-" Test: h in tablature mode moves to the previous note column on another string
+Given songwriter (h in tablature mode moves to the previous note column on another string):
+  e|----4----|
+  B|---2-----|
 
-Execute:
-  filetype plugin on
-  enew!
-  call setline(1, 'e|----4----|')
-  call append(1, 'B|---2-----|')
-  setfiletype songwriter
+Execute (h in tablature mode moves to the previous note column on another string):
   let b:songwriter_tabmode = 1
   call cursor(1, 8)
   normal h
@@ -122,42 +101,30 @@ Then:
 
 " --- Mode toggle and no-op guards ---
 
-" Test: <leader>t toggle turns tablature mode on and off
+Given songwriter (<leader>t toggle turns tablature mode on and off):
+  e|----|
 
-Execute:
-  filetype plugin on
-  enew!
-  call setline(1, 'e|----|')
-  setfiletype songwriter
-Then:
-  AssertEqual 0, get(b:, 'songwriter_tabmode', 0)
-Execute:
+Execute (<leader>t toggle turns tablature mode on and off):
+  AssertEqual 0, songwriter#keys#InTabMode()
   call songwriter#keys#ToggleTabMode()
-Then:
   AssertEqual 1, b:songwriter_tabmode
-Execute:
   call songwriter#keys#ToggleTabMode()
-Then:
   AssertEqual 0, b:songwriter_tabmode
 
-" Test: w stays put on a prose line even in tablature mode (function no-op)
+Given songwriter (w stays put on a prose line even in tablature mode (function no-op)):
+  I walk a
 
-Execute:
-  enew!
-  call setline(1, 'I walk a')
-  setfiletype songwriter
+Execute (w stays put on a prose line even in tablature mode (function no-op)):
   let b:songwriter_tabmode = 1
   call cursor(1, 1)
   call songwriter#tab#MoveNote(1)
 Then:
   AssertEqual 1, col('.')
 
-" Test: l stays put on a prose line even in tablature mode (function no-op)
+Given songwriter (l stays put on a prose line even in tablature mode (function no-op)):
+  I walk a
 
-Execute:
-  enew!
-  call setline(1, 'I walk a')
-  setfiletype songwriter
+Execute (l stays put on a prose line even in tablature mode (function no-op)):
   let b:songwriter_tabmode = 1
   call cursor(1, 1)
   call songwriter#tab#MoveColumn(1)

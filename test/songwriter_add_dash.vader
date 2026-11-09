@@ -1,59 +1,55 @@
-" Test: _ inserts a dash at the cursor column on every tab string
+Given (_ inserts a dash at the cursor column on every tab string):
+  e|----|
+  B|----|
+  G|----|
+  D|----|
+  A|----|
+  E|----|
 
-Execute:
-  enew!
-  call setline(1, 'e|----|')
-  call append(1, 'B|----|')
-  call append(2, 'G|----|')
-  call append(3, 'D|----|')
-  call append(4, 'A|----|')
-  call append(5, 'E|----|')
+Execute (_ inserts a dash at the cursor column on every tab string):
   call cursor(1, 4)
   call songwriter#tab#AddDash()
-Then:
-  AssertEqual 'e|-----|', getline(1)
-  AssertEqual 'B|-----|', getline(2)
-  AssertEqual 'G|-----|', getline(3)
-  AssertEqual 'D|-----|', getline(4)
-  AssertEqual 'A|-----|', getline(5)
-  AssertEqual 'E|-----|', getline(6)
+Expect:
+  e|-----|
+  B|-----|
+  G|-----|
+  D|-----|
+  A|-----|
+  E|-----|
 
-" Test: dash is inserted at the cursor column, before a later note
+Given (dash is inserted at the cursor column, before a later note):
+  e|----4--|
+  B|----4--|
+  G|----4--|
 
-Execute:
-  enew!
-  call setline(1, 'e|----4--|')
-  call append(1, 'B|----4--|')
-  call append(2, 'G|----4--|')
+Execute (dash is inserted at the cursor column, before a later note):
   call cursor(1, 6)
   call songwriter#tab#AddDash()
-Then:
-  AssertEqual 'e|-----4--|', getline(1)
-  AssertEqual 'B|-----4--|', getline(2)
-  AssertEqual 'G|-----4--|', getline(3)
+Expect:
+  e|-----4--|
+  B|-----4--|
+  G|-----4--|
 
-" Test: works when cursor is on any string line
+Given (works when cursor is on any string line):
+  e|----|
+  B|----|
+  G|----|
 
-Execute:
-  enew!
-  call setline(1, 'e|----|')
-  call append(1, 'B|----|')
-  call append(2, 'G|----|')
+Execute (works when cursor is on any string line):
   call cursor(3, 4)
   call songwriter#tab#AddDash()
-Then:
-  AssertEqual 'e|-----|', getline(1)
-  AssertEqual 'B|-----|', getline(2)
-  AssertEqual 'G|-----|', getline(3)
+Expect:
+  e|-----|
+  B|-----|
+  G|-----|
 
-" Test: does not affect non-tab lines
+Given (does not affect non-tab lines):
+  some prose line
+  another line
 
-Execute:
-  enew!
-  call setline(1, 'some prose line')
-  call append(1, 'another line')
+Execute (does not affect non-tab lines):
   call cursor(1, 1)
   call songwriter#tab#AddDash()
-Then:
-  AssertEqual 'some prose line', getline(1)
-  AssertEqual 'another line', getline(2)
+Expect:
+  some prose line
+  another line

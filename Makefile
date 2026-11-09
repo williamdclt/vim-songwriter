@@ -7,6 +7,7 @@ VADER ?= $(HOME)/.vim/pack/plugins/start/vader
 test: $(VADER)
 	vim -N -n -u NONE \
 		-c "set rtp+=$(VADER),." \
+		-c "filetype plugin on" \
 		-c "runtime plugin/vader.vim" \
 		-c "runtime plugin/songwriter.vim" \
 		-c "Vader! test/*.vader" \

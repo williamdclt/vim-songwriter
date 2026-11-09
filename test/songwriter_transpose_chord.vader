@@ -1,59 +1,53 @@
-" Test: transpose chord up chromatically
+Given (transpose chord up chromatically):
+               Am7
 
-Execute:
-  enew!
-  call setline(1, '             Am7')
+Execute (transpose chord up chromatically):
   call cursor(1, 14)
   call songwriter#chord#TransposeChord(1)
-Then:
-  AssertEqual '             A#m7', getline(1)
+Expect:
+               A#m7
 
-" Test: transpose chord down chromatically
+Given (transpose chord down chromatically):
+               Am7
 
-Execute:
-  enew!
-  call setline(1, '             Am7')
+Execute (transpose chord down chromatically):
   call cursor(1, 14)
   call songwriter#chord#TransposeChord(-1)
-Then:
-  AssertEqual '             G#m7', getline(1)
+Expect:
+               G#m7
 
-" Test: transpose chord wraps B -> C
+Given (transpose chord wraps B -> C):
+  Bm
 
-Execute:
-  enew!
-  call setline(1, 'Bm')
+Execute (transpose chord wraps B -> C):
   call cursor(1, 1)
   call songwriter#chord#TransposeChord(1)
-Then:
-  AssertEqual 'Cm', getline(1)
+Expect:
+  Cm
 
-" Test: transpose chord wraps C -> B (down)
+Given (transpose chord wraps C -> B (down)):
+  C
 
-Execute:
-  enew!
-  call setline(1, 'C')
+Execute (transpose chord wraps C -> B (down)):
   call cursor(1, 1)
   call songwriter#chord#TransposeChord(-1)
-Then:
-  AssertEqual 'B', getline(1)
+Expect:
+  B
 
-" Test: transpose chord with sharp root
+Given (transpose chord with sharp root):
+  C#maj7
 
-Execute:
-  enew!
-  call setline(1, 'C#maj7')
+Execute (transpose chord with sharp root):
   call cursor(1, 1)
   call songwriter#chord#TransposeChord(1)
-Then:
-  AssertEqual 'Dmaj7', getline(1)
+Expect:
+  Dmaj7
 
-" Test: no-op on non-chord text
+Given (no-op on non-chord text):
+  hello world
 
-Execute:
-  enew!
-  call setline(1, 'hello world')
+Execute (no-op on non-chord text):
   call cursor(1, 1)
   call songwriter#chord#TransposeChord(1)
-Then:
-  AssertEqual 'hello world', getline(1)
+Expect:
+  hello world

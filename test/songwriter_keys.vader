@@ -1,7 +1,6 @@
 " Key dispatch (autoload/songwriter/keys.vim) and ftplugin setup/teardown.
 
 Before:
-  filetype plugin on
   enew!
 
 Execute (Dispatch: a context key off a tab line falls back to its default):

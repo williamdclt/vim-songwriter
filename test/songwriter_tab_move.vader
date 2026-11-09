@@ -4,30 +4,27 @@
 " first note of the bar is a no-op (no `i` mirror, 3.3.3). No lint runs on the
 " move (spec item 4 is out of scope): leftover dashes after a slot stay until ||.
 
+Before:
+  unlet! b:songwriter_tabmode
+
 " --- 3.3.1 l/h move to the next/previous note column on any string ---
 
-" Test: l moves to the next note column of another string in the same bar
+Given songwriter (l moves to the next note column of another string in the same bar):
+  e|----4----|
+  B|---2-----|
 
-Execute:
-  filetype plugin on
-  enew!
-  call setline(1, 'e|----4----|')
-  call append(1, 'B|---2-----|')
-  setfiletype songwriter
+Execute (l moves to the next note column of another string in the same bar):
   let b:songwriter_tabmode = 1
   call cursor(1, 3)
   call songwriter#tab#MoveColumn(1)
 Then:
   AssertEqual 6, col('.')
 
-" Test: h moves to the previous note column of another string in the same bar
+Given songwriter (h moves to the previous note column of another string in the same bar):
+  e|----4----|
+  B|---2-----|
 
-Execute:
-  filetype plugin on
-  enew!
-  call setline(1, 'e|----4----|')
-  call append(1, 'B|---2-----|')
-  setfiletype songwriter
+Execute (h moves to the previous note column of another string in the same bar):
   let b:songwriter_tabmode = 1
   call cursor(1, 8)
   call songwriter#tab#MoveColumn(-1)
@@ -36,30 +33,25 @@ Then:
 
 " --- 3.3.2 l at the last note of the bar behaves as `a` ---
 
-" Test: l at the last note column opens a slot on every string
+Given songwriter (l at the last note column opens a slot on every string):
+  e|--4--|
+  b|--4--|
 
-Execute:
-  filetype plugin on
-  enew!
-  call setline(1, 'e|--4--|')
-  call append(1, 'b|--4--|')
-  setfiletype songwriter
+Execute (l at the last note column opens a slot on every string):
   let b:songwriter_tabmode = 1
   call cursor(1, 5)
   call songwriter#tab#MoveColumn(1)
 Then:
-  AssertEqual 'e|--4----|', getline(1)
-  AssertEqual 'b|--4----|', getline(2)
   AssertEqual 7, col('.')
+Expect:
+  e|--4----|
+  b|--4----|
 
-" Test: l in the middle of a bar moves, it does not append
+Given songwriter (l in the middle of a bar moves, it does not append):
+  e|--4--1--|
+  b|--4--1--|
 
-Execute:
-  filetype plugin on
-  enew!
-  call setline(1, 'e|--4--1--|')
-  call append(1, 'b|--4--1--|')
-  setfiletype songwriter
+Execute (l in the middle of a bar moves, it does not append):
   let b:songwriter_tabmode = 1
   call cursor(1, 5)
   call songwriter#tab#MoveColumn(1)
@@ -70,54 +62,50 @@ Then:
 " Test: l at the end of an EARLIER bar appends in that bar, it does not skip to
 "       the next bar's note
 
+Given songwriter:
+  e|--4--|--2--|
+  b|------|------|
+
 Execute:
-  filetype plugin on
-  enew!
-  call setline(1, 'e|--4--|--2--|')
-  call append(1, 'b|------|------|')
-  setfiletype songwriter
   let b:songwriter_tabmode = 1
   call cursor(1, 5)
   call songwriter#tab#MoveColumn(1)
 Then:
-  AssertEqual 'e|--4----|--2--|', getline(1)
-  AssertEqual 'b|--------|------|', getline(2)
   AssertEqual 7, col('.')
+Expect:
+  e|--4----|--2--|
+  b|--------|------|
 
 " --- 3.3.3 `h` at the first note column is a no-op ---
 
-" Test: h at the first note column does not move or mirror-append
+Given songwriter (h at the first note column does not move or mirror-append):
+  e|--4--|
+  b|--4--|
 
-Execute:
-  filetype plugin on
-  enew!
-  call setline(1, 'e|--4--|')
-  call append(1, 'b|--4--|')
-  setfiletype songwriter
+Execute (h at the first note column does not move or mirror-append):
   let b:songwriter_tabmode = 1
   call cursor(1, 5)
   call songwriter#tab#MoveColumn(-1)
 Then:
-  AssertEqual 'e|--4--|', getline(1)
-  AssertEqual 'b|--4--|', getline(2)
   AssertEqual 5, col('.')
+Expect:
+  e|--4--|
+  b|--4--|
 
 " --- Empty-string edge: an empty string at the last note column gets a slot ---
 " The last note may live on a neighbouring string; the empty string must still be
 " widened, so a new note can be entered on it.
 
-" Test: l on an empty line at the last note column opens a slot on every string
+Given songwriter (l on an empty line at the last note column opens a slot on every string):
+  e|--4--|
+  b|------|
 
-Execute:
-  filetype plugin on
-  enew!
-  call setline(1, 'e|--4--|')
-  call append(1, 'b|------|')
-  setfiletype songwriter
+Execute (l on an empty line at the last note column opens a slot on every string):
   let b:songwriter_tabmode = 1
   call cursor(2, 5)
   call songwriter#tab#MoveColumn(1)
 Then:
-  AssertEqual 'e|--4----|', getline(1)
-  AssertEqual 'b|--------|', getline(2)
   AssertEqual 7, col('.')
+Expect:
+  e|--4----|
+  b|--------|

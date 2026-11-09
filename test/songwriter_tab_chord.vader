@@ -1,13 +1,12 @@
-" Test: insert chord above tab block at cursor column
+Given (insert chord above tab block at cursor column):
+  e|-----------4--|--1-----------|
+  B|--------1-----|-----2-----2--|
+  G|--3-----0--0--|-----1--0--0--|
+  D|--------1-----|-----1--------|
+  A|--4--3--------|--1-----1-----|
+  E|--3-----------|--1-----------|
 
-Execute:
-  enew!
-  call setline(1, 'e|-----------4--|--1-----------|')
-  call append(1, 'B|--------1-----|-----2-----2--|')
-  call append(2, 'G|--3-----0--0--|-----1--0--0--|')
-  call append(3, 'D|--------1-----|-----1--------|')
-  call append(4, 'A|--4--3--------|--1-----1-----|')
-  call append(5, 'E|--3-----------|--1-----------|')
+Execute (insert chord above tab block at cursor column):
   call cursor(1, 14)
   call songwriter#tab#TabChord('Am7')
 Then:
@@ -15,45 +14,41 @@ Then:
   AssertEqual 'e|-----------4--|--1-----------|', getline(2)
   AssertEqual 'B|--------1-----|-----2-----2--|', getline(3)
 
-" Test: insert chord at column 1 (start of tab)
+Given (insert chord at column 1 (start of tab)):
+  e|--4--|--1--|
+  B|------|-----|
+  G|------|-----|
+  D|------|-----|
+  A|------|-----|
+  E|------|-----|
 
-Execute:
-  enew!
-  call setline(1, 'e|--4--|--1--|')
-  call append(1, 'B|------|-----|')
-  call append(2, 'G|------|-----|')
-  call append(3, 'D|------|-----|')
-  call append(4, 'A|------|-----|')
-  call append(5, 'E|------|-----|')
+Execute (insert chord at column 1 (start of tab)):
   call cursor(1, 1)
   call songwriter#tab#TabChord('C')
 Then:
   AssertEqual 'C', getline(1)
   AssertEqual 'e|--4--|--1--|', getline(2)
 
-" Test: insert chord in middle of tab block
+Given (insert chord in middle of tab block):
+  e|--4--|--1--|
+  B|------|-----|
+  G|------|-----|
+  D|------|-----|
+  A|------|-----|
+  E|------|-----|
 
-Execute:
-  enew!
-  call setline(1, 'e|--4--|--1--|')
-  call append(1, 'B|------|-----|')
-  call append(2, 'G|------|-----|')
-  call append(3, 'D|------|-----|')
-  call append(4, 'A|------|-----|')
-  call append(5, 'E|------|-----|')
+Execute (insert chord in middle of tab block):
   call cursor(3, 8)
   call songwriter#tab#TabChord('Dm')
 Then:
   AssertEqual '       Dm', getline(1)
   AssertEqual 'e|--4--|--1--|', getline(2)
 
-" Test: no-op on non-tab lines
+Given (no-op on non-tab lines):
+  this is prose
 
-Execute:
-  enew!
-  call setline(1, 'this is prose')
+Execute (no-op on non-tab lines):
   call cursor(1, 1)
   call songwriter#tab#TabChord('Am')
-Then:
-  AssertEqual 'this is prose', getline(1)
-  AssertEqual 1, line('$')
+Expect:
+  this is prose

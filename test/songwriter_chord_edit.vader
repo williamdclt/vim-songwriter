@@ -1,63 +1,55 @@
-" Test: insert chord above cursor with alignment
+Given (insert chord above cursor with alignment):
+  Hello world
 
-Execute:
-  enew!
-  call setline(1, 'Hello world')
+Execute (insert chord above cursor with alignment):
   call cursor(1, 8)
   call songwriter#chord#ChordAbove('Am7')
-Then:
-  AssertEqual 2, line('$')
-  AssertEqual '       Am7', getline(1)
-  AssertEqual 'Hello world', getline(2)
+Expect:
+         Am7
+  Hello world
 
-" Test: insert chord at beginning of line
+Given (insert chord at beginning of line):
+  Hello world
 
-Execute:
-  enew!
-  call setline(1, 'Hello world')
+Execute (insert chord at beginning of line):
   call cursor(1, 1)
   call songwriter#chord#ChordAbove('C')
-Then:
-  AssertEqual 2, line('$')
-  AssertEqual 'C', getline(1)
-  AssertEqual 'Hello world', getline(2)
+Expect:
+  C
+  Hello world
 
-" Test: change chord quality
+Given (change chord quality):
+               Am7
 
-Execute:
-  enew!
-  call setline(1, '             Am7')
+Execute (change chord quality):
   call cursor(1, 14)
   call songwriter#chord#ChordQuality('maj7')
-Then:
-  AssertEqual '             Amaj7', getline(1)
+Expect:
+               Amaj7
 
-" Test: toggle minor to major
+Given (toggle minor to major):
+  Am
 
-Execute:
-  enew!
-  call setline(1, 'Am')
+Execute (toggle minor to major):
   call cursor(1, 1)
   call songwriter#chord#ToggleMinorMajor()
-Then:
-  AssertEqual 'A', getline(1)
+Expect:
+  A
 
-" Test: toggle major to minor
+Given (toggle major to minor):
+  C
 
-Execute:
-  enew!
-  call setline(1, 'C')
+Execute (toggle major to minor):
   call cursor(1, 1)
   call songwriter#chord#ToggleMinorMajor()
-Then:
-  AssertEqual 'Cm', getline(1)
+Expect:
+  Cm
 
-" Test: toggle does not affect quality (m7 stays m7)
+Given (toggle does not affect quality (m7 stays m7)):
+  Am7
 
-Execute:
-  enew!
-  call setline(1, 'Am7')
+Execute (toggle does not affect quality (m7 stays m7)):
   call cursor(1, 1)
   call songwriter#chord#ToggleMinorMajor()
-Then:
-  AssertEqual 'A7', getline(1)
+Expect:
+  A7
