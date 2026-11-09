@@ -30,7 +30,6 @@ let s:tabmode.n = {
       \ 'y': '=songwriter#tab#operator#Start("y")',
       \ 'c': '=songwriter#tab#operator#Start("c")',
       \ 'Y': '=songwriter#tab#operator#StartOn("y", "column")',
-      \ 'S': '=songwriter#tab#operator#StartOn("c", "column")',
       \ 'D': '=songwriter#tab#operator#StartOn("d", "bar-end")',
       \ 'C': '=songwriter#tab#operator#StartOn("c", "bar-end")',
       \ '>>': 'call songwriter#tab#operator#Shift(1, v:count1)',
@@ -41,6 +40,15 @@ let s:tabmode.n = {
       \ 'P': 'call songwriter#tab#operator#Put(1, v:count1, v:register)',
       \ '.': '=songwriter#tab#operator#Repeat()',
       \ }
+" Spec 7: `s` (keep the fret) / `S` (keep the pitch), then `k`/`j` (the note
+" under the cursor) or `K`/`J` (its whole time column), up/down a string.
+for [s:prefix, s:pitch] in [['s', 0], ['S', 1]]
+  for [s:dirkey, s:dir] in [['k', -1], ['j', 1]]
+    let s:tabmode.n[s:prefix . s:dirkey] = printf('call songwriter#tab#strings#Change(%d, %d, 0)', s:dir, s:pitch)
+    let s:tabmode.n[s:prefix . toupper(s:dirkey)] = printf('call songwriter#tab#strings#Change(%d, %d, 1)', s:dir, s:pitch)
+  endfor
+endfor
+unlet s:prefix s:pitch s:dirkey s:dir
 for s:d in range(10)
   let s:tabmode.n[s:d] = 'call songwriter#tab#EnterNote(' . s:d . ')'
 endfor

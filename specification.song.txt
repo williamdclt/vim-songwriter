@@ -87,7 +87,7 @@ Each line is a guitar string, the numbers are the fretted notes, played sequenti
         6.7.1 If another string has a note on the same column, the note becomes dashes (same width) and the column is kept. ✓
         6.7.2 If no other string has a note on that column, the note and its gap up to the next note column (or the bar's closing pipe) are removed on every string, so the following notes move earlier and the previous note keeps its gap (`e|--3----5--7--|`, `x` on 5 -> `e|--3----7--|`). Rests are only created explicitly, with `_`. ✓
         6.7.3 `x` writes to the register what `ac` would yank, with every other string as dashes. So `xp` swaps a note with the next column, as in normal Vim. ✓
-    6.8 Doubled operators act on the time column under the cursor, as they act on a line in text: `dd` is `dac`, `yy` and `Y` are `yac`, `cc` and `S` are `cac`. A count goes after the operator (`d3d`). So `ddp` swaps a column with the next one and `yyp` duplicates it. ✓
+    6.8 Doubled operators act on the time column under the cursor, as they act on a line in text: `dd` is `dac`, `yy` and `Y` are `yac`, `cc` is `cac` (`S` is not: it starts the string moves of 7). A count goes after the operator (`d3d`). So `ddp` swaps a column with the next one and `yyp` duplicates it. ✓
         6.8.1 `D` / `C` delete / change to the end of the bar (`dL` / `cL`). ✓
         6.8.2 `X` keeps its native meaning. ✓
     6.9 Visual mode. ✓
@@ -102,6 +102,13 @@ Each line is a guitar string, the numbers are the fretted notes, played sequenti
     6.12 Digits enter notes in tablature mode (3.4), so a count cannot be typed in front of a command (`3x` types a 3). Counts work after an operator (`d2ac`, `d3w`, `d3d`) and in visual mode. ✓
     6.13 `>>` moves the time column under the cursor one dash later, by inserting a dash before it on every string (what follows moves with it). `<<` moves it one dash earlier, by removing a dash before it, but never closer than one dash to the previous note. On a bar's first column they change nothing, since lint keeps two dashes after the pipe (1.2). `.` repeats them. ✓
     6.14 `gp` overlays a column register onto the time column under the cursor, without adding time: the register's notes are written on their strings at that column (rows matched as in 6.5.3), for example to add a bass note under an existing chord. If a note would replace anything but dashes, nothing is pasted and a message says so. A bar register is refused. ✓
+7. In tablature mode, `s` and `S` followed by `k` / `j` move notes to the string above / below, keeping their time column (the notes starting on the same column, on every string, played together). ✓
+    7.1 `sk`/`sj` (`Sk`/`Sj`) move the note under the cursor. `sK`/`sJ` (`SK`/`SJ`) move the whole time column under the cursor: every note starting on that column, each by one string. For a column, the cursor may be on any string of it, even on a dash. ✓
+    7.2 `s` keeps the fret: the note moves unchanged (`5` on `e` -> `5` on `B`), playing techniques included (`5h7`). ✓
+    7.3 `S` keeps the pitch: every fret of the note changes by the interval between its two strings, read from the string names (`7` on `G` -> `3` on `B`; `5h7` on `D` -> `0h2` on `G`; on drop D, `7` on `D` -> `0` on `A`). Strings are taken to be listed from the highest to the lowest, neighbouring strings less than an octave apart. Marks without a fret (`x`) move unchanged. ✓
+    7.4 A move is refused with a message, leaving the tab unchanged, when: there is no note (`s`/`S` + `k`/`j`) or no time column (`K`/`J`) under the cursor; there is no string in that direction (for a column: one of its notes is on the top / bottom string); the destination string already has a note there; `S` would make a fret negative; `S` meets a string name that is not a note (A to G). ✓
+    7.5 Moved notes leave dashes behind. When a note gets wider (`7` -> `12`) and would touch the next note (or the pipe) on its new string, dashes are inserted on every string to make room. Then the tab is linted. ✓
+    7.6 The cursor moves one string with the notes (staying inside the tab), so a move can be repeated. Each move is one undo step, and `.` repeats it. ✓
 
 [[Bugs]]
 These are known bugs that need fixing

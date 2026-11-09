@@ -21,7 +21,9 @@ never relies on concealing or rendering.
 | `autoload/songwriter/tab.vim` | Tab operations and motions: buffer entry points plus pure helpers (`AppendSlot`, `PrependSlot`, `AppendBarSlot`). |
 | `autoload/songwriter/tab/columns.vim` | The column model behind tablature-mode operators, pure: text object ranges, snapping, delete, extract, paste with row matching, erase. |
 | `autoload/songwriter/tab/operator.vim` | Tablature-mode operators, text objects, `x`/`X`/`p`/`P`, visual mode, registers and `.`: buffer entry points around `columns.vim`. |
+| `autoload/songwriter/tab/strings.vim` | Moving notes and time columns to another string, keeping the fret or the pitch: pure `Move()` and its entry point. |
 | `autoload/songwriter/chord.vim` | Chord model and chord editing. |
+| `autoload/songwriter/pitch.vim` | Pitch classes: note names to semitones and back (sharp spelling). Shared by chords and tab string intervals. |
 | `autoload/songwriter/keys.vim` | Context-dependent keys: tables and `Dispatch()`, tablature-mode flag, tab-line `w`/`b`/`L`/`H`. |
 | `plugin/songwriter.vim` | `:Songwriter*` commands and `<Plug>(songwriter-*)` maps. |
 | `ftplugin/songwriter.vim` | Buffer options and key bindings, with a complete `b:undo_ftplugin`. |
@@ -241,7 +243,7 @@ The spec items carry the behaviour; this records why, and how it is built.
   gives `d3d` and avoids waiting on `d` for a possible `dd`. Whole tabs are
   reached with `ap` (tabs are separated by blank lines) or any line-wise
   motion. `D`/`C` stop at the bar's end, the column-wise analogue of a line's
-  end. `Y`/`S`/`D`/`C` return the operator followed by their target as a
+  end. `Y`/`D`/`C` return the operator followed by their target as a
   `<Cmd>`, since keys returned by a `noremap` would not reach our maps.
 - **Notes.** `in`/`an` act on one string, but keep the register a
   full-height column with dashes elsewhere, the same shape as `x` writes, so a
@@ -277,8 +279,9 @@ The spec items carry the behaviour; this records why, and how it is built.
   yank, so after `ya|` a `.` repeats the yank (native `y` is not repeatable);
   accepted rather than reimplementing redo. `x`, `p`, `P`, `>>`, `<<` are `<Cmd>`
   actions, invisible to redo: they record themselves in `b:songwriter_repeat`
-  with the changedtick they left, and the `.` map runs them again while the
-  buffer is unchanged since.
+  (`operator#Record`) with the changedtick they left, and the `.` map runs
+  them again while the buffer is unchanged since. The string moves (spec 7)
+  record themselves the same way.
 - **No counts in front of a command.** Digits enter notes in tablature mode
   (spec 3.4), so `3x` types a 3. Counts work after an operator (`d2ac`, `d3w`)
   and in visual mode, where digits are not mapped. The entry points still take
@@ -287,6 +290,36 @@ The spec items carry the behaviour; this records why, and how it is built.
   blockwise selection, and extend when repeated while the selection is still
   theirs; a plain `v` selection is widened at operator time instead, so `v`
   does not move the cursor off its string.
+
+### Moving notes between strings (spec [Tablature][[Editing]] 7)
+
+`tab/strings.vim`: a pure `Move()` and its entry point `Change()`, which lints
+before and after like the other tablature-mode edits.
+
+- **Keys.** `s` keeps the fret, `S` keeps the pitch; then `k`/`j` move the note
+  under the cursor, `K`/`J` its whole time column. `J`/`K` alone are left to
+  the user (often remapped for navigation). Native `s` edits one string only,
+  which tablature mode already rules out (spec 6). `S` is therefore not `cac`
+  (spec 6.8): a lone `S` would wait for 'timeoutlen' to rule out `Sk`, and
+  `cc` already does it. No count: digits enter notes
+  (spec 6.12), and moving one string at a time is what is needed.
+- **One string per move.** A column moves as a whole, every note by one string,
+  so its notes never collide with each other: sources are cleared first, then
+  each note is written on its new string.
+- **Pitch from the string names.** The interval between two neighbouring
+  strings is the difference of their pitch classes (`pitch.vim`), modulo 12.
+  This assumes strings listed from the highest to the lowest and less than an
+  octave apart, which covers standard and drop tunings, basses and 7-strings.
+  String names are one letter, so an evenly lowered tuning (E flat standard
+  written `eBGDAE`) has the same intervals and works. Two strings with the same
+  letter (`E` above `e`) give no interval and the move is refused, rather than
+  guessing an octave.
+- **Room, not overlap.** A note that gets wider (`7` -> `12`) could touch the
+  next note on its new string and merge with it (`123`), which lint cannot
+  undo. So dashes are inserted on every string, right after the note when it
+  would touch the next note or the pipe, or right before the column when a
+  note ends just before it there. Insertion points never cut a note in two on
+  another string; the following lint normalises the spacing.
 
 ### Outside tablature mode
 

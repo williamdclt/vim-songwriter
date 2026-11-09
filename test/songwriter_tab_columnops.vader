@@ -67,15 +67,6 @@ Execute (6.8 cc replaces the column with a slot):
 Expect songwriter:
   e|--3-9-7--|
 
-Given songwriter (6.8 S is cc):
-  e|--3--5--7--|
-
-Execute (6.8 S is cc):
-  call cursor(1, 8)
-  normal S9
-Expect songwriter:
-  e|--3-9-7--|
-
 Given songwriter (6.8 . repeats dd):
   e|--3--5--7--|
 
