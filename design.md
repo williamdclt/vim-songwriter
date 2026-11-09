@@ -225,7 +225,25 @@ The spec items carry the behaviour; this records why, and how it is built.
   previous note keeps its length and what follows moves earlier. Rests exist
   only where the user put them with `_`; erasing never creates one, except that
   `x` on a shared column leaves the other strings' timing intact.
-- **Text object names.** `ic`/`ac` (column) and `i|`/`a|` (bar). Bare letters
+- **The column is the tab's line.** A doubled operator acts on a line in text
+  and on the time column in a tab: `dd`/`yy`/`cc` are `dac`/`yac`/`cac`, so
+  `ddp` and `yyp` swap and duplicate columns as they do lines. The second key
+  is an operator-pending map (`Doubled`), not a normal-mode `dd` map: this
+  gives `d3d` and avoids waiting on `d` for a possible `dd`. Whole tabs are
+  reached with `ap` (tabs are separated by blank lines) or any line-wise
+  motion. `D`/`C` stop at the bar's end, the column-wise analogue of a line's
+  end. `Y`/`S`/`D`/`C` return the operator followed by their target as a
+  `<Cmd>`, since keys returned by a `noremap` would not reach our maps.
+- **Notes.** `in`/`an` act on one string, but keep the register a
+  full-height column with dashes elsewhere, the same shape as `x` writes, so a
+  copied note pastes on its own string and as new time. `gp` is the other way
+  to paste: onto an existing column, no time added, refusing to replace a
+  note, since silently changing music is what these operations avoid.
+- **`>>`/`<<`** nudge rhythm: a dash before the column, inserted or removed on
+  every string, so what follows moves with it. Lint keeps two dashes after a
+  pipe, so on a bar's first column they would be undone and do nothing.
+- **Text object names.** `ic`/`ac` (column), `i|`/`a|` (bar), `in`/`an`
+  (note). Bare letters
   are motions after an operator (`db`), and `ib`/`ab` are Vim's parenthesis
   objects; `i|` follows Vim's delimiter objects (`i"`, `i(`). Our objects set an
   "exact" flag so the operator does not snap them (`ic` would otherwise grow
@@ -248,7 +266,7 @@ The spec items carry the behaviour; this records why, and how it is built.
   lint.
 - **`.`** Operators repeat natively. `g@` records every operator, including a
   yank, so after `ya|` a `.` repeats the yank (native `y` is not repeatable);
-  accepted rather than reimplementing redo. `x`, `X`, `p`, `P` are `<Cmd>`
+  accepted rather than reimplementing redo. `x`, `p`, `P`, `>>`, `<<` are `<Cmd>`
   actions, invisible to redo: they record themselves in `b:songwriter_repeat`
   with the changedtick they left, and the `.` map runs them again while the
   buffer is unchanged since.

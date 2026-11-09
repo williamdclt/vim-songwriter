@@ -159,37 +159,40 @@ Execute (6.4 a named register):
 
 " --- 6.3 line-wise ---
 
-Given songwriter (6.3 dd deletes the whole tab):
+Given songwriter (6.3 dap deletes the whole tab):
   Intro
+
   e|--3--|
   B|--1--|
+
   end
 
-Execute (6.3 dd deletes the whole tab):
-  call cursor(3, 4)
-  normal dd
+Execute (6.3 dap deletes the whole tab):
+  call cursor(4, 4)
+  normal dap
   AssertEqual 'V', getregtype('"')
 Expect songwriter:
   Intro
+
   end
 
-Given songwriter (6.3 yy yanks the whole tab):
+Given songwriter (6.3 yip yanks the whole tab):
   e|--3--|
   B|--1--|
 
-Execute (6.3 yy yanks the whole tab):
+Execute (6.3 yip yanks the whole tab):
   call cursor(2, 4)
-  normal yy
+  normal yip
   AssertEqual ['e|--3--|', 'B|--1--|'], getreg('"', 1, 1)
   AssertEqual 'V', getregtype('"')
 
-Given songwriter (6.3.1 cc clears every note, keeps the bars and opens a slot):
+Given songwriter (6.3.1 cap clears every note, keeps the bars and opens a slot):
   e|--3--|--5--|
   B|-----|--1--|
 
-Execute (6.3.1 cc clears every note, keeps the bars and opens a slot):
+Execute (6.3.1 cap clears every note, keeps the bars and opens a slot):
   call cursor(2, 4)
-  normal cc
+  normal cap
   AssertEqual 5, col('.')
   AssertEqual 1, songwriter#keys#InTabMode()
 Expect songwriter:

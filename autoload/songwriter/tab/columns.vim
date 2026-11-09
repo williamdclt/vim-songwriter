@@ -339,3 +339,89 @@ function! songwriter#tab#columns#EmptyBarSlot(lines, lin, col) abort
         \ 'strpart(v:val, 0, l:bar.start) . "-----" . strpart(v:val, l:bar.end - 1)')
   return {'lines': l:out, 'col': l:bar.start + 3}
 endfunction
+
+" Spec 6.13: move the time column at `col` of line `lin` one dash later (dir
+" +1: a dash inserted before it on every string) or earlier (dir -1: a dash
+" removed before it, keeping at least one dash after the previous note on any
+" string). Returns {'lines', 'col'}, or {} when nothing changes, including on
+" a bar's first column (lint keeps two dashes after the pipe there).
+function! songwriter#tab#columns#ShiftColumn(lines, lin, col, dir) abort
+  if s:on_pipe_or_name(a:lines[a:lin], a:col)
+    return {}
+  endif
+  let [l:bar, l:cols] = s:bar_columns(a:lines, a:lin, a:col)
+  let l:c = s:column_for(l:cols, a:col)
+  if l:c == 0 || l:c == l:cols[0]
+    return {}
+  endif
+  if a:dir > 0
+    return {'lines': songwriter#tab#model#InsertColumns(a:lines, l:c - 1, 1, '-'), 'col': l:c + 1}
+  endif
+  let l:prev_end = 0
+  for l:l in a:lines
+    for l:a in songwriter#tab#columns#Atoms(l:l)
+      if l:a.col < l:c && songwriter#tab#model#InBar(l:a.col, l:bar)
+        let l:prev_end = max([l:prev_end, l:a.col + l:a.len - 1])
+      endif
+    endfor
+  endfor
+  if l:c - l:prev_end - 1 < 2
+    return {}
+  endif
+  return {'lines': songwriter#tab#columns#DeleteRange(a:lines, l:c - 1, l:c - 1).lines, 'col': l:c - 1}
+endfunction
+
+" Spec 6.14: write the notes of column register `rows` onto the time column at
+" `col` of line `lin`, without adding time: the register's first note column
+" lands on that column. Rows are matched as in Paste. Returns {'lines', 'col',
+" 'msg'}, or {'error'} for a bar register, no column there, or a note that
+" would replace anything but dashes.
+function! songwriter#tab#columns#Overlay(lines, lin, col, rows, regnames) abort
+  if !empty(filter(copy(a:rows), "stridx(v:val, '|') >= 0"))
+    return {'error': 'songwriter: gp pastes a column, not a bar'}
+  endif
+  let l:m = songwriter#tab#columns#MatchRows(map(copy(a:lines), 'v:val[0]'), a:rows, a:regnames)
+  if has_key(l:m, 'error')
+    return l:m
+  endif
+  let l:c = 0
+  if !s:on_pipe_or_name(a:lines[a:lin], a:col)
+    let [l:bar, l:cols] = s:bar_columns(a:lines, a:lin, a:col)
+    let l:c = s:column_for(l:cols, a:col)
+  endif
+  if l:c == 0
+    return {'error': 'songwriter: gp needs a note column under the cursor'}
+  endif
+  let l:atoms = map(copy(l:m.rows), 's:row_atoms(v:val)')
+  let l:starts = []
+  for l:r in l:atoms
+    call extend(l:starts, map(copy(l:r), 'v:val.col'))
+  endfor
+  if empty(l:starts)
+    return {'lines': copy(a:lines), 'col': l:c, 'msg': l:m.msg}
+  endif
+  let l:qmin = min(l:starts)
+  let l:out = copy(a:lines)
+  for l:i in range(len(l:out))
+    for l:a in l:atoms[l:i]
+      let l:s = l:c + l:a.col - l:qmin
+      let l:line = s:pad(l:out[l:i], l:s + l:a.len)
+      if strpart(l:line, l:s - 1, l:a.len) !~# '^-\+$'
+        return {'error': printf('songwriter: gp would replace a note on string %s', a:lines[l:i][0])}
+      endif
+      let l:out[l:i] = strpart(l:line, 0, l:s - 1) . l:a.text . strpart(l:line, l:s - 1 + l:a.len)
+    endfor
+  endfor
+  return {'lines': l:out, 'col': l:c, 'msg': l:m.msg}
+endfunction
+
+" Note groups of a register row (no string name), with 1-indexed columns.
+function! s:row_atoms(row) abort
+  let l:res = []
+  let l:m = matchstrpos(a:row, songwriter#grammar#TabAtom())
+  while l:m[1] >= 0
+    call add(l:res, {'col': l:m[1] + 1, 'len': len(l:m[0]), 'text': l:m[0]})
+    let l:m = matchstrpos(a:row, songwriter#grammar#TabAtom(), l:m[2])
+  endwhile
+  return l:res
+endfunction

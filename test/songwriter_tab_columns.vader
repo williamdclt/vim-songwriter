@@ -188,3 +188,46 @@ Execute (6.6 EmptyBarSlot opens a 5-dash bar with the cursor in the middle):
   let res = songwriter#tab#columns#EmptyBarSlot(['e|--3--|--|', 'B|-----|--|'], 0, 9)
   AssertEqual ['e|--3--|-----|', 'B|-----|-----|'], res.lines
   AssertEqual 11, res.col
+
+" --- 6.13 shifting a column ---
+
+Execute (6.13 ShiftColumn later inserts a dash before the column):
+  let res = songwriter#tab#columns#ShiftColumn(['e|--3--5--7--|', 'B|-----5-----|'], 0, 8, 1)
+  AssertEqual ['e|--3---5--7--|', 'B|------5-----|'], res.lines
+  AssertEqual 9, res.col
+
+Execute (6.13 ShiftColumn earlier removes a dash before it, keeping one):
+  let res = songwriter#tab#columns#ShiftColumn(['e|--3---5--|'], 0, 9, -1)
+  AssertEqual ['e|--3--5--|'], res.lines
+  AssertEqual 8, res.col
+  AssertEqual {}, songwriter#tab#columns#ShiftColumn(['e|--3-5--|'], 0, 7, -1)
+
+Execute (6.13 ShiftColumn: the previous note may be on another string):
+  AssertEqual {}, songwriter#tab#columns#ShiftColumn(['e|--3---5--|', 'B|-----1---|'], 0, 9, -1)
+
+Execute (6.13 ShiftColumn does nothing on a bar's first column):
+  AssertEqual {}, songwriter#tab#columns#ShiftColumn(['e|--3--5--|'], 0, 5, 1)
+  AssertEqual {}, songwriter#tab#columns#ShiftColumn(['e|--3--5--|'], 0, 5, -1)
+
+" --- 6.14 overlay ---
+
+Execute (6.14 Overlay writes the register's notes onto the column):
+  let res = songwriter#tab#columns#Overlay(['e|--3--5--|', 'B|--------|'], 1, 8, ['---', '7--'], [])
+  AssertEqual ['e|--3--5--|', 'B|-----7--|'], res.lines
+  AssertEqual 8, res.col
+
+Execute (6.14 Overlay aligns the register's first note with the column):
+  let res = songwriter#tab#columns#Overlay(['e|--3--|', 'B|-----|'], 0, 5, ['-----', '--10-'], [])
+  AssertEqual ['e|--3--|', 'B|--10-|'], res.lines
+
+Execute (6.14 Overlay refuses to replace a note):
+  let res = songwriter#tab#columns#Overlay(['e|--3--|', 'B|--1--|'], 0, 5, ['---', '7--'], [])
+  Assert has_key(res, 'error')
+
+Execute (6.14 Overlay refuses a bar register):
+  let res = songwriter#tab#columns#Overlay(['e|--3--|'], 0, 5, ['--7--|'], [])
+  Assert has_key(res, 'error')
+
+Execute (6.14 Overlay matches rows from the bottom string):
+  let res = songwriter#tab#columns#Overlay(['e|--3--|', 'B|-----|', 'G|-----|'], 0, 5, ['0--'], ['G'])
+  AssertEqual ['e|--3--|', 'B|-----|', 'G|--0--|'], res.lines
