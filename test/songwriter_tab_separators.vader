@@ -1,0 +1,209 @@
+" Spec [Tablature] "Notes and separators": `h`, `/`, `b`... sit between notes,
+" like dashes, and are preserved; `x` is a note.
+
+Before:
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing
+  let b:songwriter_tabmode = 1
+
+" --- Model ---
+
+Execute (notes are frets and x, not separators or the string name):
+  let n = songwriter#tab#model#Notes('x|--5h12--x--|')
+  AssertEqual [['5', 5], ['12', 7], ['x', 11]], map(n, '[v:val.text, v:val.col]')
+
+" --- Motions ---
+
+Given songwriter (a fret after a separator is a time column):
+  e|--5h7--9--|
+  B|---------|
+
+Execute (l stops on the 7 of 5h7):
+  call cursor(1, 5)
+  normal l
+  AssertEqual 7, col('.')
+
+Execute (w stops on the 7 of 5h7):
+  call cursor(1, 5)
+  normal w
+  AssertEqual 7, col('.')
+
+Given songwriter (x is a note for motions):
+  e|--x--3--x--|
+  B|-----------|
+
+Execute (l reaches a following x):
+  call cursor(1, 8)
+  normal l
+  AssertEqual 11, col('.')
+
+Execute (w reaches a following x):
+  call cursor(1, 8)
+  normal w
+  AssertEqual 11, col('.')
+
+" --- Lint ---
+
+Given songwriter (lint keeps a note aligned under the fret after a separator):
+  e|--5h7--|
+  B|----3--|
+
+Execute (lint keeps a note aligned under the fret after a separator):
+  SongwriterLint
+Expect songwriter:
+  e|--5h7--|
+  B|----3--|
+
+Given songwriter (a pushed note leaves the separator behind):
+  e|--5h7--|
+  B|---12--|
+
+Execute (a pushed note leaves the separator behind):
+  SongwriterLint
+Expect songwriter:
+  e|--5h--7--|
+  B|---12----|
+
+Given songwriter (lint counts a leading separator at the bar's edge):
+  e|-----/5---|
+
+Execute (lint counts a leading separator at the bar's edge):
+  SongwriterLint
+Expect songwriter:
+  e|--/5--|
+
+Given songwriter (lint counts a trailing separator at the bar's edge):
+  e|--7b-----|
+
+Execute (lint counts a trailing separator at the bar's edge):
+  SongwriterLint
+Expect songwriter:
+  e|--7b--|
+
+" --- Slots ---
+
+Given songwriter (a on a note linked to the next one):
+  e|--5h7--|
+
+Execute (a on a note linked to the next one):
+  call cursor(1, 5)
+  normal a
+  AssertEqual 7, col('.')
+Expect songwriter:
+  e|--5--h7--|
+
+Given songwriter (a goes after a trailing separator):
+  e|--7b--|
+
+Execute (a goes after a trailing separator):
+  call cursor(1, 5)
+  normal a
+  AssertEqual 8, col('.')
+Expect songwriter:
+  e|--7b----|
+
+Given songwriter (i goes before a leading separator):
+  e|--/5--|
+
+Execute (i goes before a leading separator):
+  call cursor(1, 6)
+  normal i
+  AssertEqual 5, col('.')
+Expect songwriter:
+  e|----/5--|
+
+Given songwriter (a anchors on an x):
+  e|--x--|
+
+Execute (a anchors on an x):
+  call cursor(1, 5)
+  normal a
+  AssertEqual 7, col('.')
+Expect songwriter:
+  e|--x----|
+
+" --- Digits ---
+
+Given songwriter (a digit replaces one fret next to a separator):
+  e|--5h7--|
+
+Execute (a digit replaces one fret next to a separator):
+  call cursor(1, 7)
+  call songwriter#tab#EnterNote(3)
+Expect songwriter:
+  e|--5h3--|
+
+Given songwriter (a digit on a separator does nothing):
+  e|--5h7--|
+
+Execute (a digit on a separator does nothing):
+  call cursor(1, 6)
+  call songwriter#tab#EnterNote(3)
+Expect songwriter:
+  e|--5h7--|
+
+" --- Operators ---
+
+Given songwriter (x on a note takes the separator after it):
+  e|--5h7--|
+
+Execute (x on a note takes the separator after it):
+  call cursor(1, 5)
+  normal x
+Expect songwriter:
+  e|--7--|
+
+Given songwriter (x on the last note leaves a trailing separator):
+  e|--5h7--|
+
+Execute (x on the last note leaves a trailing separator):
+  call cursor(1, 7)
+  normal x
+Expect songwriter:
+  e|--5h--|
+
+Given songwriter (<< removes a dash, never a separator):
+  e|--5--h7--|
+
+Execute (<< removes a dash, never a separator):
+  call cursor(1, 9)
+  normal <<
+Expect songwriter:
+  e|--5-h7--|
+
+Execute (notes dropped from a register are counted as notes):
+  let m = songwriter#tab#columns#MatchRows(['E'], ['5h7', '3--'], ['e', 'E'])
+  AssertEqual 'songwriter: 2 notes dropped', m.msg
+
+" --- String moves ---
+
+Execute (s moves a note with its trailing separator):
+  let r = songwriter#tab#strings#Move(['e|--------|', 'B|--7~--9-|'], 1, 5, -1, 0, 0)
+  AssertEqual ['e|--7~----|', 'B|------9-|'], r.lines
+
+Execute (sK refuses a column whose note is linked to an earlier one):
+  let r = songwriter#tab#strings#Move(['e|-------|', 'B|--5h7--|'], 1, 7, -1, 0, 1)
+  Assert has_key(r, 'error')
+
+Execute (sK moves a column of chains that start on it):
+  let r = songwriter#tab#strings#Move(['e|-------|', 'B|--5h7--|'], 1, 5, -1, 0, 1)
+  AssertEqual ['e|--5h7--|', 'B|-------|'], r.lines
+
+" --- Editing separators with Vim's own f and r (3.4.2) ---
+
+Given songwriter (f and r change a separator in tablature mode):
+  e|--5h7--|
+
+Execute (f and r change a separator in tablature mode):
+  call cursor(1, 5)
+  normal fhr/
+Expect songwriter:
+  e|--5/7--|
+
+Given songwriter (f and r add a separator in tablature mode):
+  e|--5-7--|
+
+Execute (f and r add a separator in tablature mode):
+  call cursor(1, 5)
+  normal f-rh
+Expect songwriter:
+  e|--5h7--|

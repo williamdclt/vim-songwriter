@@ -5,10 +5,12 @@
 " Block lines are 0-indexed (`lin`), columns 1-indexed, as in tab/columns.vim.
 " `dir` is -1 for the string above (the line above), +1 for the one below.
 
-" Spec 7: move the note under column `col` of line `lin` (column 0), or every
-" note of the time column under it (column 1), one string in direction `dir`.
+" Spec 7: move the chain (the notes joined by separators, grammar Chain) under
+" column `col` of line `lin` (column 0), or every chain starting on the time
+" column under it (column 1), one string in direction `dir`.
 " keep_pitch 0 moves the notes unchanged (7.2), 1 shifts their frets by the
-" interval between the two strings (7.3). Returns {'lines', 'lin', 'col'}
+" interval between the two strings (7.3). A chain with a note on the time column
+" that starts earlier is refused (7.4). Returns {'lines', 'lin', 'col'}
 " (the cursor follows the notes), or {'error': message} (7.4).
 function! songwriter#tab#strings#Move(lines, lin, col, dir, keep_pitch, column) abort
   let l:c = s:column_at(a:lines, a:lin, a:col, a:column)
@@ -19,7 +21,11 @@ function! songwriter#tab#strings#Move(lines, lin, col, dir, keep_pitch, column) 
   " The notes to move: [{'lin', 'text'}], with their new text.
   let l:movers = []
   for l:i in (a:column ? range(len(a:lines)) : [a:lin])
-    for l:a in songwriter#tab#columns#Atoms(a:lines[l:i])
+    for l:a in songwriter#tab#model#Chains(a:lines[l:i])
+      if a:column && l:a.col != l:c && s:has_note_at(a:lines[l:i], l:a, l:c)
+        return {'error': printf('the note on string %s is linked to an earlier one',
+              \ songwriter#tab#model#Name(a:lines[l:i]))}
+      endif
       if l:a.col == l:c
         let l:to = l:i + a:dir
         if l:to < 0 || l:to >= len(a:lines)
@@ -61,11 +67,20 @@ function! songwriter#tab#strings#Move(lines, lin, col, dir, keep_pitch, column) 
   return {'lines': l:lines, 'lin': l:lin, 'col': l:col}
 endfunction
 
-" The start column of the note covering `col` on line `lin`; for a time column
-" (column 1) off a note, the column `col` when a note on another string starts
-" there, else the start of a note covering `col` on another string. 0: none.
+" True when a note of `line` inside `chain` starts on column `c`.
+function! s:has_note_at(line, chain, c) abort
+  return a:c > a:chain.col && a:c < a:chain.col + a:chain.len
+        \ && !empty(filter(songwriter#tab#model#Notes(a:line), 'v:val.col == a:c'))
+endfunction
+
+" Column 0: the start of the chain covering `col` on line `lin`. Column 1: the
+" start of the note covering `col` on line `lin`; off a note, the column `col`
+" when a note on another string starts there, else the start of a note covering
+" `col` on another string. 0: none.
 function! s:column_at(lines, lin, col, column) abort
-  for l:a in songwriter#tab#columns#Atoms(a:lines[a:lin])
+  let l:here = a:column ? songwriter#tab#model#Notes(a:lines[a:lin])
+        \ : songwriter#tab#model#Chains(a:lines[a:lin])
+  for l:a in l:here
     if a:col >= l:a.col && a:col < l:a.col + l:a.len
       return l:a.col
     endif
@@ -75,7 +90,7 @@ function! s:column_at(lines, lin, col, column) abort
   endif
   let l:covering = []
   for l:l in a:lines
-    for l:a in songwriter#tab#columns#Atoms(l:l)
+    for l:a in songwriter#tab#model#Notes(l:l)
       if l:a.col == a:col
         return a:col
       elseif a:col > l:a.col && a:col < l:a.col + l:a.len
@@ -95,10 +110,10 @@ function! s:make_room(lines, to, c, len) abort
   let l:lines = a:lines
   let l:c = a:c
   let l:t = l:lines[a:to]
-  if s:is_atom(l:t, l:c)
+  if s:in_chain(l:t, l:c)
     return {'error': printf('string %s already has a note there', songwriter#tab#model#Name(l:lines[a:to]))}
   endif
-  if l:c > 1 && s:is_atom(l:t, l:c - 1)
+  if l:c > 1 && s:in_chain(l:t, l:c - 1)
     if s:splits(l:lines, l:c - 1)
       return {'error': printf('no room on string %s', songwriter#tab#model#Name(l:lines[a:to]))}
     endif
@@ -130,26 +145,26 @@ endfunction
 " True when inserting after byte offset `o` would cut a note in two on a line.
 function! s:splits(lines, o) abort
   for l:l in a:lines
-    if s:is_atom(l:l, a:o) && s:is_atom(l:l, a:o + 1)
+    if s:in_chain(l:l, a:o) && s:in_chain(l:l, a:o + 1)
       return 1
     endif
   endfor
   return 0
 endfunction
 
-" True when column `col` of `line` is part of a note group.
-function! s:is_atom(line, col) abort
+" True when column `col` of `line` is part of a chain.
+function! s:in_chain(line, col) abort
   return a:col > songwriter#tab#model#BodyOffset() && a:col <= len(a:line)
-        \ && a:line[a:col - 1] =~# '^' . songwriter#grammar#TabAtom() . '$'
+        \ && songwriter#grammar#IsChainChar(a:line[a:col - 1])
 endfunction
 
-" Spec 7.3: `text` (a note group on line `from`) with every fret shifted by the
+" Spec 7.3: `text` (a chain on line `from`) with every fret shifted by the
 " interval between strings `from` and `to`, or {'error'}.
 " Strings are taken to be listed from the highest to the lowest, neighbouring
 " strings less than an octave apart: the interval is read from pitch classes.
 " A mark without a fret (`x`) is returned unchanged.
 function! s:repitch(lines, from, to, text) abort
-  if a:text !~# songwriter#grammar#Note()
+  if a:text !~# songwriter#grammar#Fret()
     return a:text
   endif
   for l:lin in [a:from, a:to]
@@ -169,7 +184,7 @@ function! s:repitch(lines, from, to, text) abort
   if min(l:frets) < 0
     return {'error': printf('the fret would go below 0 on string %s', songwriter#tab#model#Name(a:lines[a:to]))}
   endif
-  return substitute(a:text, songwriter#grammar#Note(), '\=str2nr(submatch(0), 10) + l:shift', 'g')
+  return substitute(a:text, songwriter#grammar#Fret(), '\=str2nr(submatch(0), 10) + l:shift', 'g')
 endfunction
 
 " Spec 7: the buffer entry point for `s`/`S` + `k`/`j`/`K`/`J`. Lints first

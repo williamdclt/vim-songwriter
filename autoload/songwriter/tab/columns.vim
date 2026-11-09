@@ -2,28 +2,16 @@
 " operators (spec [Tablature][[Editing]] 6). Pure: lines in, lines / ranges
 " out. See design.md "Operators and text objects".
 "
-" A time column is the set of notes (note groups: `12`, `5h7`, `x`) starting
+" A time column is the set of notes (`12`, `x`; the 5 and the 7 of `5h7` are two) starting
 " at the same byte column on any string of a block. A range is [s, e], two
 " 1-indexed inclusive byte columns, applied to every string of the block.
 " Block lines are 0-indexed (`lin`), as in the linter.
 
-" Note groups on a tab line, left to right, skipping the string name and the
-" first pipe: [{'col', 'len', 'text'}].
-function! songwriter#tab#columns#Atoms(line) abort
-  let l:res = []
-  let l:m = matchstrpos(a:line, songwriter#grammar#TabAtom(), songwriter#tab#model#BodyOffset())
-  while l:m[1] >= 0
-    call add(l:res, {'col': l:m[1] + 1, 'len': len(l:m[0]), 'text': l:m[0]})
-    let l:m = matchstrpos(a:line, songwriter#grammar#TabAtom(), l:m[2])
-  endwhile
-  return l:res
-endfunction
-
-" Start columns of every note group on any string, sorted, unique.
+" Start columns of every note on any string, sorted, unique.
 function! songwriter#tab#columns#Columns(lines) abort
   let l:cols = []
   for l:l in a:lines
-    call extend(l:cols, map(songwriter#tab#columns#Atoms(l:l), 'v:val.col'))
+    call extend(l:cols, map(songwriter#tab#model#Notes(l:l), 'v:val.col'))
   endfor
   return uniq(sort(l:cols, 'n'))
 endfunction
@@ -32,7 +20,7 @@ endfunction
 function! s:column_end(lines, c) abort
   let l:e = a:c
   for l:l in a:lines
-    for l:a in songwriter#tab#columns#Atoms(l:l)
+    for l:a in songwriter#tab#model#Notes(l:l)
       if l:a.col == a:c
         let l:e = max([l:e, l:a.col + l:a.len - 1])
       endif
@@ -117,7 +105,7 @@ endfunction
 function! songwriter#tab#columns#NoteObject(lines, lin, col, around) abort
   let l:line = a:lines[a:lin]
   let l:bar = songwriter#tab#model#BarAt(l:line, a:col)
-  let l:notes = filter(songwriter#tab#columns#Atoms(l:line),
+  let l:notes = filter(songwriter#tab#model#Notes(l:line),
         \ 'v:val.col <= a:col && songwriter#tab#model#InBar(v:val.col, l:bar)')
   if empty(l:notes)
     return []
@@ -130,11 +118,11 @@ function! songwriter#tab#columns#NoteObject(lines, lin, col, around) abort
   return [l:n.col, max([l:column[1], l:n.col + l:n.len - 1])]
 endfunction
 
-" Where a tablature-mode motion can stop, sorted: `w`/`b` the note groups of
+" Where a tablature-mode motion can stop, sorted: `w`/`b` the notes of
 " `line`, `l`/`h` the time columns of the block.
 function! songwriter#tab#columns#Stops(lines, line, key) abort
   return a:key =~# '[wb]'
-        \ ? map(songwriter#tab#columns#Atoms(a:line), 'v:val.col')
+        \ ? map(songwriter#tab#model#Notes(a:line), 'v:val.col')
         \ : songwriter#tab#columns#Columns(a:lines)
 endfunction
 
@@ -148,7 +136,7 @@ function! songwriter#tab#columns#Snap(lines, lin, s, e) abort
   let l:covered = 0
   let l:ends = 0
   for l:l in a:lines
-    for l:a in songwriter#tab#columns#Atoms(l:l)
+    for l:a in songwriter#tab#model#Notes(l:l)
       let l:aend = l:a.col + l:a.len - 1
       if l:a.col <= a:s && a:s <= l:aend
         let l:s = min([l:s, l:a.col])
@@ -167,7 +155,7 @@ function! songwriter#tab#columns#Snap(lines, lin, s, e) abort
     endif
   endif
   for l:l in a:lines
-    for l:a in songwriter#tab#columns#Atoms(l:l)
+    for l:a in songwriter#tab#model#Notes(l:l)
       if l:a.col + l:a.len - 1 == l:e
         let l:ends = 1
       endif
@@ -211,7 +199,7 @@ endfunction
 function! songwriter#tab#columns#ClearNotes(lines) abort
   let l:o = songwriter#tab#model#BodyOffset()
   return map(copy(a:lines),
-        \ "strpart(v:val, 0, l:o) . substitute(strpart(v:val, l:o), songwriter#grammar#TabAtom(), '\\=repeat(\"-\", len(submatch(0)))', 'g')")
+        \ "strpart(v:val, 0, l:o) . substitute(strpart(v:val, l:o), songwriter#grammar#Chain(), '\\=repeat(\"-\", len(submatch(0)))', 'g')")
 endfunction
 
 " Spec 6.5.3: register rows for a block with `names`, matched from the bottom
@@ -244,7 +232,7 @@ function! songwriter#tab#columns#MatchRows(names, rows, regnames) abort
   endif
   let l:dropped = 0
   for l:j in range(max([l:nr - l:ns, 0]))
-    let l:dropped += len(filter(split(l:rows[l:j], songwriter#grammar#NoteSeparators()), '!empty(v:val)'))
+    let l:dropped += len(songwriter#tab#model#RowNotes(l:rows[l:j]))
   endfor
   if l:dropped > 0
     call add(l:msgs, l:dropped . ' notes dropped')
@@ -314,7 +302,7 @@ function! s:insert_rows(lines, offset, rows, count) abort
   endfor
   let l:first = 0
   for l:r in l:rows
-    let l:p = match(l:r, songwriter#grammar#TabAtom())
+    let l:p = match(l:r, songwriter#grammar#Note())
     if l:p >= 0 && (l:first == 0 || l:p + 1 < l:first)
       let l:first = l:p + 1
     endif
@@ -328,7 +316,7 @@ endfunction
 " yank with the other strings as dashes (6.7.3), or {} off a note.
 function! songwriter#tab#columns#EraseNote(lines, lin, col) abort
   let l:note = {}
-  for l:a in songwriter#tab#columns#Atoms(a:lines[a:lin])
+  for l:a in songwriter#tab#model#Notes(a:lines[a:lin])
     if l:a.col <= a:col && a:col < l:a.col + l:a.len
       let l:note = l:a
     endif
@@ -339,7 +327,7 @@ function! songwriter#tab#columns#EraseNote(lines, lin, col) abort
   let l:c = l:note.col
   let l:shared = 0
   for l:i in range(len(a:lines))
-    if l:i != a:lin && !empty(filter(songwriter#tab#columns#Atoms(a:lines[l:i]), 'v:val.col == l:c'))
+    if l:i != a:lin && !empty(filter(songwriter#tab#model#Notes(a:lines[l:i]), 'v:val.col == l:c'))
       let l:shared = 1
     endif
   endfor
@@ -362,9 +350,9 @@ function! songwriter#tab#columns#EraseNote(lines, lin, col) abort
 endfunction
 
 " Spec 6.13: move the time column at `col` of line `lin` one dash later (dir
-" +1: a dash inserted before it on every string) or earlier (dir -1: a dash
-" removed before it, keeping at least one dash after the previous note on any
-" string). Returns {'lines', 'col'}, or {} when nothing changes, including on
+" +1: a dash inserted before it on every string) or earlier (dir -1: a column
+" of dashes before it removed, keeping at least one dash after the previous note
+" on any string; a separator is never removed). Returns {'lines', 'col'}, or {} when nothing changes, including on
 " a bar's first column (lint keeps two dashes after the pipe there).
 function! songwriter#tab#columns#ShiftColumn(lines, lin, col, dir) abort
   if s:on_pipe_or_name(a:lines[a:lin], a:col)
@@ -380,7 +368,7 @@ function! songwriter#tab#columns#ShiftColumn(lines, lin, col, dir) abort
   endif
   let l:prev_end = 0
   for l:l in a:lines
-    for l:a in songwriter#tab#columns#Atoms(l:l)
+    for l:a in songwriter#tab#model#Notes(l:l)
       if l:a.col < l:c && songwriter#tab#model#InBar(l:a.col, l:bar)
         let l:prev_end = max([l:prev_end, l:a.col + l:a.len - 1])
       endif
@@ -389,7 +377,19 @@ function! songwriter#tab#columns#ShiftColumn(lines, lin, col, dir) abort
   if l:c - l:prev_end - 1 < 2
     return {}
   endif
-  return {'lines': songwriter#tab#columns#DeleteRange(a:lines, l:c - 1, l:c - 1).lines, 'col': l:c - 1}
+  let l:o = l:c - 1
+  while l:o > l:prev_end && !s:all_dashes(a:lines, l:o)
+    let l:o -= 1
+  endwhile
+  if l:o <= l:prev_end
+    return {}
+  endif
+  return {'lines': songwriter#tab#columns#DeleteRange(a:lines, l:o, l:o).lines, 'col': l:c - 1}
+endfunction
+
+" True when column `col` holds a dash (or nothing) on every line.
+function! s:all_dashes(lines, col) abort
+  return empty(filter(copy(a:lines), "v:val[a:col - 1] !=# '-' && v:val[a:col - 1] !=# ''"))
 endfunction
 
 " Spec 6.14: write the notes of column register `rows` onto the time column at
@@ -413,10 +413,10 @@ function! songwriter#tab#columns#Overlay(lines, lin, col, rows, regnames) abort
   if l:c == 0
     return {'error': 'songwriter: gp needs a note column under the cursor'}
   endif
-  let l:atoms = map(copy(l:m.rows), 's:row_atoms(v:val)')
+  let l:atoms = map(copy(l:m.rows), 'songwriter#tab#model#RowChains(v:val)')
   let l:starts = []
-  for l:r in l:atoms
-    call extend(l:starts, map(copy(l:r), 'v:val.col'))
+  for l:r in l:m.rows
+    call extend(l:starts, map(songwriter#tab#model#RowNotes(l:r), 'v:val.col'))
   endfor
   if empty(l:starts)
     return {'lines': copy(a:lines), 'col': l:c, 'msg': l:m.msg}
@@ -434,15 +434,4 @@ function! songwriter#tab#columns#Overlay(lines, lin, col, rows, regnames) abort
     endfor
   endfor
   return {'lines': l:out, 'col': l:c, 'msg': l:m.msg}
-endfunction
-
-" Note groups of a register row (no string name), with 1-indexed columns.
-function! s:row_atoms(row) abort
-  let l:res = []
-  let l:m = matchstrpos(a:row, songwriter#grammar#TabAtom())
-  while l:m[1] >= 0
-    call add(l:res, {'col': l:m[1] + 1, 'len': len(l:m[0]), 'text': l:m[0]})
-    let l:m = matchstrpos(a:row, songwriter#grammar#TabAtom(), l:m[2])
-  endwhile
-  return l:res
 endfunction

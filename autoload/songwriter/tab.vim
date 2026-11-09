@@ -59,7 +59,7 @@ endfunction
 " after a digit was typed (cursor still on it, buffer unchanged since), the next
 " digit is appended instead, so two-digit frets are typed one key at a time
 " (3.4.1). Then lint the block, keeping the cursor on the digit (4.1); this
-" fills any open slot. No-op off a tab line.
+" fills any open slot. No-op off a tab line and on a separator (3.4.2).
 function! songwriter#tab#EnterNote(digit) abort
   let l:line = getline('.')
   if !songwriter#grammar#IsTabLine(l:line)
@@ -68,10 +68,13 @@ function! songwriter#tab#EnterNote(digit) abort
   let l:digit = a:digit . ''
   let l:col = col('.')
   let l:ch = (l:col <= len(l:line)) ? l:line[l:col - 1] : ''
+  if songwriter#grammar#IsSeparatorChar(l:ch)
+    return
+  endif
   let l:typing = songwriter#tab#state#Get('typing')
   let l:note = s:note_at(l:line, l:col)
   if !empty(l:typing) && l:typing.line == line('.') && l:typing.col == l:col
-        \ && songwriter#grammar#IsNoteChar(l:ch)
+        \ && songwriter#grammar#IsFretChar(l:ch)
     call setline('.', l:line[0 : l:col - 1] . l:digit . l:line[l:col :])
     call cursor(line('.'), l:col + 1)
   elseif !empty(l:note)

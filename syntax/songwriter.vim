@@ -27,7 +27,7 @@ execute 'syn region songwriterTabLine start=' . string(songwriter#grammar#TabLin
 execute 'syn match songwriterTabPrefix ' . string(songwriter#grammar#TabPrefixSyntax()) . ' contained'
 
 " Tab fret numbers
-execute 'syn match songwriterTabFret ' . string(songwriter#grammar#Note()) . ' contained'
+execute 'syn match songwriterTabFret ' . string(songwriter#grammar#Fret()) . ' contained'
 
 " Tab bar separator
 execute 'syn match songwriterTabBar ' . string(songwriter#grammar#Pipe()) . ' contained'

@@ -267,22 +267,13 @@ Expect:
   e|--5h7--x--|
   B|--3/5-----|
 
-Given songwriter (lint aligns pipes around technique groups and de-overlaps them):
+Given songwriter (lint aligns pipes and the notes around separators):
   e|-----5h7----|---|
   B|---3/5--|--12b14--|
 
-Execute (lint aligns pipes around technique groups and de-overlaps them):
+Execute (lint aligns pipes and the notes around separators):
   SongwriterLint
 Expect:
-  e|------5h7--|---------|
-  B|--3/5------|--12b14--|
+  e|----5h7--|---------|
+  B|--3/5----|--12b14--|
 
-Given songwriter (lint treats a technique group as one note when de-overlapping):
-  e|--5h7--|
-  B|----3--|
-
-Execute (lint treats a technique group as one note when de-overlapping):
-  SongwriterLint
-Expect:
-  e|--5h7----|
-  B|------3--|

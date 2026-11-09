@@ -33,21 +33,34 @@ function! songwriter#tab#model#BodyOffset() abort
   return 2
 endfunction
 
-" Notes on one line (or one bar region), left to right.
-function! songwriter#tab#model#Notes(text) abort
-  return s:matches(a:text, songwriter#grammar#Note())
+" Notes of a tab line, left to right, skipping the string name.
+function! songwriter#tab#model#Notes(line) abort
+  return s:matches(a:line, songwriter#grammar#Note(), songwriter#tab#model#BodyOffset())
 endfunction
 
-" Note groups (notes with their playing techniques, grammar TabAtom) in one bar
-" region, left to right, same shape as Notes(). Only meaningful on a bar region:
-" on a whole line the string name would count as a group.
-function! songwriter#tab#model#Atoms(text) abort
-  return s:matches(a:text, songwriter#grammar#TabAtom())
+" Chains of a tab line (see grammar), left to right, same shape as Notes().
+function! songwriter#tab#model#Chains(line) abort
+  return s:matches(a:line, songwriter#grammar#Chain(), songwriter#tab#model#BodyOffset())
 endfunction
 
-function! s:matches(text, pat) abort
+" Notes of a row: a bar region or a register row, with no string name.
+function! songwriter#tab#model#RowNotes(row) abort
+  return s:matches(a:row, songwriter#grammar#Note(), 0)
+endfunction
+
+" Separators of a row, same shape as RowNotes().
+function! songwriter#tab#model#RowSeparators(row) abort
+  return s:matches(a:row, songwriter#grammar#Separator(), 0)
+endfunction
+
+" Chains of a row, same shape as RowNotes().
+function! songwriter#tab#model#RowChains(row) abort
+  return s:matches(a:row, songwriter#grammar#Chain(), 0)
+endfunction
+
+function! s:matches(text, pat, start) abort
   let l:res = []
-  let l:m = matchstrpos(a:text, a:pat)
+  let l:m = matchstrpos(a:text, a:pat, a:start)
   while l:m[1] >= 0
     call add(l:res, {'col': l:m[1] + 1, 'len': len(l:m[0]), 'text': l:m[0]})
     let l:m = matchstrpos(a:text, a:pat, l:m[2])
