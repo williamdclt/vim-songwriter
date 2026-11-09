@@ -68,9 +68,10 @@ function! songwriter#tab#EnterNote(digit) abort
   let l:digit = a:digit . ''
   let l:col = col('.')
   let l:ch = (l:col <= len(l:line)) ? l:line[l:col - 1] : ''
-  let l:typing = {'line': line('.'), 'col': l:col, 'tick': b:changedtick}
+  let l:typing = songwriter#tab#state#Get('typing')
   let l:note = s:note_at(l:line, l:col)
-  if get(b:, 'songwriter_typing', {}) ==# l:typing && songwriter#grammar#IsNoteChar(l:ch)
+  if !empty(l:typing) && l:typing.line == line('.') && l:typing.col == l:col
+        \ && songwriter#grammar#IsNoteChar(l:ch)
     call setline('.', l:line[0 : l:col - 1] . l:digit . l:line[l:col :])
     call cursor(line('.'), l:col + 1)
   elseif !empty(l:note)
@@ -82,8 +83,8 @@ function! songwriter#tab#EnterNote(digit) abort
     call cursor(line('.'), l:col)
   endif
   call songwriter#tab#edit#LintAndFollow(songwriter#tab#model#Read())
-  unlet! b:songwriter_slot
-  let b:songwriter_typing = {'line': line('.'), 'col': col('.'), 'tick': b:changedtick}
+  call songwriter#tab#slots#Forget()
+  call songwriter#tab#state#Set('typing', {'line': line('.'), 'col': col('.')})
 endfunction
 
 " The note of `line` covering column `col`, or {}.
@@ -105,15 +106,15 @@ function! songwriter#tab#AddNote(side) abort
   if empty(l:block)
     return
   endif
-  unlet! b:songwriter_slot
+  call songwriter#tab#slots#Forget()
   let l:block = songwriter#tab#edit#LintAndFollow(l:block)
   let l:line = getline('.')
   let l:result = a:side > 0
-        \ ? songwriter#tab#AppendSlot(l:block, l:line, col('.'))
-        \ : songwriter#tab#PrependSlot(l:block, l:line, col('.'))
+        \ ? songwriter#tab#slots#Append(l:block, l:line, col('.'))
+        \ : songwriter#tab#slots#Prepend(l:block, l:line, col('.'))
   call songwriter#tab#edit#Apply(l:block, l:result)
   if !empty(l:result)
-    let b:songwriter_slot = {'line': line('.'), 'tick': b:changedtick}
+    call songwriter#tab#slots#Open()
   endif
 endfunction
 
@@ -126,19 +127,10 @@ function! songwriter#tab#AddBarSlot() abort
   if empty(l:block)
     return
   endif
-  unlet! b:songwriter_slot
+  call songwriter#tab#slots#Forget()
   let l:block = songwriter#tab#edit#LintAndFollow(l:block)
-  call songwriter#tab#edit#Apply(l:block, songwriter#tab#AppendBarSlot(l:block))
-  let b:songwriter_slot = {'line': line('.'), 'tick': b:changedtick}
-endfunction
-
-" Pure. A new bar of five dashes after every string of a linted block (whose
-" strings all end on the same pipe column), with the slot on the middle dash.
-" Returns {'lines', 'col'}.
-function! songwriter#tab#AppendBarSlot(block) abort
-  return {
-        \ 'lines': map(copy(a:block.lines), "v:val . '-----|'"),
-        \ 'col': len(a:block.lines[0]) + 3}
+  call songwriter#tab#edit#Apply(l:block, songwriter#tab#slots#AppendBar(l:block))
+  call songwriter#tab#slots#Open()
 endfunction
 
 " Spec [Tablature][[Editing]] 8: add an empty tab under (below 1, `o`) or
@@ -147,12 +139,12 @@ endfunction
 " cursor's string. The slot is remembered as `a`'s is (4.3): a digit fills it,
 " and abandoned, it is linted to an empty bar. An open slot is abandoned first.
 function! songwriter#tab#NewTab(below) abort
-  call songwriter#tab#LintAbandonedSlot()
+  call songwriter#tab#slots#Abandon()
   let l:block = songwriter#tab#model#Read()
   if empty(l:block)
     return
   endif
-  let l:tab = songwriter#tab#EmptyTab(l:block)
+  let l:tab = songwriter#tab#slots#EmptyTab(l:block)
   let l:row = line('.') - l:block.start
   if a:below
     let l:last = l:block.start + len(l:block.lines) - 1
@@ -163,108 +155,10 @@ function! songwriter#tab#NewTab(below) abort
     let l:first = l:block.start
   endif
   call cursor(l:first + l:row, l:tab.col)
-  let b:songwriter_slot = {'line': line('.'), 'tick': b:changedtick}
-endfunction
-
-" Pure. A tab with the string names of `block` and one bar of five dashes,
-" with the slot on the middle dash (as the new bar of spec 5).
-" Returns {'lines', 'col'}.
-function! songwriter#tab#EmptyTab(block) abort
-  return {'lines': map(copy(a:block.lines), "v:val[0] . '|-----|'"), 'col': 5}
-endfunction
-
-" Pure. The `a` slot: the anchor is the rightmost note end, on any string,
-" among notes of the cursor's bar that start at or before the cursor (so the
-" anchor is the note column under or left of the cursor). Dashes are inserted
-" after the anchor so that the slot sits one dash from it and the next note, on
-" any string, stays one dash away (the next pipe, two dashes).
-" Returns {'lines', 'col'}, or {} when there is no anchor note.
-function! songwriter#tab#AppendSlot(block, line, col) abort
-  let l:bar = songwriter#tab#model#BarAt(a:line, a:col)
-  let l:e = 0
-  for l:s in a:block.strings
-    for l:n in l:s.notes
-      if l:n.col <= a:col && songwriter#tab#model#InBar(l:n.col, l:bar)
-        let l:e = max([l:e, l:n.col - 1 + l:n.len])
-      endif
-    endfor
-  endfor
-  if l:e == 0
-    return {}
-  endif
-  " Wanted column of the nearest next note (e + 4) or pipe (e + 5), any string.
-  let l:n = 0
-  for l:s in a:block.strings
-    for l:note in l:s.notes
-      if l:note.col > l:e
-        let l:n = max([l:n, l:e + 4 - l:note.col])
-      endif
-    endfor
-    for l:p in l:s.pipes
-      if l:p > l:e
-        let l:n = max([l:n, l:e + 5 - l:p])
-      endif
-    endfor
-  endfor
-  return {
-        \ 'lines': songwriter#tab#model#InsertColumns(a:block.lines, l:e, l:n, '-'),
-        \ 'col': l:e + 2}
-endfunction
-
-" Pure. The `i` slot, mirror of AppendSlot: the anchor is the leftmost note
-" start, on any string, among notes of the cursor's bar that end at or after
-" the cursor. Dashes are inserted before it so that the slot sits one dash left
-" of it and the previous note, on any string, stays one dash away (the
-" previous pipe, two dashes).
-" Returns {'lines', 'col'}, or {} when there is no anchor note.
-function! songwriter#tab#PrependSlot(block, line, col) abort
-  let l:bar = songwriter#tab#model#BarAt(a:line, a:col)
-  let l:s = 0
-  for l:str in a:block.strings
-    for l:n in l:str.notes
-      if l:n.col - 1 + l:n.len >= a:col
-            \ && songwriter#tab#model#InBar(l:n.col, l:bar)
-            \ && (l:s == 0 || l:n.col < l:s)
-        let l:s = l:n.col
-      endif
-    endfor
-  endfor
-  if l:s == 0
-    return {}
-  endif
-  " Dashes needed so the previous note end (s - 4) or pipe (s - 5) is far enough.
-  let l:n = 0
-  for l:str in a:block.strings
-    for l:note in l:str.notes
-      let l:end = l:note.col - 1 + l:note.len
-      if l:end < l:s
-        let l:n = max([l:n, l:end + 4 - l:s])
-      endif
-    endfor
-    for l:p in l:str.pipes
-      if l:p < l:s
-        let l:n = max([l:n, l:p + 5 - l:s])
-      endif
-    endfor
-  endfor
-  return {
-        \ 'lines': songwriter#tab#model#InsertColumns(a:block.lines, l:s - 1, l:n, '-'),
-        \ 'col': l:s + l:n - 2}
+  call songwriter#tab#slots#Open()
 endfunction
 
 " === Linting after edits (spec [Tablature][[Editing]] 4) ===
-
-" Spec 4.3: if the slot opened by `a`/`i` (or `l`, 3.3.2 and 5) is still open and
-" empty (the buffer has not changed since, e.g. only `j`/`k` were pressed),
-" lint its block. Called by the tablature-mode keys that abandon a slot.
-function! songwriter#tab#LintAbandonedSlot() abort
-  let l:slot = get(b:, 'songwriter_slot', {})
-  unlet! b:songwriter_slot
-  if empty(l:slot) || l:slot.tick != b:changedtick
-    return
-  endif
-  call songwriter#tab#edit#LintAndFollow(songwriter#tab#model#Read(l:slot.line))
-endfunction
 
 " === Motions ===
 
@@ -272,7 +166,7 @@ endfunction
 " note on the current line. No-op off a tab line or with no note that way.
 " An open slot is abandoned first (4.3).
 function! songwriter#tab#MoveNote(dir) abort
-  call songwriter#tab#LintAbandonedSlot()
+  call songwriter#tab#slots#Abandon()
   let l:line = getline('.')
   if !songwriter#grammar#IsTabLine(l:line)
     return
@@ -293,7 +187,7 @@ endfunction
 " and is a no-op before the first note (3.3.3). An open slot is abandoned
 " first (4.3).
 function! songwriter#tab#MoveColumn(dir) abort
-  call songwriter#tab#LintAbandonedSlot()
+  call songwriter#tab#slots#Abandon()
   let l:block = songwriter#tab#model#Read()
   if empty(l:block)
     return

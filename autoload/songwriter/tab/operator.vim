@@ -110,7 +110,7 @@ function! s:write_deleted(op, block, lines, s) abort
     if l:anchor[1] == 0
       call cursor(line('.'), col('.') + 1)
     endif
-    call s:open_slot(l:anchor[1])
+    call songwriter#tab#slots#OpenHere(l:anchor[1])
   else
     call songwriter#tab#edit#Commit(a:block, {'lines': a:lines})
     call s:to_next_column()
@@ -190,30 +190,8 @@ function! s:linewise(op, reg, l1, l2) abort
       let l:cur = l:l1
     endif
     call cursor(l:cur, 3)
-    call s:open_slot(0)
+    call songwriter#tab#slots#OpenHere(0)
   endif
-endfunction
-
-" Spec 6.6: open a slot at the cursor: before its note (side -1, as `i`),
-" after it (+1, as `a`), or, side 0, in the cursor's empty bar.
-function! s:open_slot(side) abort
-  let l:block = songwriter#tab#model#Read()
-  if empty(l:block)
-    return
-  endif
-  let l:line = getline('.')
-  if a:side < 0
-    let l:res = songwriter#tab#PrependSlot(l:block, l:line, col('.'))
-  elseif a:side > 0
-    let l:res = songwriter#tab#AppendSlot(l:block, l:line, col('.'))
-  else
-    let l:res = songwriter#tab#columns#EmptyBarSlot(l:block.lines, line('.') - l:block.start, col('.'))
-  endif
-  if empty(l:res)
-    return
-  endif
-  call songwriter#tab#edit#Apply(l:block, l:res)
-  let b:songwriter_slot = {'line': line('.'), 'tick': b:changedtick}
 endfunction
 
 " Spec 6.11: the cursor goes to the first note column at or after it.
@@ -436,7 +414,7 @@ endfunction
 " Remember an action that is not an operator for `.` (see Repeat): `fmt` is a
 " call, with a %d for the count when the action takes one.
 function! songwriter#tab#operator#Record(fmt, count) abort
-  let b:songwriter_repeat = {'fmt': a:fmt, 'count': a:count, 'tick': b:changedtick}
+  call songwriter#tab#state#Set('repeat', {'fmt': a:fmt, 'count': a:count})
 endfunction
 
 " Spec 6.13: `>>` (dir +1) / `<<` (dir -1), `count` times.
@@ -662,8 +640,8 @@ endfunction
 " changedtick they left; while the buffer is unchanged since, `.` runs that
 " action again, with the new count if one is given.
 function! songwriter#tab#operator#Repeat() abort
-  let l:r = get(b:, 'songwriter_repeat', {})
-  if !empty(l:r) && l:r.tick == b:changedtick
+  let l:r = songwriter#tab#state#Get('repeat')
+  if !empty(l:r)
     let l:call = l:r.fmt =~# '%d' ? printf(l:r.fmt, v:count ? v:count : l:r.count) : l:r.fmt
     return printf("\<Cmd>call %s\<CR>", l:call)
   endif

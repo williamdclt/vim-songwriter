@@ -18,8 +18,10 @@ never relies on concealing or rendering.
 | `autoload/songwriter/grammar.vim` | The format's patterns (tab line, note, note group, chord, chord highlighting). The only place regexes for the format are written. |
 | `autoload/songwriter/tab/model.vim` | Tab block model: parse, queries, the column-insertion primitive, and `Read`/`Write` (the buffer edges). |
 | `autoload/songwriter/tab/edit.vim` | The buffer side of a tablature edit: `Commit` a pure function's result (write, cursor, lint and follow, message or refusal), `Run` a whole edit at the cursor. |
+| `autoload/songwriter/tab/slots.vim` | Slots: where a new note's room goes (pure) and the buffer's one open slot. |
+| `autoload/songwriter/tab/state.vim` | Buffer state valid only while `b:changedtick` is unchanged (slot, digit being typed, `.`). |
 | `autoload/songwriter/tab/lint.vim` | The linter, as a pure function over a block's lines. |
-| `autoload/songwriter/tab.vim` | Tab operations and motions: buffer entry points plus pure helpers (`AppendSlot`, `PrependSlot`, `AppendBarSlot`). |
+| `autoload/songwriter/tab.vim` | Tab operations and motions: buffer entry points around the model. |
 | `autoload/songwriter/tab/columns.vim` | The column model behind tablature-mode operators, pure: text object ranges, snapping, delete, extract, paste with row matching, erase. |
 | `autoload/songwriter/tab/operator.vim` | Tablature-mode operators, text objects, `x`/`X`/`p`/`P`, visual mode, registers and `.`: buffer entry points around `columns.vim`. |
 | `autoload/songwriter/tab/strings.vim` | Moving notes and time columns to another string, keeping the fret or the pitch: pure `Move()` and its entry point. |
@@ -212,7 +214,7 @@ Tablature-mode edits lint the block:
   does `l` adding a bar at the end of the tab (5, `AddBarSlot`).
 - **4.3**: an opened slot is remembered in `b:songwriter_slot` as
   `{line, tick}`. The next `h`/`l`/`w`/`b`/`a`/`i`/`<Esc>` lints the slot's
-  block before doing its own job (`LintAbandonedSlot`). A digit fills the slot
+  block before doing its own job (`slots#Abandon`). A digit fills the slot
   and clears it. `j`/`k` are not mapped, so the slot survives them and a later
   abandon still lints. The slot counts only while `b:changedtick` is unchanged:
   any other buffer change (undo, `x`…) drops it, since the block it pointed to

@@ -181,7 +181,7 @@ endfunction
 " (closing any open slot), moves, lints again with the cursor on the moved
 " note, and records itself for `.` (6.10). A refusal is echoed.
 function! songwriter#tab#strings#Change(dir, keep_pitch, column) abort
-  call songwriter#tab#LintAbandonedSlot()
+  call songwriter#tab#slots#Abandon()
   if empty(songwriter#tab#edit#Run(function('s:move', [a:dir, a:keep_pitch, a:column])))
     return
   endif

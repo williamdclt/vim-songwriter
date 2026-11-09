@@ -25,7 +25,7 @@ let s:tabmode.n = {
       \ 'h': 'call songwriter#tab#MoveColumn(-1)',
       \ 'a': 'call songwriter#tab#AddNote(1)',
       \ 'i': 'call songwriter#tab#AddNote(-1)',
-      \ '<Esc>': 'call songwriter#tab#LintAbandonedSlot()',
+      \ '<Esc>': 'call songwriter#tab#slots#Abandon()',
       \ 'd': '=songwriter#tab#operator#Start("d")',
       \ 'y': '=songwriter#tab#operator#Start("y")',
       \ 'c': '=songwriter#tab#operator#Start("c")',
