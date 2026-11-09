@@ -224,9 +224,10 @@ the key motions w/b/l/h become note-level (the actual movement lives in
     `i` (`AddNote(-1)`, s:prepend_note_left) mirrors to the **left**: one dash before
     the current note, two after the preceding pipe. The cursor lands on the new slot
     itself, which is a dash the user then fills with a digit. No-op when there is no
-    digit run in the asked direction. `a`/`i` are excluded from auto-lint (the 3.3 note
-    above) because the slot *is* the new space; a following `l` or digit entry runs
-    the 1.3 lint that tidies it.
+    digit run in the asked direction. `a`/`i` do not auto-lint themselves: the slot
+    *is* the new space, and the existing `||` lint key (and, for `l`, 3.3.3) is what
+    tidies it afterwards. Note: spec 4.2 ("lint when a note is inserted with a or i,
+    before the space is inserted") is not yet wired up and is out of scope for 3.1.
 
 ### Why the maps are inline, not function-calling
 
