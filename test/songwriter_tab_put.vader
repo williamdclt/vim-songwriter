@@ -70,20 +70,6 @@ Execute (6.7 x on a dash does nothing):
 Expect songwriter:
   e|--3--5--|
 
-" --- 6.8 X ---
-
-Given songwriter (6.8 X removes the column and its gap on every string):
-  e|--3--5--7--|
-  B|-----5-----|
-
-Execute (6.8 X removes the column and its gap on every string):
-  call cursor(2, 8)
-  normal X
-  AssertEqual ['5--', '5--'], getreg('"', 1, 1)
-Expect songwriter:
-  e|--3--7--|
-  B|--------|
-
 " --- 6.5 p / P ---
 
 Given songwriter (6.5.1 yac then P duplicates a column before it):
@@ -186,8 +172,9 @@ Given songwriter (6.3.2 a line-wise register goes after the tab, apart from it):
   end
 
 Execute (6.3.2 a line-wise register goes after the tab, apart from it):
+  call setreg('"', ['e|--3--|', 'B|--1--|'], 'l')
   call cursor(1, 4)
-  normal yyp
+  normal p
 Expect songwriter:
   e|--3--|
   B|--1--|

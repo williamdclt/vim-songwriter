@@ -29,14 +29,14 @@ let s:tabmode.n = {
       \ 'd': '=songwriter#tab#operator#Start("d")',
       \ 'y': '=songwriter#tab#operator#Start("y")',
       \ 'c': '=songwriter#tab#operator#Start("c")',
-      \ 'dd': '=songwriter#tab#operator#Lines("d")',
-      \ 'yy': '=songwriter#tab#operator#Lines("y")',
-      \ 'cc': '=songwriter#tab#operator#Lines("c")',
-      \ 'D': '=songwriter#tab#operator#Start("d") . "$"',
-      \ 'C': '=songwriter#tab#operator#Start("c") . "$"',
-      \ 'Y': '=songwriter#tab#operator#Lines("y")',
+      \ 'Y': '=songwriter#tab#operator#StartOn("y", "column")',
+      \ 'S': '=songwriter#tab#operator#StartOn("c", "column")',
+      \ 'D': '=songwriter#tab#operator#StartOn("d", "bar-end")',
+      \ 'C': '=songwriter#tab#operator#StartOn("c", "bar-end")',
+      \ '>>': 'call songwriter#tab#operator#Shift(1, v:count1)',
+      \ '<<': 'call songwriter#tab#operator#Shift(-1, v:count1)',
+      \ 'gp': 'call songwriter#tab#operator#Overlay(v:register)',
       \ 'x': 'call songwriter#tab#operator#Erase(v:count1, v:register)',
-      \ 'X': 'call songwriter#tab#operator#Remove(v:count1, v:register)',
       \ 'p': 'call songwriter#tab#operator#Put(0, v:count1, v:register)',
       \ 'P': 'call songwriter#tab#operator#Put(1, v:count1, v:register)',
       \ '.': '=songwriter#tab#operator#Repeat()',
@@ -46,7 +46,8 @@ for s:d in range(10)
 endfor
 unlet s:d
 
-" Spec 6.1 (text objects) and 6.2.1 (pure motions after an operator).
+" Spec 6.1 (text objects), 6.2.1 (pure motions after an operator) and 6.8
+" (a doubled operator, `dd`, acts on the column).
 let s:tabmode.o = {
       \ 'w': 'call songwriter#tab#operator#Motion("w")',
       \ 'b': 'call songwriter#tab#operator#Motion("b")',
@@ -56,6 +57,11 @@ let s:tabmode.o = {
       \ 'ac': 'call songwriter#tab#operator#Object("c", 1)',
       \ 'i|': 'call songwriter#tab#operator#Object("|", 0)',
       \ 'a|': 'call songwriter#tab#operator#Object("|", 1)',
+      \ 'in': 'call songwriter#tab#operator#NoteObject(0)',
+      \ 'an': 'call songwriter#tab#operator#NoteObject(1)',
+      \ 'd': 'call songwriter#tab#operator#Doubled("d")',
+      \ 'y': 'call songwriter#tab#operator#Doubled("y")',
+      \ 'c': 'call songwriter#tab#operator#Doubled("c")',
       \ }
 " Spec 6.9.
 let s:tabmode.x = {
@@ -67,6 +73,8 @@ let s:tabmode.x = {
       \ 'ac': 'call songwriter#tab#operator#VisualObject("c", 1)',
       \ 'i|': 'call songwriter#tab#operator#VisualObject("|", 0)',
       \ 'a|': 'call songwriter#tab#operator#VisualObject("|", 1)',
+      \ 'in': 'call songwriter#tab#operator#VisualNoteObject(0)',
+      \ 'an': 'call songwriter#tab#operator#VisualNoteObject(1)',
       \ 'd': 'call songwriter#tab#operator#VisualOp("d", v:register)',
       \ 'x': 'call songwriter#tab#operator#VisualOp("d", v:register)',
       \ 'y': 'call songwriter#tab#operator#VisualOp("y", v:register)',

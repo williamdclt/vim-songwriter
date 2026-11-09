@@ -1,0 +1,251 @@
+" Spec [Tablature][[Editing]] 6.1.4, 6.8, 6.9.6, 6.13, 6.14: column-wise
+" doubled operators, note objects, shifting and overlaying. Typed end-to-end
+" with `normal`.
+
+Before:
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_repeat
+  let b:songwriter_tabmode = 1
+  call setreg('"', [])
+
+" --- 6.8 doubled operators ---
+
+Given songwriter (6.8 dd deletes the column under the cursor):
+  e|--3--5--7--|
+  B|-----5-----|
+
+Execute (6.8 dd deletes the column under the cursor):
+  call cursor(2, 8)
+  normal dd
+  AssertEqual ['5--', '5--'], getreg('"', 1, 1)
+Expect songwriter:
+  e|--3--7--|
+  B|--------|
+
+Given songwriter (6.8 d3d deletes three columns):
+  e|--3--5--7--9--|
+
+Execute (6.8 d3d deletes three columns):
+  call cursor(1, 5)
+  normal d3d
+Expect songwriter:
+  e|--9--|
+
+Given songwriter (6.8 ddp swaps a column with the next one):
+  e|--3--5--7--|
+  B|-----5-----|
+
+Execute (6.8 ddp swaps a column with the next one):
+  call cursor(1, 8)
+  normal ddp
+Expect songwriter:
+  e|--3--7--5--|
+  B|--------5--|
+
+Given songwriter (6.8 yyp duplicates a column):
+  e|--3--5--|
+
+Execute (6.8 yyp duplicates a column):
+  call cursor(1, 5)
+  normal yyp
+Expect songwriter:
+  e|--3--3--5--|
+
+Given songwriter (6.8 Y is yy):
+  e|--3--5--|
+
+Execute (6.8 Y is yy):
+  call cursor(1, 8)
+  normal Y
+  AssertEqual ['5--'], getreg('"', 1, 1)
+
+Given songwriter (6.8 cc replaces the column with a slot):
+  e|--3--5--7--|
+
+Execute (6.8 cc replaces the column with a slot):
+  call cursor(1, 8)
+  normal cc9
+Expect songwriter:
+  e|--3-9-7--|
+
+Given songwriter (6.8 S is cc):
+  e|--3--5--7--|
+
+Execute (6.8 S is cc):
+  call cursor(1, 8)
+  normal S9
+Expect songwriter:
+  e|--3-9-7--|
+
+Given songwriter (6.8 . repeats dd):
+  e|--3--5--7--|
+
+Execute (6.8 . repeats dd):
+  call cursor(1, 5)
+  normal dd.
+Expect songwriter:
+  e|--7--|
+
+Given songwriter (6.8 dy does nothing):
+  e|--3--5--|
+
+Execute (6.8 dy does nothing):
+  call cursor(1, 5)
+  normal dy
+Expect songwriter:
+  e|--3--5--|
+
+Given songwriter (6.8.1 D deletes to the end of the bar):
+  e|--3--5--7--|--9--|
+
+Execute (6.8.1 D deletes to the end of the bar):
+  call cursor(1, 8)
+  normal D
+Expect songwriter:
+  e|--3--|--9--|
+
+Given songwriter (6.8.1 C changes to the end of the bar):
+  e|--3--5--7--|--9--|
+
+Execute (6.8.1 C changes to the end of the bar):
+  call cursor(1, 8)
+  normal C1
+Expect songwriter:
+  e|--3-1--|--9--|
+
+Given songwriter (6.8.2 X is native):
+  e|--3--5--|
+
+Execute (6.8.2 X is native):
+  call cursor(1, 6)
+  normal X
+Expect songwriter:
+  e|----5--|
+
+" --- 6.1.4 note objects ---
+
+Given songwriter (6.1.4 yan copies a single note, p pastes it as a new column):
+  e|--3--5--|
+  B|--1--5--|
+
+Execute (6.1.4 yan copies a single note, p pastes it as a new column):
+  call cursor(2, 5)
+  normal yan
+  AssertEqual ['---', '1--'], getreg('"', 1, 1)
+  call cursor(2, 8)
+  normal p
+Expect songwriter:
+  e|--3--5-----|
+  B|--1--5--1--|
+
+Given songwriter (6.1.4 yin copies the note without its gap):
+  e|--12--5--|
+
+Execute (6.1.4 yin copies the note without its gap):
+  call cursor(1, 6)
+  normal yin
+  AssertEqual ['12'], getreg('"', 1, 1)
+
+Given songwriter (6.1.4 dan is x):
+  e|--3--5--|
+  B|-----5--|
+
+Execute (6.1.4 dan is x):
+  call cursor(1, 8)
+  normal dan
+  AssertEqual ['5--', '---'], getreg('"', 1, 1)
+Expect songwriter:
+  e|--3-----|
+  B|-----5--|
+
+Given songwriter (6.1.4 can on a lone note opens a slot in its place):
+  e|--3--5--7--|
+
+Execute (6.1.4 can on a lone note opens a slot in its place):
+  call cursor(1, 8)
+  normal can9
+Expect songwriter:
+  e|--3-9-7--|
+
+Given songwriter (6.1.4 can on a shared column leaves the cursor on the emptied cell):
+  e|--3--5--|
+  B|--1--5--|
+
+Execute (6.1.4 can on a shared column leaves the cursor on the emptied cell):
+  call cursor(1, 8)
+  normal can9
+Expect songwriter:
+  e|--3--9--|
+  B|--1--5--|
+
+" --- 6.9.6 visual note objects ---
+
+Given songwriter (6.9.6 vand erases the note):
+  e|--3--5--|
+  B|-----5--|
+
+Execute (6.9.6 vand erases the note):
+  call cursor(1, 8)
+  normal vand
+Expect songwriter:
+  e|--3-----|
+  B|-----5--|
+
+" --- 6.13 >> and << ---
+
+Given songwriter (6.13 >> moves the column one dash later, << back):
+  e|--3--5--7--|
+  B|-----5-----|
+
+Execute (6.13 >> moves the column one dash later, << back):
+  call cursor(1, 8)
+  normal >>
+  AssertEqual 'e|--3---5--7--|', getline(1)
+  AssertEqual 9, col('.')
+  normal <<
+Expect songwriter:
+  e|--3--5--7--|
+  B|-----5-----|
+
+Given songwriter (6.13 . repeats >>):
+  e|--3--5--|
+
+Execute (6.13 . repeats >>):
+  call cursor(1, 8)
+  normal >>.
+Expect songwriter:
+  e|--3----5--|
+
+Given songwriter (6.13 << keeps one dash to the previous note):
+  e|--3-5--|
+
+Execute (6.13 << keeps one dash to the previous note):
+  call cursor(1, 7)
+  normal <<
+Expect songwriter:
+  e|--3-5--|
+
+" --- 6.14 gp ---
+
+Given songwriter (6.14 gp adds a note to an existing column):
+  e|--3--5--|
+  B|--------|
+
+Execute (6.14 gp adds a note to an existing column):
+  call setreg('"', ['---', '7--'], 'b')
+  call cursor(1, 8)
+  normal gp
+Expect songwriter:
+  e|--3--5--|
+  B|-----7--|
+
+Given songwriter (6.14 gp refuses to replace a note):
+  e|--3--|
+  B|--1--|
+
+Execute (6.14 gp refuses to replace a note):
+  call setreg('"', ['---', '7--'], 'b')
+  call cursor(1, 5)
+  normal gp
+Expect songwriter:
+  e|--3--|
+  B|--1--|
