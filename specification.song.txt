@@ -64,7 +64,9 @@ Each line is a guitar string, the numbers are the fretted notes, played sequenti
 
 [[Bugs]]
 These are known bugs that need fixing
-- `J` and `K` (uppercases) in tablature mode seem to enter the number 5 (probably because they are mapped to `5j` and `5k`). They should not do this, they should behave as normal movements.
+- in tab mode, entering a number when the cursor is on a number will not replace this number, it will insert instead.
+- Lint deletes playing techniques. e|--5h7--x--| / B|--3/5-----| lints to e|--5-7--| / B|--3-5--|. The h, / and x are silently lost. The note scanner (s:extract_atoms) only recognises digits, and the rendering step turns everything else into dashes. As soon as you write real tabs (hammer-ons, slides, bends, mutes), || will destroy data.
+- Chord detection under the cursor (`<Ctrl-A>`, `<Ctrl-X>`, `<leader>m`, `:SongwriterChordQuality`) is too permissive and mis-parses some tokens: an ordinary word starting with A-G is treated as a chord (`Bad` -> `Cad`); the root is not anchored to the start of the token (`xAm` -> `A#Am`); slash chords are split in two, so only the part under the cursor changes (`D/F#` with the cursor on `F#` -> `D/G`); and on a non-chord (e.g. a plain number) the native `<Ctrl-A>`/`<Ctrl-X>` increment no longer works.
 
 [Chords]
 
