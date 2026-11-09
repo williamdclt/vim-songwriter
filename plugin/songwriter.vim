@@ -30,6 +30,12 @@ endfunction
 function! SongwriterMoveColumn(dir)
   call songwriter#tab#MoveColumn(a:dir)
 endfunction
+function! SongwriterEnterNote(digit)
+  call songwriter#tab#EnterNote(a:digit)
+endfunction
+function! SongwriterAddNote(side)
+  call songwriter#tab#AddNote(a:side)
+endfunction
 
 " --- Thin wrappers over autoload/songwriter/chord.vim ---
 function! SongwriterTransposeChord(dir)

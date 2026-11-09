@@ -183,12 +183,30 @@ the key motions w/b/l/h become note-level (the actual movement lives in
   digit run `[0-9]+` (the two-digit frets 10-19 read as one run, so we land on
   the left digit). w goes to the next run start to the right of the cursor, b the
   one to the left, in either case ignoring the dashes and pipes between. The
-  guard `line() notin s:tab_lines()` no-ops on a prose line.
+  guard `!SongwriterIsTablatureLine(getline('.'))` no-ops on a prose line.
 - **3.2 l/h — the note column across any line.** Collect the digit-run start
   columns from *every* line of the block, pick the nearest one on the side that
   is not the current column, then `cursor` there. l/h thus jump to a column where
   some *other* string carries a note (e.g. the `e` line skips a gap on itself and
   lands opposite the `B` string's fret).
+
+- **3.3 digits — enter a note.** A digit 0-9 in tablature mode on a tab line
+  goes into the cell under the cursor: on a dash/blank it is a straight
+  *replace* (`songwriter#tab#EnterNote`, the literal spec wording); on a digit it
+  *appends* to the right so a two-digit fret (10-19) can be typed one key at a
+  time (the 1.3 de-overlap linting then fixes the spacing). The digit maps bake
+  the fret as a bare *number* (`… ? ':call SongwriterEnterNote(4)<CR>' : '4'`)
+  so the ex-command has no inner quotes to fight the single-quoted fallback; the
+  wrapper coerces it back to a string with `a:digit . ''`. Off a tab line the
+  digit is a no-op (it falls back to its default count behaviour). Because `0`-`9`
+  are otherwise count-prefics, the map guard `get(b:,'songwriter_tabmode',0) &&
+  SongwriterIsTablatureLine()` keeps them as ordinary counts everywhere else.
+- **3.4 a/i — make room for a note.** `a`(`SongwriterAddNote(1)`) opens three
+  dashes on every string of the **block** to the right of the cursor, `i`
+  (`AddNote(-1)`) to the left; the cursor then lands on the *second* of the three
+  new dashes (one dash of spacing on the near side). No-op off a tab block. The
+  gap is wide enough for a two-digit fret plus the spacing dash; the 1.3 linter
+  tidies it afterwards.
 
 ### Why the maps are inline, not function-calling
 

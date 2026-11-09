@@ -297,3 +297,52 @@ function! songwriter#tab#TabChord(chord)
   endif
   call append(l:block[0] - 1, repeat(' ', col('.') - 1) . a:chord)
 endfunction
+
+" 3.3: enter a note — put the digit in the cell under the cursor on the current
+" tab line. On a dash/blank cell the digit REPLACES it (the literal spec);
+" on a digit it is appended to its right so two-digit frets (10-19) can be typed
+" one digit at a time (the design's de-overlap linting (1.3) then fixes spacing).
+" No-op off a tab line, matching the "scoped explicitly to tablature lines"
+" guidance in the spec / "Tablatures" note in design.md.
+function! songwriter#tab#EnterNote(digit) abort
+  let l:digit = a:digit . ''    " accept a digit as a number or a string
+  if !songwriter#util#IsTablatureLine(getline('.'))
+    return
+  endif
+  let l:ln = line('.')
+  let l:col = col('.')
+  let l:line = getline(l:ln)
+  let l:ch = (l:col <= len(l:line)) ? l:line[l:col - 1] : ''
+  if l:ch =~# '[0-9]'
+      " append to the right of the fret digit the cursor is on
+    call setline(l:ln, l:line[0 : l:col - 1] . l:digit . l:line[l:col :])
+    call cursor(l:ln, l:col + 1)
+  else
+      " replace the character under the cursor with the digit
+    call setline(l:ln, l:line[0 : l:col - 2] . l:digit . l:line[l:col :])
+    call cursor(l:ln, l:col)
+  endif
+endfunction
+
+" 3.4: open 3 dashes of space for a note to be entered, on every string of the
+" block, and put the cursor on the 2nd of the new dashes. side +1 ('a') makes
+" the gap sit to the RIGHT of the cursor; side -1 ('i') to the LEFT (the
+" mirrored opposite). No-op off a tab block.
+function! songwriter#tab#AddNote(side) abort
+  let l:block = songwriter#util#find_tab_block()
+  if empty(l:block[2])
+    return
+  endif
+  let l:ln = line('.')
+  let l:col = col('.')
+  let l:at = (a:side > 0) ? l:col + 1 : l:col    " 1-indexed column of the 1st new dash
+  for l:i in range(len(l:block[2]))
+    let l:line = l:block[2][l:i]
+    while len(l:line) < l:at
+      let l:line .= '-'
+    endwhile
+    call setline(l:block[0] + l:i, strpart(l:line, 0, l:at - 1) . '---' . strpart(l:line, l:at - 1))
+  endfor
+  call cursor(l:ln, l:at + 1)    " the 2nd of the three new dashes
+endfunction
+

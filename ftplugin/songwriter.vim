@@ -43,6 +43,26 @@ nnoremap <buffer> <expr> b get(b:,'songwriter_tabmode',0) && SongwriterIsTablatu
 nnoremap <buffer> <expr> l get(b:,'songwriter_tabmode',0) && SongwriterIsTablatureLine() ? ':call SongwriterMoveColumn(1)<CR>' : 'l'
 nnoremap <buffer> <expr> h get(b:,'songwriter_tabmode',0) && SongwriterIsTablatureLine() ? ':call SongwriterMoveColumn(-1)<CR>' : 'h'
 
+" 3.3 / 3.4 — note entry. In tablature mode on a tab line, a digit enters a
+" fret (3.3), and a/i open 3 dashes of room for the next note to the right (a)
+" or left (i), landing on the 2nd new dash, on every string (3.4). Off tab mode
+" or on prose the keys fall back to their normal behaviour (a count / append /
+" insert). Each map is inline like L/H so the ex-command runs. The digit is baked
+" as a bare number (not a string) so the ex-command needs no inner quotes.
+nnoremap <buffer> <expr> 1 get(b:,'songwriter_tabmode',0) && SongwriterIsTablatureLine() ? ':call SongwriterEnterNote(1)<CR>' : '1'
+nnoremap <buffer> <expr> 2 get(b:,'songwriter_tabmode',0) && SongwriterIsTablatureLine() ? ':call SongwriterEnterNote(2)<CR>' : '2'
+nnoremap <buffer> <expr> 3 get(b:,'songwriter_tabmode',0) && SongwriterIsTablatureLine() ? ':call SongwriterEnterNote(3)<CR>' : '3'
+nnoremap <buffer> <expr> 4 get(b:,'songwriter_tabmode',0) && SongwriterIsTablatureLine() ? ':call SongwriterEnterNote(4)<CR>' : '4'
+nnoremap <buffer> <expr> 5 get(b:,'songwriter_tabmode',0) && SongwriterIsTablatureLine() ? ':call SongwriterEnterNote(5)<CR>' : '5'
+nnoremap <buffer> <expr> 6 get(b:,'songwriter_tabmode',0) && SongwriterIsTablatureLine() ? ':call SongwriterEnterNote(6)<CR>' : '6'
+nnoremap <buffer> <expr> 7 get(b:,'songwriter_tabmode',0) && SongwriterIsTablatureLine() ? ':call SongwriterEnterNote(7)<CR>' : '7'
+nnoremap <buffer> <expr> 8 get(b:,'songwriter_tabmode',0) && SongwriterIsTablatureLine() ? ':call SongwriterEnterNote(8)<CR>' : '8'
+nnoremap <buffer> <expr> 9 get(b:,'songwriter_tabmode',0) && SongwriterIsTablatureLine() ? ':call SongwriterEnterNote(9)<CR>' : '9'
+nnoremap <buffer> <expr> 0 get(b:,'songwriter_tabmode',0) && SongwriterIsTablatureLine() ? ':call SongwriterEnterNote(0)<CR>' : '0'
+nnoremap <buffer> <expr> a get(b:,'songwriter_tabmode',0) && SongwriterIsTablatureLine() ? ':call SongwriterAddNote(1)<CR>' : 'a'
+nnoremap <buffer> <expr> i get(b:,'songwriter_tabmode',0) && SongwriterIsTablatureLine() ? ':call SongwriterAddNote(-1)<CR>' : 'i'
+
+
 " Toggle the buffer-local "tablature" mode (default off).
 nnoremap <buffer> <leader>t :call SongwriterToggleTabMode()<CR>
 

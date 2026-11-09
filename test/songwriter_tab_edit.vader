@@ -1,0 +1,116 @@
+" Spec [Tablature -> Editing] 3.3 (numbers enter a note) and 3.4 (a/i open 3
+" dashes for a note on every string). These exercise the note-entry functions;
+" the buffer key mappings are glue, untested by design (like || and _), except
+" the two integration smoke tests at the end that type the keys.
+
+" --- 3.3 EnterNote: replace a dash with the digit on the current tab line ---
+
+" Test: a digit enters the note on an empty slot
+
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|---|')
+  setfiletype songwriter
+  call cursor(1, 4)
+  call SongwriterEnterNote('5')
+Then:
+  AssertEqual 'e|-5-|', getline(1)
+  AssertEqual 4, col('.')
+
+" Test: a second digit appends to keep a two-digit fret
+
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|-1-|')
+  setfiletype songwriter
+  call cursor(1, 4)
+  call SongwriterEnterNote('8')
+Then:
+  AssertEqual 'e|-18-|', getline(1)
+  AssertEqual 5, col('.')
+
+" Test: a digit is a no-op off a tab line
+
+Execute:
+  enew!
+  call setline(1, 'I walk a')
+  call cursor(1, 1)
+Then:
+  AssertEqual 'I walk a', getline(1)
+  AssertEqual 1, col('.')
+
+" --- 3.4 AddNote: a opens 3 dashes to the right, i to the left, on all strings ---
+
+" Test: a adds three dashes on every string to the right and lands on the second
+
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|----|')
+  call append(1, 'B|----|')
+  setfiletype songwriter
+  call cursor(1, 3)
+  call SongwriterAddNote(1)
+Then:
+  AssertEqual 'e|-------|', getline(1)
+  AssertEqual 'B|-------|', getline(2)
+  AssertEqual 5, col('.')
+  AssertEqual 1, line('.')
+
+" Test: i adds three dashes on every string and lands on the new dash
+
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|----|')
+  call append(1, 'B|----|')
+  setfiletype songwriter
+  call cursor(1, 3)
+  call SongwriterAddNote(-1)
+Then:
+  AssertEqual 'e|-------|', getline(1)
+  AssertEqual 'B|-------|', getline(2)
+  AssertEqual 4, col('.')
+
+" Test: a is a no-op off a tab block
+
+Execute:
+  enew!
+  call setline(1, 'I walk a')
+  call cursor(1, 1)
+  call SongwriterAddNote(1)
+Then:
+  AssertEqual 'I walk a', getline(1)
+
+" --- Integration smoke tests: the buffer mappings fire in tablature mode ---
+
+" Test: typing a in tablature mode opens a space for a note
+
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|----|')
+  call append(1, 'B|----|')
+  setfiletype songwriter
+  let b:songwriter_tabmode = 1
+  call cursor(1, 3)
+  normal a
+Then:
+  AssertEqual 'e|-------|', getline(1)
+  AssertEqual 5, col('.')
+
+" Test: typing a digit in tablature mode enters the note
+
+Execute:
+  filetype plugin on
+  enew!
+  call setline(1, 'e|----|')
+  setfiletype songwriter
+  let b:songwriter_tabmode = 1
+  call cursor(1, 3)
+  normal 4
+Then:
+  AssertEqual 'e|4---|', getline(1)
+  AssertEqual 3, col('.')

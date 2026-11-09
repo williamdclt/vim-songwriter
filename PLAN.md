@@ -95,3 +95,31 @@ their defaults; the toggle is `SongwriterToggleTabMode`. Details in
    ticked `3 / 3.1 / 3.2` in `specification.song.txt`. — check: `make test`
    still green (63/63).
 
+# Tablature mode 3.3/3.4 — done (2026)
+
+Same `b:songwriter_tabmode` toggle; two more note-entry operations.
+
+- **3.3** A digit in tab mode enters a fret in the cell under the cursor:
+  *replace* a dash (literal spec), or *append* to a digit so a two-digit fret
+  (10-19) types one key at a time. `songwriter#tab#EnterNote`; thin wrapper
+  `SongwriterEnterNote`. Digit maps bake the fret as a bare number so the
+  single-quoted `<expr>` ex-command has no inner quotes. No-op off a tab line.
+- **3.4** `a`/`i` (`SongwriterAddNote(±1)`) open three dashes on every string of
+  the block (right / left of the cursor) and land on the 2nd new dash, giving the
+  next fret room and spacing; no-op off a tab block.
+
+## Steps
+
+1. [x] TDD: `test/songwriter_tab_edit.vader` — EnterNote replace / append /
+   prose-no-op, AddNote a/i across two strings + prose-no-op, plus `a` and a digit
+   mapping smoke tests. — check: 8 new assertions fail.
+2. [x] `songwriter#tab#EnterNote`, `songwriter#tab#AddNote`; thin wrappers
+  `SongwriterEnterNote`/`SongwriterAddNote` in `plugin/songwriter.vim`. — check:
+   new tests green.
+3. [x] `ftplugin/songwriter.vim`: inline `<expr>` digit maps (0-9, bare number) +
+   `a`/`i` that branch on tab mode + tab line, falling back to count/append/insert
+   otherwise. — check: full suite green (71/71).
+4. [x] Recorded the decisions in `design.md` (extended "Tablature mode") and
+   ticked `3.3 / 3.4` in `specification.song.txt`. — check: `make test` green
+   (71/71).
+
