@@ -16,12 +16,13 @@ function! songwriter#tab#lint#Lint(lines) abort
   let l:lineparts = map(range(l:nl), '[]')
   let l:moves = []
   for l:j in range(l:nbars)
-    " This bar's notes ([lin, c0, text], c0 = 0-indexed offset in the bar
-    " region) and its leftmost offset.
+    " This bar's note groups ([lin, c0, text], c0 = 0-indexed offset in the
+    " bar region): notes with their playing techniques (`5h7`, `x`), kept
+    " verbatim. And its leftmost offset.
     let l:atoms = []
     for l:lin in range(l:nl)
       if l:j < len(l:regions[l:lin])
-        for l:n in songwriter#tab#model#Notes(l:regions[l:lin][l:j])
+        for l:n in songwriter#tab#model#Atoms(l:regions[l:lin][l:j])
           call add(l:atoms, [l:lin, l:n.col - 1, l:n.text])
         endfor
       endif
@@ -178,7 +179,7 @@ function! songwriter#tab#lint#FollowColumn(lines, result, lin, col) abort
   for l:m in a:result.moves
     let l:p = songwriter#tab#model#Pipes(a:lines[l:m.line])
     if l:bar + 1 < len(l:p) && l:m.from > l:p[l:bar] && l:m.from < l:p[l:bar + 1]
-      let l:len = len(matchstr(a:lines[l:m.line], '^' . songwriter#grammar#Note(), l:m.from - 1))
+      let l:len = len(matchstr(a:lines[l:m.line], '^' . songwriter#grammar#TabAtom(), l:m.from - 1))
       if l:m.line == a:lin && a:col >= l:m.from && a:col < l:m.from + l:len
         return l:m.to + a:col - l:m.from
       endif

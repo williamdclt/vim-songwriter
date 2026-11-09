@@ -5,95 +5,92 @@
 
 let s:Chromatic = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 let s:FlatToSharp = {'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#', 'Db': 'C#'}
+" {name, root, quality, bass} for a whole chord token, or {} when the token is
+" not a chord (grammar ParseChord). `bass` is '' for a chord without `/bass`.
 function! s:chord_parse(name) abort
-  let l:root = matchstr(a:name, songwriter#grammar#ChordRoot())
-  let l:quality = (l:root ==# '') ? '' : strpart(a:name, len(l:root))
-  return {'name': a:name, 'root': l:root, 'quality': l:quality}
-endfunction
-function! s:chord_build(root, quality) abort
-  return a:root . a:quality
-endfunction
-function! s:chord_transpose(parsed, semitones) abort
-  let l:root = a:parsed['root']
-  if l:root ==# ''
-    return a:parsed['name']
+  let l:m = songwriter#grammar#ParseChord(a:name)
+  if empty(l:m)
+    return {}
   endif
-  if has_key(s:FlatToSharp, l:root)
-    let l:root = s:FlatToSharp[l:root]
-  endif
+  return {'name': a:name, 'root': l:m[0], 'quality': l:m[1], 'bass': l:m[2]}
+endfunction
+function! s:chord_build(root, quality, bass) abort
+  return a:root . a:quality . (empty(a:bass) ? '' : '/' . a:bass)
+endfunction
+" `root` moved by `semitones`, spelled with sharps.
+function! s:root_transpose(root, semitones) abort
+  let l:root = get(s:FlatToSharp, a:root, a:root)
   let l:idx = index(s:Chromatic, l:root)
   if l:idx < 0
-    return a:parsed['name']
+    return a:root
   endif
-  let l:new_idx = (l:idx + a:semitones) % 12
-  if l:new_idx < 0
-    let l:new_idx += 12
-  endif
-  return s:Chromatic[l:new_idx] . a:parsed['quality']
+  return s:Chromatic[((l:idx + a:semitones) % 12 + 12) % 12]
 endfunction
-function! s:splice_chord(line, bounds, newc) abort
-  return strpart(a:line, 0, a:bounds[0]) . a:newc . strpart(a:line, a:bounds[1] + 1)
+" The chord with its root and bass moved by `semitones`.
+function! s:chord_transpose(parsed, semitones) abort
+  return s:chord_build(
+        \ s:root_transpose(a:parsed.root, a:semitones),
+        \ a:parsed.quality,
+        \ empty(a:parsed.bass) ? '' : s:root_transpose(a:parsed.bass, a:semitones))
 endfunction
+function! s:splice_chord(line, found, newc) abort
+  return strpart(a:line, 0, a:found.start) . a:newc . strpart(a:line, a:found.end + 1)
+endfunction
+" The chord under 0-indexed column `col` of `line`: {'start', 'end' (0-indexed,
+" inclusive), 'chord' (parsed)}, or {} when the token of chord characters under
+" the cursor is not a whole chord. Tab lines hold no chords.
 function! s:find_chord_at_cursor(line, col) abort
-  let l:letter = songwriter#grammar#ChordRootLetter()
-  let l:tokchar = songwriter#grammar#ChordTokenChar()
-   " Find chord name at cursor column (0-indexed) in line string
-   " Returns list [start, end, chord] or [-1, -1, '']
-  let l:c = a:col
-  let l:ln = a:line
-  let l:lnlen = len(l:ln)
-
-   " Check if cursor is on a chord char
-  if l:c >= l:lnlen || !(l:ln[l:c] =~# l:letter)
-     " Cursor might be on quality part (#, b, m, 7, etc.) — scan left to find root
-    let l:scan = l:c
-    while l:scan > 0
-      let l:scan -= 1
-      if l:ln[l:scan] =~# l:letter
-        let l:c = l:scan
-        break
-      endif
-       " If we hit a non-chord char before finding root, no chord here
-      if !(l:ln[l:scan] =~# l:tokchar)
-        return [-1, -1, '']
-      endif
-    endwhile
-     " Check if we found a root at start of string
-    if l:c == 0 && !(l:ln[0] =~# l:letter)
-      return [-1, -1, '']
-    endif
+  if songwriter#grammar#IsTabLine(a:line)
+    return {}
   endif
-
-   " Now l:c points to root letter. Find chord start (scan left for word boundary)
-  let l:start = l:c
-  while l:start > 0 && l:ln[l:start - 1] =~# l:tokchar
+  let l:tokchar = songwriter#grammar#ChordTokenChar()
+  if a:col >= len(a:line) || a:line[a:col] !~# l:tokchar
+    return {}
+  endif
+  let l:start = a:col
+  while l:start > 0 && a:line[l:start - 1] =~# l:tokchar
     let l:start -= 1
   endwhile
-
-   " Find chord end (scan right for word boundary)
-  let l:end = l:c
-  while l:end < l:lnlen - 1 && l:ln[l:end + 1] =~# l:tokchar
+  let l:end = a:col
+  while l:end < len(a:line) - 1 && a:line[l:end + 1] =~# l:tokchar
     let l:end += 1
   endwhile
-
-  let l:chord = strpart(l:ln, l:start, l:end - l:start + 1)
-  return [l:start, l:end, l:chord]
+  let l:parsed = s:chord_parse(strpart(a:line, l:start, l:end - l:start + 1))
+  return empty(l:parsed) ? {} : {'start': l:start, 'end': l:end, 'chord': l:parsed}
 endfunction
 
 " === Public chord operations ===
 
-function! songwriter#chord#TransposeChord(direction) abort
-    " Transpose the chord under the cursor up (1) or down (-1) chromatically.
+" Transpose the chord under the cursor by `semitones` (spec [Chords][[Editing]],
+" <Ctrl-A>/<Ctrl-X> with their count). Off a chord, including on a tab line,
+" fall back to Vim's own <Ctrl-A>/<Ctrl-X> on the next number of the line.
+function! songwriter#chord#TransposeChord(semitones) abort
+  let l:n = str2nr(a:semitones)
   let l:line = getline('.')
-  let l:result = s:find_chord_at_cursor(l:line, col('.') - 1)
-  if empty(l:result[2])
+  let l:found = s:find_chord_at_cursor(l:line, col('.') - 1)
+  if empty(l:found)
+    call s:native_increment(l:n, songwriter#grammar#IsTabLine(l:line))
     return
   endif
-  let l:new = s:chord_transpose(s:chord_parse(l:result[2]), a:direction)
-  if l:new ==# l:result[2]
+  call setline('.', s:splice_chord(l:line, l:found, s:chord_transpose(l:found.chord, l:n)))
+endfunction
+
+" Vim's own <Ctrl-A> (n > 0) / <Ctrl-X> (n < 0), |n| times. On a tab line the
+" dashes are not minus signs (`--3` is fret 3, not -3), so numbers are read as
+" unsigned there.
+function! s:native_increment(n, unsigned) abort
+  if a:n == 0
     return
   endif
-  call setline('.', s:splice_chord(l:line, l:result, l:new))
+  let l:saved = &l:nrformats
+  if a:unsigned
+    setlocal nrformats+=unsigned
+  endif
+  try
+    execute 'normal! ' . abs(a:n) . (a:n > 0 ? "\<C-A>" : "\<C-X>")
+  finally
+    let &l:nrformats = l:saved
+  endtry
 endfunction
 
 function! songwriter#chord#ChordAbove(chord) abort
@@ -103,33 +100,29 @@ function! songwriter#chord#ChordAbove(chord) abort
   call append(line('.') - 1, l:spaces . a:chord)
 endfunction
 
+" Change the quality of the chord under the cursor (e.g. Am7 -> Amaj7), keeping
+" its root and bass. No-op off a chord.
 function! songwriter#chord#ChordQuality(quality) abort
-    " Change the quality of the chord under the cursor (e.g. Am7 -> Amaj7).
   let l:line = getline('.')
-  let l:result = s:find_chord_at_cursor(l:line, col('.') - 1)
-  if empty(l:result[2])
+  let l:found = s:find_chord_at_cursor(l:line, col('.') - 1)
+  if empty(l:found)
     return
   endif
-  let l:root = s:chord_parse(l:result[2])['root']
-  if empty(l:root)
-    return
-  endif
-  call setline('.', s:splice_chord(l:line, l:result, s:chord_build(l:root, a:quality)))
+  let l:c = l:found.chord
+  call setline('.', s:splice_chord(l:line, l:found, s:chord_build(l:c.root, a:quality, l:c.bass)))
 endfunction
 
+" Toggle the chord under the cursor between major and minor (A <-> Am, D/F# <->
+" Dm/F#), leaving the rest of the quality (7, m7 -> 7, maj7 -> mmaj7) and the
+" bass intact. No-op off a chord.
 function! songwriter#chord#ToggleMinorMajor() abort
-    " Toggle the chord under the cursor between major and minor (A <-> Am),
-    " leaving any other quality (7, m7, ...) otherwise intact.
   let l:line = getline('.')
-  let l:result = s:find_chord_at_cursor(l:line, col('.') - 1)
-  if empty(l:result[2])
+  let l:found = s:find_chord_at_cursor(l:line, col('.') - 1)
+  if empty(l:found)
     return
   endif
-  let l:parsed = s:chord_parse(l:result[2])
-  if empty(l:parsed['root'])
-    return
-  endif
-  let l:q = l:parsed['quality']
-  let l:new_q = (l:q[0:0] ==# 'm') ? l:q[1:] : ('m' . l:q)
-  call setline('.', s:splice_chord(l:line, l:result, s:chord_build(l:parsed['root'], l:new_q)))
+  let l:c = l:found.chord
+  let l:minor = matchstr(l:c.quality, '^\%(min\|m\%(aj\)\@!\)')
+  let l:q = empty(l:minor) ? 'm' . l:c.quality : strpart(l:c.quality, len(l:minor))
+  call setline('.', s:splice_chord(l:line, l:found, s:chord_build(l:c.root, l:q, l:c.bass)))
 endfunction

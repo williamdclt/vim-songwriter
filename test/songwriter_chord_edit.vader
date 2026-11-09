@@ -56,3 +56,39 @@ Execute (toggle does not affect quality (m7 stays m7)):
   call songwriter#chord#ToggleMinorMajor()
 Expect:
   A7
+
+Given (toggle keeps the bass of a slash chord):
+  D/F#
+
+Execute (toggle keeps the bass of a slash chord):
+  call cursor(1, 4)
+  call songwriter#chord#ToggleMinorMajor()
+Expect:
+  Dm/F#
+
+Given (toggle leaves a non-chord word alone):
+  Bad
+
+Execute (toggle leaves a non-chord word alone):
+  call cursor(1, 1)
+  call songwriter#chord#ToggleMinorMajor()
+Expect:
+  Bad
+
+Given (change quality leaves a non-chord word alone):
+  Bad
+
+Execute (change quality leaves a non-chord word alone):
+  call cursor(1, 1)
+  call songwriter#chord#ChordQuality('m7')
+Expect:
+  Bad
+
+Given (change quality keeps the bass of a slash chord):
+  C/G
+
+Execute (change quality keeps the bass of a slash chord):
+  call cursor(1, 1)
+  call songwriter#chord#ChordQuality('maj7')
+Expect:
+  Cmaj7/G

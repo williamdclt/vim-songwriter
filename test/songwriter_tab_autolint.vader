@@ -4,7 +4,7 @@
 " notes) it was on. Typed end-to-end with `normal`.
 
 Before:
-  unlet! b:songwriter_tabmode b:songwriter_slot
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing
   let b:songwriter_tabmode = 1
 
 " --- 4.1 entering a note lints ---
@@ -21,12 +21,12 @@ Expect songwriter:
   e|--7--|
 
 Given songwriter (4.1 a second digit realigns the pipes and the cursor stays on it):
-  e|--1--|
+  e|-----|
   B|--3--|
 
 Execute (4.1 a second digit realigns the pipes and the cursor stays on it):
   call cursor(1, 5)
-  normal 2
+  normal 12
 Then:
   AssertEqual 6, col('.')
 Expect songwriter:

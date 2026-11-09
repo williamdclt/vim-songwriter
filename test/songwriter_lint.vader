@@ -156,3 +156,33 @@ Expect:
   D|--------1-----|-----1--------|-----1--------|-----1--1-----|
   A|--4--3--------|--1-----1-----|-----3--3--3--|--------3--1--|
   E|--3-----------|--1-----------|-----1--------|-----3--4--4--|
+
+Given songwriter (lint keeps playing techniques such as h, / and x):
+  e|--5h7--x--|
+  B|--3/5-----|
+
+Execute (lint keeps playing techniques such as h, / and x):
+  SongwriterLint
+Expect:
+  e|--5h7--x--|
+  B|--3/5-----|
+
+Given songwriter (lint aligns pipes around technique groups and de-overlaps them):
+  e|-----5h7----|---|
+  B|---3/5--|--12b14--|
+
+Execute (lint aligns pipes around technique groups and de-overlaps them):
+  SongwriterLint
+Expect:
+  e|------5h7--|---------|
+  B|--3/5------|--12b14--|
+
+Given songwriter (lint treats a technique group as one note when de-overlapping):
+  e|--5h7--|
+  B|----3--|
+
+Execute (lint treats a technique group as one note when de-overlapping):
+  SongwriterLint
+Expect:
+  e|--5h7----|
+  B|------3--|

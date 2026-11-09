@@ -65,9 +65,11 @@ function! songwriter#tab#TabChord(chord) abort
 endfunction
 
 " Spec [Tablature][[Editing]] 3.4: put `digit` in the cell under the cursor. On
-" a dash it replaces it; on a digit it is appended to its right, so two-digit
-" frets can be typed one key at a time. Then lint the block, keeping the cursor
-" on the digit (4.1); this fills any open slot. No-op off a tab line.
+" a dash it replaces the dash; on a note it replaces the whole note. Straight
+" after a digit was typed (cursor still on it, buffer unchanged since), the next
+" digit is appended instead, so two-digit frets are typed one key at a time
+" (3.4.1). Then lint the block, keeping the cursor on the digit (4.1); this
+" fills any open slot. No-op off a tab line.
 function! songwriter#tab#EnterNote(digit) abort
   let l:line = getline('.')
   if !songwriter#grammar#IsTabLine(l:line)
@@ -76,15 +78,32 @@ function! songwriter#tab#EnterNote(digit) abort
   let l:digit = a:digit . ''
   let l:col = col('.')
   let l:ch = (l:col <= len(l:line)) ? l:line[l:col - 1] : ''
-  if songwriter#grammar#IsNoteChar(l:ch)
+  let l:typing = {'line': line('.'), 'col': l:col, 'tick': b:changedtick}
+  let l:note = s:note_at(l:line, l:col)
+  if get(b:, 'songwriter_typing', {}) ==# l:typing && songwriter#grammar#IsNoteChar(l:ch)
     call setline('.', l:line[0 : l:col - 1] . l:digit . l:line[l:col :])
     call cursor(line('.'), l:col + 1)
+  elseif !empty(l:note)
+    call setline('.', strpart(l:line, 0, l:note.col - 1) . l:digit
+          \ . strpart(l:line, l:note.col - 1 + l:note.len))
+    call cursor(line('.'), l:note.col)
   else
     call setline('.', l:line[0 : l:col - 2] . l:digit . l:line[l:col :])
     call cursor(line('.'), l:col)
   endif
   call s:lint_and_follow(songwriter#tab#model#Read())
   unlet! b:songwriter_slot
+  let b:songwriter_typing = {'line': line('.'), 'col': col('.'), 'tick': b:changedtick}
+endfunction
+
+" The note of `line` covering column `col`, or {}.
+function! s:note_at(line, col) abort
+  for l:n in songwriter#tab#model#Notes(a:line)
+    if a:col >= l:n.col && a:col < l:n.col + l:n.len
+      return l:n
+    endif
+  endfor
+  return {}
 endfunction
 
 " Spec [Tablature][[Editing]] 3.1: open room for a new note on every string,

@@ -1,5 +1,6 @@
 " Spec [Chords][[Editing]]: <Ctrl-A>/<Ctrl-X> (songwriter#chord#TransposeChord)
-" transpose the chord under the cursor by a semitone.
+" transpose the chord under the cursor by their count of semitones; off a chord
+" they are Vim's own increment/decrement.
 
 Given (transpose chord up chromatically):
                Am7
@@ -54,3 +55,75 @@ Execute (no-op on non-chord text):
   call songwriter#chord#TransposeChord(1)
 Expect:
   hello world
+
+Given (a word starting with a chord letter is not a chord):
+  Bad
+
+Execute (a word starting with a chord letter is not a chord):
+  call cursor(1, 1)
+  call songwriter#chord#TransposeChord(1)
+Expect:
+  Bad
+
+Given (a chord root must start the token):
+  xAm
+
+Execute (a chord root must start the token):
+  call cursor(1, 2)
+  call songwriter#chord#TransposeChord(1)
+Expect:
+  xAm
+
+Given (a slash chord transposes as a whole, with the cursor on the bass):
+  D/F#
+
+Execute (a slash chord transposes as a whole, with the cursor on the bass):
+  call cursor(1, 3)
+  call songwriter#chord#TransposeChord(1)
+Expect:
+  D#/G
+
+Given (TransposeChord moves by the given number of semitones):
+  Am
+
+Execute (TransposeChord moves by the given number of semitones):
+  call cursor(1, 1)
+  call songwriter#chord#TransposeChord(-3)
+Expect:
+  F#m
+
+Given songwriter (<C-A> on a number off a chord is native increment):
+  verse 2
+
+Execute (<C-A> on a number off a chord is native increment):
+  call cursor(1, 1)
+  execute "normal \<C-A>"
+Expect:
+  verse 3
+
+Given songwriter (<C-X> with a count is native decrement off a chord):
+  repeat x10
+
+Execute (<C-X> with a count is native decrement off a chord):
+  call cursor(1, 1)
+  execute "normal 4\<C-X>"
+Expect:
+  repeat x6
+
+Given songwriter (<C-A> with a count transposes a chord by that many semitones):
+  Am
+
+Execute (<C-A> with a count transposes a chord by that many semitones):
+  call cursor(1, 1)
+  execute "normal 2\<C-A>"
+Expect:
+  Bm
+
+Given songwriter (<C-A> on a tab line increments the next fret, not the string name):
+  B|--3--|
+
+Execute (<C-A> on a tab line increments the next fret, not the string name):
+  call cursor(1, 1)
+  execute "normal \<C-A>"
+Expect:
+  B|--4--|

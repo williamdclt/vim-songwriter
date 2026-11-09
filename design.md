@@ -15,7 +15,7 @@ never relies on concealing or rendering.
 
 | File | Role |
 |---|---|
-| `autoload/songwriter/grammar.vim` | The format's patterns (tab line, note, chord root/token, chord highlighting). The only place regexes for the format are written. |
+| `autoload/songwriter/grammar.vim` | The format's patterns (tab line, note, note group, chord, chord highlighting). The only place regexes for the format are written. |
 | `autoload/songwriter/tab/model.vim` | Tab block model: parse, queries, the column-insertion primitive, and `Read`/`Write` (the buffer edges). |
 | `autoload/songwriter/tab/lint.vim` | The linter, as a pure function over a block's lines. |
 | `autoload/songwriter/tab.vim` | Tab operations and motions: buffer entry points plus pure helpers (`AppendSlot`, `PrependSlot`). |
@@ -66,8 +66,11 @@ the block.
   are not unified because that would change behaviour).
 - **Tab block**: the contiguous run of tab lines around a line.
 - **Note**: a run of digits; a two-digit fret such as `12` is one note spanning
-  two columns. Other symbols (`h`, `p`, `/`, `x`…) are not notes (see the lint
-  bug in the spec).
+  two columns. Motions, `a`/`i` and digit entry work on notes.
+- **Note group** (`TabAtom`): any run of characters that are not dashes, pipes
+  or whitespace: a note with its playing techniques (`5h7`, `3/5`, `12b14`) or a
+  stand-alone mark (`x`). The linter works on note groups so that it never
+  loses a technique; it keeps each group verbatim.
 - **Bar**: the region between two pipes. On a line, the bar around column `c` is
   bounded by the nearest pipes strictly left and right of `c`
   (`model#BarAt`).
@@ -108,9 +111,13 @@ strings, whose first note comes later, keep their extra leading dashes, which
 preserves the order across strings. Likewise the rightmost note sits two dashes
 before the right pipe, and shorter strings are padded so the pipes line up.
 
+**Note groups, not just digits.** The linter places note groups (see Format
+grammar), so `5h7` or `x` moves as a unit and comes out unchanged. Everything
+else in a bar (dashes, whitespace) is re-rendered as dashes.
+
 **Empty bar** (no note on any string) becomes `|--|`.
 
-**Overlapping two-digit notes** (spec 1.3). Each note gets a natural output
+**Overlapping notes** (spec 1.3, two-digit notes or longer note groups). Each note gets a natural output
 offset `c0 - mincol + 2`, then a fixed-point pass enforces:
 
 - *same-string order*: a note keeps its original gap to the previous note on
@@ -157,8 +164,12 @@ A buffer-local flag, `b:songwriter_tabmode`, off by default; no teardown needed.
   away. Gaps are checked on every string, since a note on another string
   occupies the column just as much.
   No anchor note: no-op. `a`/`i` lint first (4.2, below).
-- **Digits (3.4)**: a digit on a dash replaces it; on a digit it is appended to
-  its right, so a two-digit fret is typed one key at a time; the block is then
+- **Digits (3.4)**: a digit on a dash replaces it; on a note it replaces the
+  whole note (both digits of a `12`). To type a two-digit fret, a digit typed
+  straight after another is appended to it instead (3.4.1): `EnterNote` records
+  `b:songwriter_typing = {line, col, tick}` after each digit, and the next
+  digit appends only when the cursor and `b:changedtick` still match. Any move
+  or edit ends the run, so coming back to a note replaces it. The block is then
   linted (4.1, below), which fixes the spacing. Off tablature mode or a tab
   line, digits keep their count meaning.
 
@@ -198,21 +209,33 @@ its default behaviour.
 
 ## Chords
 
+The chord grammar (`grammar#ParseChord`) is strict and anchored: a token is a
+chord only if all of it is a root (`[A-G][#b]?`), a quality built from known
+parts (`m`, `min`, `maj`, `M`, `dim`, `aug`, `sus`, `add`, digits, `#`, `b`,
+`+`) and an optional `/bass` root. So `Bad` and `xAm` are not chords, while
+`Am7b5`, `Dadd9` and `D/F#` are. The token under the cursor is the maximal run
+of chord characters (`[A-Za-z0-9#/+]`) around it, so a slash chord is found
+whole whichever part the cursor is on. Tab lines never hold chords (`B|` is a
+string name).
+
 The chord model in `chord.vim`:
 
-- `s:chord_parse(name)` -> `{name, root, quality}`; `root` keeps its spelling,
-  `quality` is everything after it;
-- `s:chord_build(root, quality)`;
-- `s:chord_transpose(parsed, semitones)`: flats are normalised to sharps, the
-  single spelling in the chromatic scale;
-- `s:splice_chord(line, bounds, new)`.
+- `s:chord_parse(name)` -> `{name, root, quality, bass}`, or `{}` for a
+  non-chord; `root` and `bass` keep their spelling;
+- `s:chord_build(root, quality, bass)`;
+- `s:chord_transpose(parsed, semitones)`: root and bass both move; flats are
+  normalised to sharps, the single spelling in the chromatic scale;
+- `s:splice_chord(line, found, new)`.
 
 A chord action is: find the chord under the cursor, parse, transform root or
-quality, build, splice back. The public actions differ only in the transform.
-The chord found under the cursor is any token of chord characters around a root
-letter, which is permissive (see the chord-detection bug in the spec).
-Highlighting accepts false positives such as the word "A" (spec [Chords]
-[[Rendering]]).
+quality, build, splice back. The public actions differ only in the transform,
+and are no-ops off a chord, except `<Ctrl-A>`/`<Ctrl-X>`: they transpose by
+their count, and off a chord they run Vim's own increment/decrement, so numbers
+in prose and frets in tabs still work. On a tab line `nrformats` gets
+`unsigned` for that call, since a dash before a fret is not a minus sign.
+`<leader>m` treats a leading `m` or `min` (but not `maj`) as minor.
+Highlighting stays permissive and accepts false positives such as the word "A"
+(spec [Chords][[Rendering]]); it is separate from the editing grammar.
 
 ## Testing
 

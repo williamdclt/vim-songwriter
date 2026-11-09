@@ -3,7 +3,7 @@
 " smoke tests at the end that type the keys.
 
 Before:
-  unlet! b:songwriter_tabmode b:songwriter_slot
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing
 
 " --- 3.4 EnterNote: replace a dash with the digit on the current tab line ---
 
@@ -18,16 +18,60 @@ Then:
 Expect:
   e|--5--|
 
-Given songwriter (a second digit appends to keep a two-digit fret):
-  e|--1--|
+Given songwriter (a second digit typed straight after the first makes a two-digit fret):
+  e|-----|
 
-Execute (a second digit appends to keep a two-digit fret):
+Execute (a second digit typed straight after the first makes a two-digit fret):
   call cursor(1, 5)
+  call songwriter#tab#EnterNote('1')
   call songwriter#tab#EnterNote('8')
 Then:
   AssertEqual 6, col('.')
 Expect:
   e|--18--|
+
+Given songwriter (a digit on an existing note replaces it):
+  e|--1--|
+
+Execute (a digit on an existing note replaces it):
+  call cursor(1, 5)
+  call songwriter#tab#EnterNote('8')
+Then:
+  AssertEqual 5, col('.')
+Expect:
+  e|--8--|
+
+Given songwriter (a digit on either digit of an existing two-digit note replaces the whole note):
+  e|--12--|
+
+Execute (a digit on either digit of an existing two-digit note replaces the whole note):
+  call cursor(1, 6)
+  call songwriter#tab#EnterNote('3')
+Then:
+  AssertEqual 5, col('.')
+Expect:
+  e|--3--|
+
+Given songwriter (after moving to another note, a digit replaces it rather than appending):
+  e|--1--2--|
+
+Execute (after moving to another note, a digit replaces it rather than appending):
+  call cursor(1, 5)
+  call songwriter#tab#EnterNote('5')
+  call cursor(1, 8)
+  call songwriter#tab#EnterNote('7')
+Expect:
+  e|--5--7--|
+
+Given songwriter (typing a digit on a note in tablature mode replaces it):
+  e|--1--|
+
+Execute (typing a digit on a note in tablature mode replaces it):
+  let b:songwriter_tabmode = 1
+  call cursor(1, 5)
+  normal 7
+Expect:
+  e|--7--|
 
 Given (a digit is a no-op off a tab line):
   I walk a

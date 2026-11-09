@@ -21,7 +21,7 @@ command! -nargs=0 SongwriterToggleTabMode call songwriter#keys#ToggleTabMode()
 " === <Plug> maps (bound to default keys in ftplugin/songwriter.vim) ===
 nnoremap <Plug>(songwriter-lint) <Cmd>call songwriter#tab#Lint()<CR>
 nnoremap <Plug>(songwriter-add-dash) <Cmd>call songwriter#tab#AddDash()<CR>
-nnoremap <Plug>(songwriter-transpose-up) <Cmd>call songwriter#chord#TransposeChord(1)<CR>
-nnoremap <Plug>(songwriter-transpose-down) <Cmd>call songwriter#chord#TransposeChord(-1)<CR>
+nnoremap <Plug>(songwriter-transpose-up) <Cmd>call songwriter#chord#TransposeChord(v:count1)<CR>
+nnoremap <Plug>(songwriter-transpose-down) <Cmd>call songwriter#chord#TransposeChord(-v:count1)<CR>
 nnoremap <Plug>(songwriter-toggle-minor-major) <Cmd>call songwriter#chord#ToggleMinorMajor()<CR>
 nnoremap <Plug>(songwriter-toggle-tabmode) <Cmd>call songwriter#keys#ToggleTabMode()<CR>

@@ -18,11 +18,22 @@
 
 " Notes on one line (or one bar region), left to right.
 function! songwriter#tab#model#Notes(text) abort
+  return s:matches(a:text, songwriter#grammar#Note())
+endfunction
+
+" Note groups (notes with their playing techniques, grammar TabAtom) in one bar
+" region, left to right, same shape as Notes(). Only meaningful on a bar region:
+" on a whole line the string name would count as a group.
+function! songwriter#tab#model#Atoms(text) abort
+  return s:matches(a:text, songwriter#grammar#TabAtom())
+endfunction
+
+function! s:matches(text, pat) abort
   let l:res = []
-  let l:m = matchstrpos(a:text, songwriter#grammar#Note())
+  let l:m = matchstrpos(a:text, a:pat)
   while l:m[1] >= 0
     call add(l:res, {'col': l:m[1] + 1, 'len': len(l:m[0]), 'text': l:m[0]})
-    let l:m = matchstrpos(a:text, songwriter#grammar#Note(), l:m[2])
+    let l:m = matchstrpos(a:text, a:pat, l:m[2])
   endwhile
   return l:res
 endfunction
