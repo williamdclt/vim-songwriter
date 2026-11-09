@@ -150,8 +150,31 @@ endfunction
 
 " Spec 7.3: `text` (a note group on line `from`) with every fret shifted by the
 " interval between strings `from` and `to`, or {'error'}.
+" Strings are taken to be listed from the highest to the lowest, neighbouring
+" strings less than an octave apart: the interval is read from pitch classes.
+" A mark without a fret (`x`) is returned unchanged.
 function! s:repitch(lines, from, to, text) abort
-  return {'error': 'keeping the pitch is not implemented'}
+  if a:text !~# '\d'
+    return a:text
+  endif
+  for l:lin in [a:from, a:to]
+    if songwriter#pitch#Class(s:name(a:lines, l:lin)) < 0
+      return {'error': printf('string name %s is not a note', s:name(a:lines, l:lin))}
+    endif
+  endfor
+  let [l:hi, l:lo] = a:to < a:from ? [a:to, a:from] : [a:from, a:to]
+  let l:interval = (songwriter#pitch#Class(s:name(a:lines, l:hi))
+        \ - songwriter#pitch#Class(s:name(a:lines, l:lo)) + 12) % 12
+  if l:interval == 0
+    return {'error': printf('cannot tell the interval between strings %s and %s',
+          \ s:name(a:lines, l:hi), s:name(a:lines, l:lo))}
+  endif
+  let l:shift = a:to < a:from ? -l:interval : l:interval
+  let l:frets = map(filter(split(a:text, '\D\+'), '!empty(v:val)'), 'str2nr(v:val, 10) + l:shift')
+  if min(l:frets) < 0
+    return {'error': printf('the fret would go below 0 on string %s', s:name(a:lines, a:to))}
+  endif
+  return substitute(a:text, '\d\+', '\=str2nr(submatch(0), 10) + l:shift', 'g')
 endfunction
 
 " Spec 7: the buffer entry point for `s`/`S` + `k`/`j`/`K`/`J`. Lints first

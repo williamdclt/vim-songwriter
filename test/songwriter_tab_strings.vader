@@ -86,6 +86,66 @@ Execute (7.5 a note right before the destination: a dash before the column):
   AssertEqual ['e|--3-5--|', 'B|-------|'], r.lines
   AssertEqual [0, 7], [r.lin, r.col]
 
+" --- 7.3 keeping the pitch ---
+
+Execute (7.3 up from G to B: 4 frets lower):
+  let r = songwriter#tab#strings#Move(['B|-----|', 'G|--7--|'], 1, 5, -1, 1, 0)
+  AssertEqual ['B|--3--|', 'G|-----|'], r.lines
+
+Execute (7.3 down from B to G: 4 frets higher):
+  let r = songwriter#tab#strings#Move(['B|--3--|', 'G|-----|'], 0, 5, 1, 1, 0)
+  AssertEqual ['B|-----|', 'G|--7--|'], r.lines
+
+Execute (7.3 up from B to e, and from E to A: 5 frets lower):
+  let r = songwriter#tab#strings#Move(['e|-----|', 'B|--5--|'], 1, 5, -1, 1, 0)
+  AssertEqual ['e|--0--|', 'B|-----|'], r.lines
+  let r = songwriter#tab#strings#Move(['A|-----|', 'E|--8--|'], 1, 5, -1, 1, 0)
+  AssertEqual ['A|--3--|', 'E|-----|'], r.lines
+
+Execute (7.3 drop D: up from D to A is 7 frets lower):
+  let r = songwriter#tab#strings#Move(['A|-----|', 'D|--7--|'], 1, 5, -1, 1, 0)
+  AssertEqual ['A|--0--|', 'D|-----|'], r.lines
+
+Execute (7.3 every fret of a note group moves):
+  let r = songwriter#tab#strings#Move(['G|-------|', 'D|--5h7--|'], 1, 5, -1, 1, 0)
+  AssertEqual ['G|--0h2--|', 'D|-------|'], r.lines
+
+Execute (7.3 a two-digit fret, and a leading zero, are read as decimal):
+  let r = songwriter#tab#strings#Move(['e|------|', 'B|--12--|'], 1, 5, -1, 1, 0)
+  AssertEqual ['e|--7---|', 'B|------|'], r.lines
+  let r = songwriter#tab#strings#Move(['e|------|', 'B|--09--|'], 1, 5, -1, 1, 0)
+  AssertEqual ['e|--4---|', 'B|------|'], r.lines
+
+Execute (7.3 a mark without a fret moves unchanged):
+  let r = songwriter#tab#strings#Move(['e|-----|', 'B|--x--|'], 1, 5, -1, 1, 0)
+  AssertEqual ['e|--x--|', 'B|-----|'], r.lines
+
+Execute (7.3 a whole column keeps sounding the same):
+  let lines = ['D|-----|', 'A|--7--|', 'E|--5--|']
+  let r = songwriter#tab#strings#Move(lines, 2, 5, -1, 1, 1)
+  AssertEqual ['D|--2--|', 'A|--0--|', 'E|-----|'], r.lines
+
+Execute (7.5 a note widened to the pipe: dashes on every string):
+  let r = songwriter#tab#strings#Move(['e|--7|', 'B|---|'], 0, 5, 1, 1, 0)
+  AssertEqual ['e|----|', 'B|--12|'], r.lines
+  AssertEqual [1, 5], [r.lin, r.col]
+
+Execute (7.4 a fret would go below 0):
+  let r = songwriter#tab#strings#Move(['e|-----|', 'B|--3--|'], 1, 5, -1, 1, 0)
+  AssertEqual 'the fret would go below 0 on string e', r.error
+  let r = songwriter#tab#strings#Move(['D|-----|', 'A|--7--|', 'E|--3--|'], 2, 5, -1, 1, 1)
+  AssertEqual 'the fret would go below 0 on string A', r.error
+
+Execute (7.4 a string name that is not a note, or the same note twice):
+  let r = songwriter#tab#strings#Move(['x|-----|', 'B|--5--|'], 1, 5, -1, 1, 0)
+  AssertEqual 'string name x is not a note', r.error
+  let r = songwriter#tab#strings#Move(['E|-----|', 'e|--5--|'], 1, 5, -1, 1, 0)
+  AssertEqual 'cannot tell the interval between strings E and e', r.error
+
+Execute (7.4 keeping the fret works whatever the string names):
+  let r = songwriter#tab#strings#Move(['x|-----|', 'B|--5--|'], 1, 5, -1, 0, 0)
+  AssertEqual ['x|--5--|', 'B|-----|'], r.lines
+
 " --- keys (7.1, 7.5, 7.6) ---
 
 Given songwriter (sk moves the note up and the cursor with it):
@@ -156,3 +216,29 @@ Expect songwriter:
   e|--5--|
   B|-----|
   G|-----|
+
+Given songwriter (SK moves the column keeping the pitch):
+  e|-----|
+  B|--5--|
+  G|--5--|
+
+Execute (SK moves the column keeping the pitch):
+  call cursor(3, 5)
+  normal SK
+Then:
+  AssertEqual [2, 5], [line('.'), col('.')]
+Expect songwriter:
+  e|--0--|
+  B|--1--|
+  G|-----|
+
+Given songwriter (Sj moves the note down keeping the pitch):
+  e|--5--|
+  B|-----|
+
+Execute (Sj moves the note down keeping the pitch):
+  call cursor(1, 5)
+  normal Sj
+Expect songwriter:
+  e|------|
+  B|--10--|
