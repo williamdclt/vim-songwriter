@@ -1,0 +1,24 @@
+" Pitch classes (autoload/songwriter/pitch.vim), shared by chord transposition
+" and tablature string intervals.
+
+Execute (Class: pitch class of a note name, C = 0):
+  AssertEqual 0, songwriter#pitch#Class('C')
+  AssertEqual 9, songwriter#pitch#Class('A')
+  AssertEqual 1, songwriter#pitch#Class('C#')
+  AssertEqual 10, songwriter#pitch#Class('Bb')
+
+Execute (Class: a lowercase letter is the same note (tab string names)):
+  AssertEqual 4, songwriter#pitch#Class('e')
+  AssertEqual 11, songwriter#pitch#Class('b')
+
+Execute (Class: -1 for anything that is not a note name):
+  AssertEqual -1, songwriter#pitch#Class('H')
+  AssertEqual -1, songwriter#pitch#Class('x')
+  AssertEqual -1, songwriter#pitch#Class('')
+  AssertEqual -1, songwriter#pitch#Class('Cb')
+
+Execute (Name: sharp spelling, modulo 12):
+  AssertEqual 'C', songwriter#pitch#Name(0)
+  AssertEqual 'A#', songwriter#pitch#Name(10)
+  AssertEqual 'C', songwriter#pitch#Name(12)
+  AssertEqual 'B', songwriter#pitch#Name(-1)

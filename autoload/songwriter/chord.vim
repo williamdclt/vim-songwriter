@@ -3,8 +3,6 @@
 
 " === Chord model (constants + private helpers) ===
 
-let s:Chromatic = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-let s:FlatToSharp = {'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#', 'Db': 'C#'}
 " {name, root, quality, bass} for a whole chord token, or {} when the token is
 " not a chord (grammar ParseChord). `bass` is '' for a chord without `/bass`.
 function! s:chord_parse(name) abort
@@ -19,12 +17,8 @@ function! s:chord_build(root, quality, bass) abort
 endfunction
 " `root` moved by `semitones`, spelled with sharps.
 function! s:root_transpose(root, semitones) abort
-  let l:root = get(s:FlatToSharp, a:root, a:root)
-  let l:idx = index(s:Chromatic, l:root)
-  if l:idx < 0
-    return a:root
-  endif
-  return s:Chromatic[((l:idx + a:semitones) % 12 + 12) % 12]
+  let l:pc = songwriter#pitch#Class(a:root)
+  return l:pc < 0 ? a:root : songwriter#pitch#Name(l:pc + a:semitones)
 endfunction
 " The chord with its root and bass moved by `semitones`.
 function! s:chord_transpose(parsed, semitones) abort

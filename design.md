@@ -22,6 +22,7 @@ never relies on concealing or rendering.
 | `autoload/songwriter/tab/columns.vim` | The column model behind tablature-mode operators, pure: text object ranges, snapping, delete, extract, paste with row matching, erase. |
 | `autoload/songwriter/tab/operator.vim` | Tablature-mode operators, text objects, `x`/`X`/`p`/`P`, visual mode, registers and `.`: buffer entry points around `columns.vim`. |
 | `autoload/songwriter/chord.vim` | Chord model and chord editing. |
+| `autoload/songwriter/pitch.vim` | Pitch classes: note names to semitones and back (sharp spelling). Shared by chords and tab string intervals. |
 | `autoload/songwriter/keys.vim` | Context-dependent keys: tables and `Dispatch()`, tablature-mode flag, tab-line `w`/`b`/`L`/`H`. |
 | `plugin/songwriter.vim` | `:Songwriter*` commands and `<Plug>(songwriter-*)` maps. |
 | `ftplugin/songwriter.vim` | Buffer options and key bindings, with a complete `b:undo_ftplugin`. |
