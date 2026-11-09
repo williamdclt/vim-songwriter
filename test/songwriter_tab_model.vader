@@ -28,7 +28,7 @@ Execute (InsertColumns: pads short lines with dashes, then inserts on every line
 Execute (Lint reports where each note moved):
   let r = songwriter#tab#lint#Lint(['e|-----4---|--1|', 'B|-------5-|---|'])
   AssertEqual ['e|--4----|--1--|', 'B|----5--|-----|'], r.lines
-  AssertEqual [{'line': 0, 'from': 8, 'to': 5}, {'line': 1, 'from': 10, 'to': 7}, {'line': 0, 'from': 15, 'to': 13}], r.moves
+  AssertEqual [{'line': 0, 'bar': 0, 'len': 1, 'from': 8, 'to': 5}, {'line': 1, 'bar': 0, 'len': 1, 'from': 10, 'to': 7}, {'line': 0, 'bar': 1, 'len': 1, 'from': 15, 'to': 13}], r.moves
 
 Execute (FollowColumn: on a note, follow it; between notes, keep the gap within the new bounds):
   let lines = ['e|-----4---12-|', 'B|-------5----|']

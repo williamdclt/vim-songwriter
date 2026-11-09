@@ -160,7 +160,7 @@ The pass is capped at 200 iterations (never reached in practice): pushing one
 note can collide with another on a neighbouring string.
 
 **Output**: `lint#Lint(lines)` returns `{lines, moves}`; `moves` lists every
-note's line and its column before and after, so callers can keep the cursor on
+note's line, bar, width and column before and after, so callers can keep the cursor on
 the same note. Only the string name's first character is kept, and anything
 after the final pipe is dropped.
 
