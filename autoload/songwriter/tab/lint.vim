@@ -63,7 +63,7 @@ function! songwriter#tab#lint#Lint(lines) abort
 
   let l:out = []
   for l:k in range(l:nl)
-    call add(l:out, strpart(l:lines[l:k], 0, 1) . '|' . join(l:lineparts[l:k], '|') . '|')
+    call add(l:out, songwriter#tab#model#Name(l:lines[l:k]) . '|' . join(l:lineparts[l:k], '|') . '|')
   endfor
   return {'lines': l:out, 'moves': s:to_columns(l:moves, l:lines, l:lineparts)}
 endfunction

@@ -26,7 +26,7 @@ function! songwriter#tab#edit#LintAndFollow(block) abort
   endif
   let l:result = songwriter#tab#lint#Lint(a:block.lines)
   call songwriter#tab#model#Write(a:block, l:result.lines)
-  let l:lin = line('.') - a:block.start
+  let l:lin = songwriter#tab#model#CursorLin(a:block)
   if l:lin >= 0 && l:lin < len(a:block.lines)
     call cursor(line('.'),
           \ songwriter#tab#lint#FollowColumn(a:block.lines, l:result, l:lin, col('.')))
@@ -63,14 +63,13 @@ function! songwriter#tab#edit#Commit(block, result) abort
   return l:linted
 endfunction
 
-" A whole edit at the cursor: lint the block, call Fn({'block', 'lin', 'col'})
-" for a result, and commit it. Returns the linted block, {} when nothing was
+" A whole edit at the cursor: lint the block, call Fn(model#Cursor()) for a
+" result, and commit it. Returns the linted block, {} when nothing was
 " done (off a tab line, refusal, nothing to do).
 function! songwriter#tab#edit#Run(Fn) abort
   let l:block = songwriter#tab#edit#LintAndFollow(songwriter#tab#model#Read())
   if empty(l:block)
     return {}
   endif
-  return songwriter#tab#edit#Commit(l:block,
-        \ a:Fn({'block': l:block, 'lin': line('.') - l:block.start, 'col': col('.')}))
+  return songwriter#tab#edit#Commit(l:block, a:Fn(songwriter#tab#model#Cursor(l:block)))
 endfunction

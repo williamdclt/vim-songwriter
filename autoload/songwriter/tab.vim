@@ -108,10 +108,10 @@ function! songwriter#tab#AddNote(side) abort
   endif
   call songwriter#tab#slots#Forget()
   let l:block = songwriter#tab#edit#LintAndFollow(l:block)
-  let l:line = getline('.')
+  let l:lin = songwriter#tab#model#CursorLin(l:block)
   let l:result = a:side > 0
-        \ ? songwriter#tab#slots#Append(l:block, l:line, col('.'))
-        \ : songwriter#tab#slots#Prepend(l:block, l:line, col('.'))
+        \ ? songwriter#tab#slots#Append(l:block, l:lin, col('.'))
+        \ : songwriter#tab#slots#Prepend(l:block, l:lin, col('.'))
   call songwriter#tab#edit#Apply(l:block, l:result)
   if !empty(l:result)
     call songwriter#tab#slots#Open()
@@ -145,9 +145,9 @@ function! songwriter#tab#NewTab(below) abort
     return
   endif
   let l:tab = songwriter#tab#slots#EmptyTab(l:block)
-  let l:row = line('.') - l:block.start
+  let l:row = songwriter#tab#model#CursorLin(l:block)
   if a:below
-    let l:last = l:block.start + len(l:block.lines) - 1
+    let l:last = l:block.end
     call append(l:last, [''] + l:tab.lines)
     let l:first = l:last + 2
   else

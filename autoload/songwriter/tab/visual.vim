@@ -24,12 +24,11 @@ endfunction
 
 " Spec 6.9.6: `in`/`an` in visual mode select the note on its string.
 function! songwriter#tab#visual#NoteObject(around) abort
-  let l:block = songwriter#tab#model#Read()
-  if empty(l:block)
+  let l:c = songwriter#tab#model#Cursor()
+  if empty(l:c)
     return
   endif
-  let l:range = songwriter#tab#columns#NoteObject(l:block.lines, line('.') - l:block.start,
-        \ col('.'), a:around)
+  let l:range = songwriter#tab#columns#NoteObject(l:c.block.lines, l:c.lin, l:c.col, a:around)
   if empty(l:range)
     return
   endif
@@ -51,13 +50,13 @@ function! songwriter#tab#visual#Object(kind, around) abort
     let l:o.count += 1
   else
     let l:o = {'kind': a:kind, 'around': a:around, 'count': v:count1,
-          \ 'lin': line('.') - l:block.start, 'col': col('.')}
+          \ 'lin': songwriter#tab#model#CursorLin(l:block), 'col': col('.')}
   endif
   let l:range = songwriter#tab#columns#Object(a:kind, l:block.lines, l:o.lin, l:o.col, l:o.count, a:around)
   if empty(l:range)
     return
   endif
-  let l:last = l:block.start + len(l:block.lines) - 1
+  let l:last = l:block.end
   call s:select("\<C-V>", l:block.start, l:range[0], l:last, l:range[1])
   let l:o.sel = [l:block.start, l:range[0], l:last, l:range[1]]
   let s:vobj = l:o
@@ -74,7 +73,7 @@ function! songwriter#tab#visual#Column() abort
   let l:col = col('.')
   call cursor(l:block.start, l:col)
   execute "normal! \<C-V>"
-  call cursor(l:block.start + len(l:block.lines) - 1, l:col)
+  call cursor(l:block.end, l:col)
 endfunction
 
 " Spec 6.9.3: in a character-wise or blockwise selection, `j`/`k` stop at the
@@ -85,7 +84,7 @@ function! songwriter#tab#visual#Vertical(key) abort
   if mode() ==# 'V' || empty(l:block)
     return a:key
   endif
-  let l:edge = a:key ==# 'j' ? l:block.start + len(l:block.lines) - 1 : l:block.start
+  let l:edge = a:key ==# 'j' ? l:block.end : l:block.start
   let l:target = line('.') + (a:key ==# 'j' ? v:count1 : -v:count1)
   if a:key ==# 'j' ? l:target <= l:edge : l:target >= l:edge
     return a:key

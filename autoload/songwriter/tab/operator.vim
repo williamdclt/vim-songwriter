@@ -97,7 +97,7 @@ function! songwriter#tab#operator#ApplyRange(op, reg, block, s, e, note) abort
 endfunction
 
 function! s:columnwise(op, reg, block, s, e) abort
-  let l:names = s:names(a:block.lines)
+  let l:names = songwriter#tab#model#Names(a:block.lines)
   if a:op ==# 'y'
     call songwriter#tab#register#Set(a:reg, songwriter#tab#columns#Extract(a:block.lines, a:s, a:e), 'b', l:names)
     return
@@ -110,7 +110,7 @@ endfunction
 " Write `lines`, from which columns were removed at `s`, lint, then for `c`
 " open a slot where they were (6.6), else go to the next note column (6.11).
 function! s:write_deleted(op, block, lines, s) abort
-  let l:anchor = s:slot_anchor(a:lines, line('.') - a:block.start, a:s)
+  let l:anchor = s:slot_anchor(a:lines, songwriter#tab#model#CursorLin(a:block), a:s)
   if a:op ==# 'c'
     call songwriter#tab#edit#Commit(a:block, {'lines': a:lines, 'col': l:anchor[0]})
     if l:anchor[1] == 0
@@ -127,10 +127,10 @@ endfunction
 " register holds those columns with the other strings as dashes; `d`/`c`
 " erase the note as `x` does (6.7), and `c` opens a slot if its column went.
 function! s:noteop(op, reg, block, s, e) abort
-  let l:lin = line('.') - a:block.start
+  let l:lin = songwriter#tab#model#CursorLin(a:block)
   let l:rows = songwriter#tab#columns#Extract(a:block.lines, a:s, a:e)
   call map(l:rows, 'v:key == l:lin ? v:val : repeat("-", len(v:val))')
-  call songwriter#tab#register#Set(a:reg, l:rows, 'b', s:names(a:block.lines))
+  call songwriter#tab#register#Set(a:reg, l:rows, 'b', songwriter#tab#model#Names(a:block.lines))
   if a:op ==# 'y'
     return
   endif
@@ -169,7 +169,7 @@ function! songwriter#tab#operator#ApplyLines(op, reg, l1, l2) abort
   endif
   if songwriter#grammar#IsTabLine(getline(l:l2))
     let l:b = songwriter#tab#model#Read(l:l2)
-    let l:l2 = l:b.start + len(l:b.lines) - 1
+    let l:l2 = l:b.end
   endif
   if a:op ==# 'y'
     call songwriter#tab#register#Set(a:reg, getline(l:l1, l:l2), 'l', [])
@@ -190,12 +190,12 @@ function! songwriter#tab#operator#ApplyLines(op, reg, l1, l2) abort
       endif
       let l:lines = songwriter#tab#columns#ClearNotes(l:block.lines)
       call songwriter#tab#model#Write(l:block, songwriter#tab#lint#Lint(l:lines).lines)
-      let l:lnum = l:block.start + len(l:block.lines)
+      let l:lnum = l:block.end + 1
     endwhile
     if !songwriter#grammar#IsTabLine(getline(l:cur))
       let l:cur = l:l1
     endif
-    call cursor(l:cur, 3)
+    call cursor(l:cur, songwriter#tab#model#BodyOffset() + 1)
     call songwriter#tab#slots#OpenHere(0)
   endif
 endfunction
@@ -210,10 +210,6 @@ function! s:to_next_column() abort
   if !empty(l:next)
     call cursor(line('.'), l:next[0])
   endif
-endfunction
-
-function! s:names(lines) abort
-  return map(copy(a:lines), 'v:val[0]')
 endfunction
 
 " === Operator-pending targets ===
@@ -240,16 +236,16 @@ endfunction
 " Selects the range on the cursor line; the operator widens it to every string
 " without snapping. Off a column / bar, the operator is cancelled.
 function! songwriter#tab#operator#Object(kind, around) abort
-  let l:block = songwriter#tab#model#Read()
-  call s:select_exact(empty(l:block) ? [] : songwriter#tab#columns#Object(a:kind, l:block.lines,
-        \ line('.') - l:block.start, col('.'), v:count1, a:around), 0)
+  let l:c = songwriter#tab#model#Cursor()
+  call s:select_exact(empty(l:c) ? [] : songwriter#tab#columns#Object(a:kind, l:c.block.lines,
+        \ l:c.lin, l:c.col, v:count1, a:around), 0)
 endfunction
 
 " Spec 6.1.4: `in`/`an`, the note under the cursor on its string.
 function! songwriter#tab#operator#NoteObject(around) abort
-  let l:block = songwriter#tab#model#Read()
-  call s:select_exact(empty(l:block) ? [] : songwriter#tab#columns#NoteObject(l:block.lines,
-        \ line('.') - l:block.start, col('.'), a:around), 1)
+  let l:c = songwriter#tab#model#Cursor()
+  call s:select_exact(empty(l:c) ? [] : songwriter#tab#columns#NoteObject(l:c.block.lines,
+        \ l:c.lin, l:c.col, a:around), 1)
 endfunction
 
 " Select `range` on the cursor line as the operator's exact target (`note`: one
@@ -278,7 +274,7 @@ function! songwriter#tab#operator#Erase(count, reg) abort
   let l:rows = []
   let l:lone = 0
   for l:i in range(max([a:count, 1]))
-    let l:lin = line('.') - l:block.start
+    let l:lin = songwriter#tab#model#CursorLin(l:block)
     if l:i > 0 && !s:on_note(getline('.'), col('.'))
       let l:next = filter(map(songwriter#tab#columns#Atoms(getline('.')), 'v:val.col'), 'v:val > col(".")')
       if empty(l:next)
@@ -297,7 +293,7 @@ function! songwriter#tab#operator#Erase(count, reg) abort
   if empty(l:rows)
     return
   endif
-  call songwriter#tab#register#Set(a:reg, l:rows, 'b', s:names(l:block.lines))
+  call songwriter#tab#register#Set(a:reg, l:rows, 'b', songwriter#tab#model#Names(l:block.lines))
   if l:lone
     call s:to_next_column()
   endif
@@ -319,7 +315,7 @@ function! songwriter#tab#operator#Put(before, count, reg) abort
   if getregtype(a:reg) ==# 'V'
     call s:put_lines(l:block, getreg(a:reg, 1, 1), a:before, a:count)
   elseif !empty(l:rows)
-    let l:res = songwriter#tab#columns#Paste(l:block.lines, line('.') - l:block.start,
+    let l:res = songwriter#tab#columns#Paste(l:block.lines, songwriter#tab#model#CursorLin(l:block),
           \ col('.'), l:rows, songwriter#tab#register#Names(a:reg), a:before, a:count)
     if empty(songwriter#tab#edit#Commit(l:block, l:res))
       return
@@ -351,7 +347,7 @@ function! s:put_lines(block, rows, before, count) abort
     if songwriter#grammar#IsTabLine(l:rows[0])
       call insert(l:rows, '')
     endif
-    let l:at = a:block.start + len(a:block.lines) - 1
+    let l:at = a:block.end
     let l:first = l:at + 1 + (l:rows[0] ==# '' ? 1 : 0)
   endif
   call append(l:at, l:rows)
@@ -366,7 +362,7 @@ function! songwriter#tab#operator#Shift(dir, count) abort
   endif
   let l:done = 0
   for l:i in range(max([a:count, 1]))
-    let l:res = songwriter#tab#columns#ShiftColumn(l:block.lines, line('.') - l:block.start, col('.'), a:dir)
+    let l:res = songwriter#tab#columns#ShiftColumn(l:block.lines, songwriter#tab#model#CursorLin(l:block), col('.'), a:dir)
     if empty(l:res)
       break
     endif

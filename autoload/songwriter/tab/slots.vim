@@ -20,7 +20,8 @@ endfunction
 " with the slot on the middle dash (as the new bar of spec 5).
 " Returns {'lines', 'col'}.
 function! songwriter#tab#slots#EmptyTab(block) abort
-  return {'lines': map(copy(a:block.lines), "v:val[0] . '|' . s:new_bar . '|'"), 'col': 2 + s:new_bar_slot}
+  return {'lines': map(copy(a:block.lines), "songwriter#tab#model#Name(v:val) . '|' . s:new_bar . '|'"),
+        \ 'col': songwriter#tab#model#BodyOffset() + s:new_bar_slot}
 endfunction
 
 " Pure. The `a` slot: the anchor is the rightmost note end, on any string,
@@ -29,8 +30,8 @@ endfunction
 " after the anchor so that the slot sits one dash from it and the next note, on
 " any string, stays one dash away (the next pipe, two dashes).
 " Returns {'lines', 'col'}, or {} when there is no anchor note.
-function! songwriter#tab#slots#Append(block, line, col) abort
-  let l:bar = songwriter#tab#model#BarAt(a:line, a:col)
+function! songwriter#tab#slots#Append(block, lin, col) abort
+  let l:bar = songwriter#tab#model#BarAt(a:block.lines[a:lin], a:col)
   let l:e = 0
   for l:s in a:block.strings
     for l:n in l:s.notes
@@ -67,8 +68,8 @@ endfunction
 " of it and the previous note, on any string, stays one dash away (the
 " previous pipe, two dashes).
 " Returns {'lines', 'col'}, or {} when there is no anchor note.
-function! songwriter#tab#slots#Prepend(block, line, col) abort
-  let l:bar = songwriter#tab#model#BarAt(a:line, a:col)
+function! songwriter#tab#slots#Prepend(block, lin, col) abort
+  let l:bar = songwriter#tab#model#BarAt(a:block.lines[a:lin], a:col)
   let l:s = 0
   for l:str in a:block.strings
     for l:n in l:str.notes
@@ -139,17 +140,17 @@ endfunction
 " Spec 6.6: open a slot at the cursor: before its note (side -1, as `i`),
 " after it (+1, as `a`), or, side 0, in the cursor's empty bar.
 function! songwriter#tab#slots#OpenHere(side) abort
-  let l:block = songwriter#tab#model#Read()
-  if empty(l:block)
+  let l:c = songwriter#tab#model#Cursor()
+  if empty(l:c)
     return
   endif
-  let l:line = getline('.')
+  let l:block = l:c.block
   if a:side < 0
-    let l:res = songwriter#tab#slots#Prepend(l:block, l:line, col('.'))
+    let l:res = songwriter#tab#slots#Prepend(l:block, l:c.lin, l:c.col)
   elseif a:side > 0
-    let l:res = songwriter#tab#slots#Append(l:block, l:line, col('.'))
+    let l:res = songwriter#tab#slots#Append(l:block, l:c.lin, l:c.col)
   else
-    let l:res = songwriter#tab#slots#EmptyBar(l:block.lines, line('.') - l:block.start, col('.'))
+    let l:res = songwriter#tab#slots#EmptyBar(l:block.lines, l:c.lin, l:c.col)
   endif
   if empty(l:res)
     return

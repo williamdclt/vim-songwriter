@@ -5,6 +5,7 @@
 "
 "   block = {
 "     'start':   first buffer line number of the block,
+"     'end':     last buffer line number of the block,
 "     'lines':   the raw line strings,
 "     'strings': one entry per line: {
 "        'text':  the raw line,
@@ -15,6 +16,22 @@
 "
 " All columns are 1-indexed byte columns (tab lines are ASCII), as col() gives.
 " Everything here is pure except Read() and Write(), the buffer edges.
+
+" The string name of a tab line.
+function! songwriter#tab#model#Name(line) abort
+  return a:line[0]
+endfunction
+
+" The string names of tab lines.
+function! songwriter#tab#model#Names(lines) abort
+  return map(copy(a:lines), 'songwriter#tab#model#Name(v:val)')
+endfunction
+
+" Bytes before a tab line's body: the string name and the first pipe. Also the
+" column of that first pipe.
+function! songwriter#tab#model#BodyOffset() abort
+  return 2
+endfunction
 
 " Notes on one line (or one bar region), left to right.
 function! songwriter#tab#model#Notes(text) abort
@@ -58,7 +75,8 @@ function! songwriter#tab#model#Parse(start, lines) abort
           \ 'pipes': songwriter#tab#model#Pipes(l:text),
           \ })
   endfor
-  return {'start': a:start, 'lines': copy(a:lines), 'strings': l:strings}
+  return {'start': a:start, 'end': a:start + len(a:lines) - 1,
+        \ 'lines': copy(a:lines), 'strings': l:strings}
 endfunction
 
 " The block around buffer line `lnum` (default: the cursor line), or {} when
@@ -77,6 +95,23 @@ function! songwriter#tab#model#Read(...) abort
     let l:end += 1
   endwhile
   return songwriter#tab#model#Parse(l:start, getline(l:start, l:end))
+endfunction
+
+" The cursor in `block` (default: the block around it): {'block', 'lin': its
+" 0-indexed line in the block, 'col', 'line': the text of its line}, or {} off
+" a tab line.
+function! songwriter#tab#model#Cursor(...) abort
+  let l:block = a:0 ? a:1 : songwriter#tab#model#Read()
+  if empty(l:block)
+    return {}
+  endif
+  let l:lin = songwriter#tab#model#CursorLin(l:block)
+  return {'block': l:block, 'lin': l:lin, 'col': col('.'), 'line': l:block.lines[l:lin]}
+endfunction
+
+" The cursor's 0-indexed line in `block`.
+function! songwriter#tab#model#CursorLin(block) abort
+  return line('.') - a:block.start
 endfunction
 
 " Write `lines` (one per block string) back over the block in the buffer.

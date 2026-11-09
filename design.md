@@ -91,10 +91,13 @@ the block.
 
 ### Block model
 
-`model#Parse(start, lines)` gives `{start, lines, strings}` with each string's
+`model#Parse(start, lines)` gives `{start, end, lines, strings}` with each string's
 notes (`{col, len, text}`) and pipe columns. Columns are 1-indexed byte columns,
 as `col()` returns (tab lines are ASCII). Queries: `NoteColumns` (block-wide,
-sorted, unique), `BarAt`, `InBar`. The single mutation primitive is
+sorted, unique), `BarAt`, `InBar`, `Advance` (through a list of stops); and
+`Cursor`, the cursor as `{block, lin, col, line}`. Pure functions address the
+cursor as `lin` (0-indexed in the block) and `col`. The width of a line's
+prefix is known only to `Name`, `Names` and `BodyOffset`. The single mutation primitive is
 `InsertColumns(lines, offset, n, char)`: pad every line with dashes up to
 `offset`, then insert `n` copies of `char` after it, on every string, so pipes
 and notes stay vertically aligned.

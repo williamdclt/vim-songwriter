@@ -11,7 +11,7 @@
 " first pipe: [{'col', 'len', 'text'}].
 function! songwriter#tab#columns#Atoms(line) abort
   let l:res = []
-  let l:m = matchstrpos(a:line, songwriter#grammar#TabAtom(), 2)
+  let l:m = matchstrpos(a:line, songwriter#grammar#TabAtom(), songwriter#tab#model#BodyOffset())
   while l:m[1] >= 0
     call add(l:res, {'col': l:m[1] + 1, 'len': len(l:m[0]), 'text': l:m[0]})
     let l:m = matchstrpos(a:line, songwriter#grammar#TabAtom(), l:m[2])
@@ -71,7 +71,7 @@ function! s:column_for(cols, col) abort
 endfunction
 
 function! s:on_pipe_or_name(line, col) abort
-  return a:col <= 1 || a:line[a:col - 1] ==# '|'
+  return a:col < songwriter#tab#model#BodyOffset() || a:line[a:col - 1] ==# '|'
 endfunction
 
 " Spec 6.1.1 / 6.1.3: `ic` (around 0) / `ac` (around 1) with a count, from
@@ -98,7 +98,7 @@ endfunction
 function! songwriter#tab#columns#BarObject(lines, lin, col, count, around) abort
   let l:pipes = songwriter#tab#model#Pipes(a:lines[a:lin])
   let l:k = len(filter(copy(l:pipes), 'v:val <= a:col')) - 1
-  if a:col <= 1 || l:k < 0 || l:k + 1 >= len(l:pipes)
+  if a:col < songwriter#tab#model#BodyOffset() || l:k < 0 || l:k + 1 >= len(l:pipes)
     return []
   endif
   let l:k2 = min([l:k + max([a:count, 1]), len(l:pipes) - 1])
@@ -209,8 +209,9 @@ endfunction
 
 " Spec 6.3.1: every note becomes dashes; bars and pipes are kept.
 function! songwriter#tab#columns#ClearNotes(lines) abort
+  let l:o = songwriter#tab#model#BodyOffset()
   return map(copy(a:lines),
-        \ "v:val[0:1] . substitute(v:val[2:], songwriter#grammar#TabAtom(), '\\=repeat(\"-\", len(submatch(0)))', 'g')")
+        \ "strpart(v:val, 0, l:o) . substitute(strpart(v:val, l:o), songwriter#grammar#TabAtom(), '\\=repeat(\"-\", len(submatch(0)))', 'g')")
 endfunction
 
 " Spec 6.5.3: register rows for a block with `names`, matched from the bottom
@@ -258,14 +259,14 @@ endfunction
 " before the cursor's column and its gap. Returns {'lines', 'col' (first
 " pasted note, any string), 'msg'} or {'error'}.
 function! songwriter#tab#columns#Paste(lines, lin, col, rows, regnames, before, count) abort
-  let l:names = map(copy(a:lines), 'v:val[0]')
+  let l:names = songwriter#tab#model#Names(a:lines)
   let l:m = songwriter#tab#columns#MatchRows(l:names, a:rows, a:regnames)
   if has_key(l:m, 'error')
     return l:m
   endif
   let l:rows = l:m.rows
   let l:line = a:lines[a:lin]
-  let l:col = max([a:col, 2])
+  let l:col = max([a:col, songwriter#tab#model#BodyOffset()])
   if !empty(filter(copy(l:rows), "stridx(v:val, '|') >= 0"))
     call map(l:rows, "substitute(v:val, '^|', '', '')")
     call map(l:rows, "v:val =~# '|$' ? v:val : v:val . '|'")
@@ -293,7 +294,7 @@ endfunction
 " Spec 6.9.4: paste register `rows` right after byte `offset` (0 = line
 " start), rows matched as in Paste. {'lines', 'col', 'msg'} or {'error'}.
 function! songwriter#tab#columns#PasteAt(lines, offset, rows, regnames) abort
-  let l:m = songwriter#tab#columns#MatchRows(map(copy(a:lines), 'v:val[0]'), a:rows, a:regnames)
+  let l:m = songwriter#tab#columns#MatchRows(songwriter#tab#model#Names(a:lines), a:rows, a:regnames)
   if has_key(l:m, 'error')
     return l:m
   endif
@@ -400,7 +401,7 @@ function! songwriter#tab#columns#Overlay(lines, lin, col, rows, regnames) abort
   if !empty(filter(copy(a:rows), "stridx(v:val, '|') >= 0"))
     return {'error': 'songwriter: gp pastes a column, not a bar'}
   endif
-  let l:m = songwriter#tab#columns#MatchRows(map(copy(a:lines), 'v:val[0]'), a:rows, a:regnames)
+  let l:m = songwriter#tab#columns#MatchRows(songwriter#tab#model#Names(a:lines), a:rows, a:regnames)
   if has_key(l:m, 'error')
     return l:m
   endif
@@ -427,7 +428,7 @@ function! songwriter#tab#columns#Overlay(lines, lin, col, rows, regnames) abort
       let l:s = l:c + l:a.col - l:qmin
       let l:line = s:pad(l:out[l:i], l:s + l:a.len)
       if strpart(l:line, l:s - 1, l:a.len) !~# '^-\+$'
-        return {'error': printf('songwriter: gp would replace a note on string %s', a:lines[l:i][0])}
+        return {'error': printf('songwriter: gp would replace a note on string %s', songwriter#tab#model#Name(a:lines[l:i]))}
       endif
       let l:out[l:i] = strpart(l:line, 0, l:s - 1) . l:a.text . strpart(l:line, l:s - 1 + l:a.len)
     endfor
