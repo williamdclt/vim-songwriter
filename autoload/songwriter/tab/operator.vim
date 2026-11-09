@@ -264,6 +264,16 @@ endfunction
 
 " === Erase and paste (spec 6.5, 6.7) ===
 
+" `x` in normal mode: on a dash, enter a muted note as a digit would (spec 3.4.3);
+" elsewhere, erase (6.7).
+function! songwriter#tab#operator#EraseOrMute(count, reg) abort
+  if getline('.')[col('.') - 1] ==# '-'
+    call songwriter#tab#EnterNote('x')
+  else
+    call songwriter#tab#operator#Erase(a:count, a:reg)
+  endif
+endfunction
+
 " Spec 6.7: `x`, `count` times on the cursor's string (after the first, from
 " the next note on the string). Writes what was erased to `reg` (6.7.3).
 function! songwriter#tab#operator#Erase(count, reg) abort

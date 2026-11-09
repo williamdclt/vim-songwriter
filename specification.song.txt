@@ -64,6 +64,7 @@ A note is a fret (digits: `12` is one note) or `x` (a muted note). Anything else
     3.4 numbers should enter the note: replace the character under cursor with the number. On a note, the whole note is replaced. ✓
         3.4.1 A digit typed straight after another one (without moving or editing in between) is appended to it, so two-digit frets can be typed (`1` then `2` gives `12`). ✓
         3.4.2 A digit on a separator does nothing. Separators are edited with Vim's own `f` and `r`, which tablature mode leaves alone (`fhr/` turns a hammer-on into a slide, `f-rh` adds one). ✓
+        3.4.3 `x` on a dash enters a muted note, like a digit (the note is linted and any open slot is filled). On a note, `x` erases it (6.7). ✓
 4. An edit should trigger linting ✓
     4.1 When a note is entered (number typed) ✓
     4.2 When a note is inserted with `a` or `i`, BEFORE the space for the new note is inserted ✓

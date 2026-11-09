@@ -215,7 +215,8 @@ A buffer-local flag, `b:songwriter_tabmode`, off by default; no teardown needed.
   `b:songwriter_typing = {line, col, tick}` after each digit, and the next
   digit appends only when the cursor and `b:changedtick` still match. Any move
   or edit ends the run, so coming back to a note replaces it. The block is then
-  linted (4.1, below), which fixes the spacing. Off tablature mode or a tab
+  linted (4.1, below), which fixes the spacing. `x` on a dash enters a muted
+  note the same way (3.4.3); on a note it stays the erase of spec 6.7. Off tablature mode or a tab
   line, digits keep their count meaning.
 
 ### Linting after edits (spec [Tablature][[Editing]] 4)

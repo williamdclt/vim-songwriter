@@ -35,7 +35,7 @@ let s:tabmode.n = {
       \ '>>': 'call songwriter#tab#operator#Shift(1, v:count1)',
       \ '<<': 'call songwriter#tab#operator#Shift(-1, v:count1)',
       \ 'gp': 'call songwriter#tab#operator#Overlay(v:register)',
-      \ 'x': 'call songwriter#tab#operator#Erase(v:count1, v:register)',
+      \ 'x': 'call songwriter#tab#operator#EraseOrMute(v:count1, v:register)',
       \ 'p': 'call songwriter#tab#operator#Put(0, v:count1, v:register)',
       \ 'P': 'call songwriter#tab#operator#Put(1, v:count1, v:register)',
       \ '.': '=songwriter#tab#repeat#Repeat()',
