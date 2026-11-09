@@ -17,7 +17,7 @@
 let s:tabmode = {}
 let s:tabline = {}
 
-" Spec [Tablature][[Editing]] 3 and 6.
+" Spec [Tablature][[Editing]] 3, 6 and 8.
 let s:tabmode.n = {
       \ 'w': 'call songwriter#tab#MoveNote(1)',
       \ 'b': 'call songwriter#tab#MoveNote(-1)',
@@ -39,6 +39,8 @@ let s:tabmode.n = {
       \ 'p': 'call songwriter#tab#operator#Put(0, v:count1, v:register)',
       \ 'P': 'call songwriter#tab#operator#Put(1, v:count1, v:register)',
       \ '.': '=songwriter#tab#operator#Repeat()',
+      \ 'o': 'call songwriter#tab#NewTab(1)',
+      \ 'O': 'call songwriter#tab#NewTab(0)',
       \ }
 " Spec 7: `s` (keep the fret) / `S` (keep the pitch), then `k`/`j` (the note
 " under the cursor) or `K`/`J` (its whole time column), up/down a string.

@@ -327,6 +327,16 @@ before and after like the other tablature-mode edits.
   note ends just before it there. Insertion points never cut a note in two on
   another string; the following lint normalises the spacing.
 
+### New tab (`o`/`O`, spec [Tablature][[Editing]] 8)
+
+`o`/`O` open a tab the way they open a line in text: under / over the whole
+current tab, never between its strings. The new tab copies the string names, so
+a bass or drop-D tab gets a matching one, and starts as the new bar of spec 5
+does (`|-----|`, slot in the middle, `b:songwriter_slot`), so the same rules
+fill or abandon it. The blank line keeps the two tabs separate blocks (as a
+line-wise paste does, 6.3.2). The cursor keeps its string, so typing goes on
+on the string being worked on. Outside tablature mode `o`/`O` stay native.
+
 ### Outside tablature mode
 
 On a tab line, `w`/`b` stop on notes, string names and pipes but never on dashes

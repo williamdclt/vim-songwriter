@@ -151,6 +151,38 @@ function! songwriter#tab#AppendBarSlot(block) abort
         \ 'col': len(a:block.lines[0]) + 3}
 endfunction
 
+" Spec [Tablature][[Editing]] 8: add an empty tab under (below 1, `o`) or
+" over (below 0, `O`) the block around the cursor, with the same string names
+" and a blank line between the two, and land on the slot in its middle, on the
+" cursor's string. The slot is remembered as `a`'s is (4.3): a digit fills it,
+" and abandoned, it is linted to an empty bar. An open slot is abandoned first.
+function! songwriter#tab#NewTab(below) abort
+  call songwriter#tab#LintAbandonedSlot()
+  let l:block = songwriter#tab#model#Read()
+  if empty(l:block)
+    return
+  endif
+  let l:tab = songwriter#tab#EmptyTab(l:block)
+  let l:row = line('.') - l:block.start
+  if a:below
+    let l:last = l:block.start + len(l:block.lines) - 1
+    call append(l:last, [''] + l:tab.lines)
+    let l:first = l:last + 2
+  else
+    call append(l:block.start - 1, l:tab.lines + [''])
+    let l:first = l:block.start
+  endif
+  call cursor(l:first + l:row, l:tab.col)
+  let b:songwriter_slot = {'line': line('.'), 'tick': b:changedtick}
+endfunction
+
+" Pure. A tab with the string names of `block` and one bar of five dashes,
+" with the slot on the middle dash (as the new bar of spec 5).
+" Returns {'lines', 'col'}.
+function! songwriter#tab#EmptyTab(block) abort
+  return {'lines': map(copy(a:block.lines), "v:val[0] . '|-----|'"), 'col': 5}
+endfunction
+
 " Pure. The `a` slot: the anchor is the rightmost note end, on any string,
 " among notes of the cursor's bar that start at or before the cursor (so the
 " anchor is the note column under or left of the cursor). Dashes are inserted

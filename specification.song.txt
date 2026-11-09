@@ -109,6 +109,7 @@ Each line is a guitar string, the numbers are the fretted notes, played sequenti
     7.4 A move is refused with a message, leaving the tab unchanged, when: there is no note (`s`/`S` + `k`/`j`) or no time column (`K`/`J`) under the cursor; there is no string in that direction (for a column: one of its notes is on the top / bottom string); the destination string already has a note there; `S` would make a fret negative; `S` meets a string name that is not a note (A to G). ✓
     7.5 Moved notes leave dashes behind. When a note gets wider (`7` -> `12`) and would touch the next note (or the pipe) on its new string, dashes are inserted on every string to make room. Then the tab is linted. ✓
     7.6 The cursor moves one string with the notes (staying inside the tab), so a move can be repeated. Each move is one undo step, and `.` repeats it. ✓
+8. In tablature mode, `o` / `O` add a new tab under / over the current one, kept apart from it by a blank line. It has the same string names and a single bar with a slot open in its middle (`e|-----|`), and the cursor lands on the slot on the same string, ready for a digit (`e|--7--|`). Abandoned without a note, the slot is linted away like any other (4.3, 1.4): `e|--|`. ✓
 
 [[Bugs]]
 These are known bugs that need fixing
