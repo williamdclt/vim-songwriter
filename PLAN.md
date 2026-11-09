@@ -35,10 +35,10 @@ dashes / land on the second" `a`/`i` behaviour is deleted.
        / `s:append_note_right` / `s:prepend_note_left` in `autoload/songwriter/tab.vim`;
        update the obsolete `a`/`i` assertions in `test/songwriter_tab_edit.vader`.
        — check: `make test` green (71/71).
-- [ ] 2. 3.3: rework `songwriter#tab#MoveColumn` to be in-bar, append on `l`
+- [x] 2. 3.3: rework `songwriter#tab#MoveColumn` to be in-bar, append on `l`
        end-of-bar, lint on plain moves, and add `test/songwriter_tab_move.vader`.
        — check: `make test` green.
-- [ ] 3. Record the decisions in `design.md`; tick `3.1`/`3.3` boxes and remove the
+- [x] 3. Record the decisions in `design.md`; tick `3.1`/`3.3` boxes and remove the
        obsolete "Old requirement" lines in `specification.song.txt`.
        — check: `make test` still green.
 

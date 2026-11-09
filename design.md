@@ -184,11 +184,24 @@ the key motions w/b/l/h become note-level (the actual movement lives in
   the left digit). w goes to the next run start to the right of the cursor, b the
   one to the left, in either case ignoring the dashes and pipes between. The
   guard `!SongwriterIsTablatureLine(getline('.'))` no-ops on a prose line.
-- **3.2 l/h — the note column across any line.** Collect the digit-run start
-  columns from *every* line of the block, pick the nearest one on the side that
-  is not the current column, then `cursor` there. l/h thus jump to a column where
-  some *other* string carries a note (e.g. the `e` line skips a gap on itself and
-  lands opposite the `B` string's fret).
+- **l/h — across notes within the current bar (spec 3.3).** `MoveColumn` collects
+   the digit-run start columns within the **current bar** — the notes strictly
+   between the pipes that bound the cursor on the current line (`s:in_bar`) — on
+   *every* string, and moves to the nearest one on the requested side
+   (`SongwriterMoveColumn(+1/-1) = l/h`). The motion is bar-local: it never crosses
+   a pipe, so `w`/`b` (current-line notes) and `L`/`H` (next/previous pipe) remain
+   how you move across strings and between bars.
+   - **3.3.1** l/h land on the nearest in-bar note column on any string.
+   - **3.3.2** at the **last note of the bar**, `l` finds no in-bar note to its
+     right and so *behaves as `a`* — it appends a new-note slot on every string
+     (`s:append_note_right`), not a cross-bar jump. `h` is symmetric: at the first
+     note it is a no-op (there is no mirror of the `a` append, 3.3.4).
+   - **3.3.3** a plain move (a note was found) then runs `SongwriterLint` on the
+     block so the edited bar is aligned.
+   - **The lint-vs-append tension.** The linter forces exactly two dashes at a pipe
+     (spec 1.2) and would collapse the very slot `a` just opened, so the append
+     case (3.3.2) is the *result* and is not linted in the same step; only the
+     plain move lints. This keeps "easily append a note" working, as 3.3.2 intends.
 
 - **3.3 digits — enter a note.** A digit 0-9 in tablature mode on a tab line
   goes into the cell under the cursor: on a dash/blank it is a straight
@@ -201,12 +214,19 @@ the key motions w/b/l/h become note-level (the actual movement lives in
   digit is a no-op (it falls back to its default count behaviour). Because `0`-`9`
   are otherwise count-prefics, the map guard `get(b:,'songwriter_tabmode',0) &&
   SongwriterIsTablatureLine()` keeps them as ordinary counts everywhere else.
-- **3.4 a/i — make room for a note.** `a`(`SongwriterAddNote(1)`) opens three
-  dashes on every string of the **block** to the right of the cursor, `i`
-  (`AddNote(-1)`) to the left; the cursor then lands on the *second* of the three
-  new dashes (one dash of spacing on the near side). No-op off a tab block. The
-  gap is wide enough for a two-digit fret plus the spacing dash; the 1.3 linter
-  tidies it afterwards.
+- **a/i — open a note slot on every string (spec 3.1, formerly 3.4).** `a`
+   `SongwriterAddNote(1)` opens a slot to the **right** of the current note on
+    every string (s:append_note_right): it inserts as many dashes as are needed so
+    the slot sits **exactly one dash from the current note** *and* the following pipe
+    (or next note) keeps its **two-dash** gap. e.g. `e|--4--|` -> `e|--4----|`. The
+    old "always three dashes, land on the second on the near side" behaviour is
+    obsolete: it ignored the following pipe/next note (the removed "Old requirement").
+    `i` (`AddNote(-1)`, s:prepend_note_left) mirrors to the **left**: one dash before
+    the current note, two after the preceding pipe. The cursor lands on the new slot
+    itself, which is a dash the user then fills with a digit. No-op when there is no
+    digit run in the asked direction. `a`/`i` are excluded from auto-lint (the 3.3 note
+    above) because the slot *is* the new space; a following `l` or digit entry runs
+    the 1.3 lint that tidies it.
 
 ### Why the maps are inline, not function-calling
 

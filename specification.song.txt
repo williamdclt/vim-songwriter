@@ -47,17 +47,15 @@ Each line is a guitar string, the numbers are the fretted notes, played sequenti
     1.3 Split up numbers that are overlapping but not aligned (when a number is 2-digits, the second digit might overlap with another number on a different line), by pushing the second number to the right with dashes. There needs to be 1 dash between the numbers. ✓
 2. In normal mode, `_` should insert a dash (`-`) at the cursor's column position on every line of the tab. ✓
 3. `<leader>t` should enter a special "tablature" mode. ✓
-    3.1 `a` should create space for a new note to be entered.
-        3.1.1 it should add dashes to the right (across all lines) to create space for a new note: at least one dash separation with the previous note and the next note (or the pipe).
-        3.1.2 it should move the cursor to where the new note would be: one dash apart from the current note
-        Old requirement (currently implemented, delete once obsolete): `a` should create space for a new note to be entered: add 3 dashes (across all lines) to the right, and move the cursor to the second one. `i` should do the opposite (to the left). ✓
+    3.1 `a` should create space for a new note to be entered. ✓
+        3.1.1 it should add dashes to the right (across all lines) to create space for a new note: at least one dash separation with the previous note and the next note (or the pipe). ✓
+        3.1.2 it should move the cursor to where the new note would be: one dash apart from the current note ✓
     3.2 `w` should move to the next note on the line, not stopping at dashes or pipes. `b` does the opposite (move to previous note). ✓
-    3.3 `l` and `h` move across notes.
-        3.3.1 `l` should move to the column where _any_ line has a note.
-        3.3.2 If the cursor is at the last note of the bar, `l` should behave as `a` so that new notes can easily be appended to the tablature.
-        3.3.3 it should trigger linting
+    3.3 `l` and `h` move across notes. ✓
+        3.3.1 `l` should move to the column where _any_ line has a note. ✓
+        3.3.2 If the cursor is at the last note of the bar, `l` should behave as `a` so that new notes can easily be appended to the tablature. ✓
+        3.3.3 it should trigger linting ✓
         3.3.4 `h` does the opposite (moving left), except it does not behave as `i` (no mirroring requirement 3.3.2). ✓
-        Old requirement (currently implemented, delete once obsolete): `l` should move to the column where _any_ line has a note, not stopping at dashes or pipes. `h` does the opposite. ✓
     3.4 numbers should enter the note: replace the character under cursor with the number.
 4. An edit should trigger linting
     4.1 When a note is entered (number typed)
