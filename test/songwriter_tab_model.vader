@@ -1,0 +1,31 @@
+" The tablature model (autoload/songwriter/tab/model.vim) and the pure linter
+" API: parsing and queries that the tab features are built from.
+
+Execute (Parse: notes and pipes per string, 1-indexed columns):
+  let b = songwriter#tab#model#Parse(3, ['e|--4--|-12--|', 'B|-----|-----|'])
+  AssertEqual 3, b.start
+  AssertEqual [{'col': 5, 'len': 1, 'text': '4'}, {'col': 10, 'len': 2, 'text': '12'}], b.strings[0].notes
+  AssertEqual [], b.strings[1].notes
+  AssertEqual [2, 8, 14], b.strings[1].pipes
+
+Execute (NoteColumns: every string, sorted and unique):
+  let b = songwriter#tab#model#Parse(1, ['e|--4---5--|', 'B|--4-3----|'])
+  AssertEqual [5, 7, 9], songwriter#tab#model#NoteColumns(b)
+
+Execute (BarAt: nearest pipes strictly around the column, 0 when unbounded):
+  AssertEqual {'start': 8, 'end': 14}, songwriter#tab#model#BarAt('e|--4--|--1--|', 11)
+  AssertEqual {'start': 2, 'end': 14}, songwriter#tab#model#BarAt('e|--4--|--1--|', 8)
+  AssertEqual {'start': 14, 'end': 0}, songwriter#tab#model#BarAt('e|--4--|--1--|', 15)
+
+Execute (InBar):
+  Assert songwriter#tab#model#InBar(5, {'start': 2, 'end': 7})
+  Assert !songwriter#tab#model#InBar(7, {'start': 2, 'end': 7})
+  Assert songwriter#tab#model#InBar(9, {'start': 2, 'end': 0})
+
+Execute (InsertColumns: pads short lines with dashes, then inserts on every line):
+  AssertEqual ['e|--4---|', 'B|-----'], songwriter#tab#model#InsertColumns(['e|--4-|', 'B|'], 5, 2, '-')
+
+Execute (Lint reports where each note moved):
+  let r = songwriter#tab#lint#Lint(['e|-----4---|--1|', 'B|-------5-|---|'])
+  AssertEqual ['e|--4----|--1--|', 'B|----5--|-----|'], r.lines
+  AssertEqual [{'line': 0, 'from': 8, 'to': 5}, {'line': 1, 'from': 10, 'to': 7}, {'line': 0, 'from': 15, 'to': 13}], r.moves

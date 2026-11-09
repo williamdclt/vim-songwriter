@@ -23,7 +23,7 @@ nnoremap <buffer> _ :call SongwriterAddDash()<CR>
 function! SongwriterIsTablatureLine() abort
     " Shared tab-line test from
     " the util module (see design.md).
-  return songwriter#util#IsTablatureLine(getline('.'))
+  return songwriter#grammar#IsTabLine(getline('.'))
 endfunction
 
 " Tablature motions. Not in tablature mode, w/b skip over dashes, stopping on
