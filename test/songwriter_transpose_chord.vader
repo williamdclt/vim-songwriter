@@ -127,3 +127,75 @@ Execute (<C-A> on a tab line increments the next fret, not the string name):
   execute "normal \<C-A>"
 Expect:
   B|--4--|
+
+" Visual <Ctrl-A>/<Ctrl-X>: every chord in the selection is transposed; lines
+" without a chord keep Vim's visual increment, frets unsigned on tab lines.
+
+Given songwriter (visual <C-A> transposes every chord of the selected lines):
+  Am   G7   D/F#
+  Em        C
+
+Execute (visual <C-A> transposes every chord of the selected lines):
+  execute "normal ggVj\<C-A>"
+Expect songwriter:
+  A#m   G#7   D#/G
+  Fm        C#
+
+Given songwriter (visual <C-X> with a count transposes down by that many semitones):
+  Am   G7
+
+Execute (visual <C-X> with a count transposes down by that many semitones):
+  execute "normal V2\<C-X>"
+Expect songwriter:
+  Gm   F7
+
+Given songwriter (charwise visual <C-A> only transposes the chords it touches):
+  Am   G7   D
+
+Execute (charwise visual <C-A> only transposes the chords it touches):
+  call cursor(1, 6)
+  execute "normal vl\<C-A>"
+Expect songwriter:
+  Am   G#7   D
+
+Given songwriter (blockwise visual <C-A> transposes the chords in the block):
+  Am   G7
+  C    D
+
+Execute (blockwise visual <C-A> transposes the chords in the block):
+  execute "normal gg\<C-V>j\<C-A>"
+Expect songwriter:
+  A#m   G7
+  C#    D
+
+Given songwriter (visual <C-A> on a tab line increments frets, not as negative numbers):
+  e|--3--5--|
+  B|--10----|
+
+Execute (visual <C-A> on a tab line increments frets, not as negative numbers):
+  execute "normal ggVj\<C-A>"
+Expect songwriter:
+  e|--4--5--|
+  B|--11----|
+
+Given songwriter (visual <C-A> over chords and prose numbers):
+  Am
+  verse 2
+
+Execute (visual <C-A> over chords and prose numbers):
+  execute "normal ggVj\<C-A>"
+Expect songwriter:
+  A#m
+  verse 3
+
+Given songwriter (visual <C-A> is one undo step and leaves visual mode):
+  Am
+  e|--3--|
+
+Execute (visual <C-A> is one undo step and leaves visual mode):
+  execute "normal ggVj\<C-A>"
+  AssertEqual ['A#m', 'e|--4--|'], getline(1, 2)
+  AssertEqual 'n', mode()
+  AssertEqual [1, 1], [line('.'), col('.')]
+  normal u
+  AssertEqual ['Am', 'e|--3--|'], getline(1, 2)

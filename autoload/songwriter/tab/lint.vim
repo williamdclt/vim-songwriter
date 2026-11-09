@@ -78,7 +78,6 @@ function! s:close_bars(lines) abort
         \ songwriter#grammar#IsClosedTabLine(l) ? l : substitute(l, '\s*$', '|', '')})
 endfunction
 
-
 " Split each line on pipes into its bar regions, dropping the string-name
 " prefix and anything after the final pipe.
 function! s:bar_regions(lines) abort

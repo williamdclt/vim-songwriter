@@ -25,6 +25,11 @@ for [s:key, s:plug] in items(s:plug_keys)
   execute 'nmap <buffer> ' . s:key . ' <Plug>(' . s:plug . ')'
   let b:undo_ftplugin .= '| silent! nunmap <buffer> ' . s:key
 endfor
+" Visual-mode keys (spec [Chords][[Editing]]: visual <Ctrl-A>/<Ctrl-X>).
+for s:key in ['<C-A>', '<C-X>']
+  execute 'xmap <buffer> ' . s:key . ' <Plug>(' . s:plug_keys[s:key] . ')'
+  let b:undo_ftplugin .= '| silent! xunmap <buffer> ' . s:key
+endfor
 
 " Context-dependent keys (tab line, tablature mode), per mode: see
 " autoload/songwriter/keys.vim. In the map's right side the key name is passed
