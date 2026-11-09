@@ -26,8 +26,9 @@ endfunction
 
 " Pure. The `a` slot: the anchor is the rightmost note end, on any string,
 " among notes of the cursor's bar that start at or before the cursor (so the
-" anchor is the note column under or left of the cursor). Dashes are inserted
-" after the anchor so that the slot sits one dash from it and the next note, on
+" anchor is the note column under or left of the cursor), past any separator
+" trailing it with no note after (`7b`). Dashes are inserted after the anchor so
+" that the slot sits one dash from it and the next note, on
 " any string, stays one dash away (the next pipe, two dashes).
 " Returns {'lines', 'col'}, or {} when there is no anchor note.
 function! songwriter#tab#slots#Append(block, lin, col) abort
@@ -43,6 +44,7 @@ function! songwriter#tab#slots#Append(block, lin, col) abort
   if l:e == 0
     return {}
   endif
+  let l:e += s:loose_separators(a:block, l:e, 1)
   " Wanted column of the nearest next note (e + 4) or pipe (e + 5), any string.
   let l:n = 0
   for l:s in a:block.strings
@@ -64,7 +66,7 @@ endfunction
 
 " Pure. The `i` slot, mirror of Append: the anchor is the leftmost note
 " start, on any string, among notes of the cursor's bar that end at or after
-" the cursor. Dashes are inserted before it so that the slot sits one dash left
+" the cursor, before any separator leading it with no note before (`/5`). Dashes are inserted before it so that the slot sits one dash left
 " of it and the previous note, on any string, stays one dash away (the
 " previous pipe, two dashes).
 " Returns {'lines', 'col'}, or {} when there is no anchor note.
@@ -83,6 +85,7 @@ function! songwriter#tab#slots#Prepend(block, lin, col) abort
   if l:s == 0
     return {}
   endif
+  let l:s -= s:loose_separators(a:block, l:s, -1)
   " Dashes needed so the previous note end (s - 4) or pipe (s - 5) is far enough.
   let l:n = 0
   for l:str in a:block.strings
@@ -101,6 +104,28 @@ function! songwriter#tab#slots#Prepend(block, lin, col) abort
   return {
         \ 'lines': songwriter#tab#model#InsertColumns(a:block.lines, l:s - 1, l:n, '-'),
         \ 'col': l:s + l:n - 2}
+endfunction
+
+" The width of the separators right after (dir 1) / before (dir -1) column
+" `edge`, on a string where a note ends / starts at `edge`, when they do not
+" lead to another note: they belong to that note, so a slot goes beyond them.
+function! s:loose_separators(block, edge, dir) abort
+  let l:width = 0
+  for l:s in a:block.strings
+    if empty(filter(copy(l:s.notes), a:dir > 0
+          \ ? 'v:val.col + v:val.len - 1 == a:edge' : 'v:val.col == a:edge'))
+      continue
+    endif
+    let l:k = 0
+    while songwriter#grammar#IsSeparatorChar(strpart(l:s.text, a:edge - 1 + a:dir * (l:k + 1), 1))
+      let l:k += 1
+    endwhile
+    let l:after = strpart(l:s.text, a:edge - 1 + a:dir * (l:k + 1), 1)
+    if l:k > 0 && !songwriter#grammar#IsChainChar(l:after)
+      let l:width = max([l:width, l:k])
+    endif
+  endfor
+  return l:width
 endfunction
 
 " Spec 6.6: a slot in the (empty) bar around column `col` of line `lin`: the

@@ -19,15 +19,13 @@ function! songwriter#tab#lint#Lint(lines) abort
   let l:moves = []
   let l:empty = []
   for l:j in range(l:nbars)
-    " This bar's note groups ({lin, c0, text}, c0 = 0-indexed offset in the
-    " bar region): notes with their playing techniques (`5h7`, `x`), kept
-    " verbatim. And its leftmost offset.
+    " This bar's notes and separators, left to right on each line ({lin, c0,
+    " text, note}, c0 = 0-indexed offset in the bar region), kept verbatim. And
+    " its leftmost offset.
     let l:atoms = []
     for l:lin in range(l:nl)
       if l:j < len(l:regions[l:lin])
-        for l:n in songwriter#tab#model#Atoms(l:regions[l:lin][l:j])
-          call add(l:atoms, {'lin': l:lin, 'c0': l:n.col - 1, 'text': l:n.text})
-        endfor
+        call extend(l:atoms, s:region_atoms(l:lin, l:regions[l:lin][l:j]))
       endif
     endfor
 
@@ -46,7 +44,7 @@ function! songwriter#tab#lint#Lint(lines) abort
     for l:lin in range(l:nl)
       call add(l:lineparts[l:lin], l:rendered[l:lin])
     endfor
-    for l:a in l:work
+    for l:a in filter(copy(l:work), 'v:val.note')
       call add(l:moves, {'line': l:a.lin, 'bar': l:j, 'len': l:a.len, 'c0': l:a.c0, 'start': l:a.start})
     endfor
   endfor
@@ -67,6 +65,18 @@ function! songwriter#tab#lint#Lint(lines) abort
     call add(l:out, songwriter#tab#model#Name(l:lines[l:k]) . '|' . join(l:lineparts[l:k], '|') . '|')
   endfor
   return {'lines': l:out, 'moves': s:to_columns(l:moves, l:lines, l:lineparts)}
+endfunction
+
+" The notes and separators of bar region `row` of line `lin`, left to right.
+function! s:region_atoms(lin, row) abort
+  let l:atoms = []
+  for l:n in songwriter#tab#model#RowNotes(a:row)
+    call add(l:atoms, {'lin': a:lin, 'c0': l:n.col - 1, 'text': l:n.text, 'note': 1})
+  endfor
+  for l:n in songwriter#tab#model#RowSeparators(a:row)
+    call add(l:atoms, {'lin': a:lin, 'c0': l:n.col - 1, 'text': l:n.text, 'note': 0})
+  endfor
+  return sort(l:atoms, {a, b -> a.c0 - b.c0})
 endfunction
 
 " Close every line's last bar: a line with anything but whitespace after its
@@ -92,11 +102,13 @@ function! s:bar_regions(lines) abort
   return l:regions
 endfunction
 
-" Fixed-point placement of a bar's notes: each gets an output offset `start`
-" (2 dashes after the bar's left pipe for the leftmost note) such that
-"   - a string's notes keep their original relative gaps, and
+" Fixed-point placement of a bar's notes and separators: each gets an output
+" offset `start` (2 dashes after the bar's left pipe for the leftmost one) such
+" that
+"   - a string's notes and separators keep their original relative gaps, and
 "   - a note starting inside a different string's number is pushed right to
 "     leave one dash after it (spec 1.3); aligned starts are never split.
+"     Separators take no part in this: they occupy no time.
 function! s:relax_bar(atoms, mincol) abort
   let l:work = []
   for l:a in a:atoms
@@ -104,6 +116,7 @@ function! s:relax_bar(atoms, mincol) abort
           \ 'lin': l:a.lin,
           \ 'c0': l:a.c0,
           \ 'num': l:a.text,
+          \ 'note': l:a.note,
           \ 'len': len(l:a.text),
           \ 'start': l:a.c0 - a:mincol + 2})
   endfor
@@ -120,7 +133,7 @@ function! s:relax_bar(atoms, mincol) abort
         let l:need = max([l:need, l:prev.start + l:a.c0 - l:prev.c0])
       endif
       for l:b in l:work
-        if l:b.lin !=# l:a.lin
+        if l:a.note && l:b.note && l:b.lin !=# l:a.lin
               \ && l:b.start < l:a.start
               \ && l:a.start <= l:b.start + l:b.len - 1
           let l:need = max([l:need, l:b.start + l:b.len + 1])

@@ -9,14 +9,23 @@ let s:tab_line = '^\a[|]'
 " pipe (`e|--3--|`, not `e|--3--`).
 let s:closed_tab_line = '[|]\s*$'
 
-" A note on a tab line: a run of digits (a fret; `12` is one note).
-let s:note = '[0-9]\+'
-let s:note_char = '[0-9]'
+" A fret on a tab line: a run of digits (`12` is one fret).
+let s:fret = '[0-9]\+'
+let s:fret_char = '[0-9]'
 
-" A note group on a tab line, as the linter sees it: any run of characters that
-" are not dashes, pipes or whitespace. It keeps playing techniques with their
-" notes (`5h7`, `3/5`, `12b14`) and stand-alone marks (`x`) as one unit.
-let s:tab_atom = '[^-|[:space:]]\+'
+" A note on a tab line: a fret, or `x` (a muted note).
+let s:note = '\C\%([0-9]\+\|[xX]\)'
+
+" A separator on a tab line: what is neither a note, a dash, a pipe nor
+" whitespace. Playing techniques (`h`, `/`, `b`, `~`) and unknown notation sit
+" between notes, like dashes, but are preserved.
+let s:separator = '\C[^-|[:space:]0-9xX]\+'
+let s:separator_char = '^' . s:separator . '$'
+
+" A chain: a run of notes and separators with no dash between them (`5h7`,
+" `12b14`, `7~`, `x`). It stays on one string when notes change strings.
+let s:chain = '[^-|[:space:]]\+'
+let s:chain_char = '^' . s:chain . '$'
 
 " Pieces of a tab line.
 let s:pipe = '[|]'
@@ -27,9 +36,7 @@ let s:dash = '-'
 let s:dash_run = '^-*'
 let s:only_dashes = '^-\+$'
 let s:trailing_space = '\s*$'
-" What separates the note groups of a register row.
-let s:note_separators = '[-|]\+'
-" What separates the frets of a note group.
+" What separates the frets of a chain.
 let s:not_fret = '\D\+'
 
 " Where tab-line `w`/`b` stop outside tablature mode (notes, names, pipes).
@@ -84,6 +91,21 @@ endfunction
 function! songwriter#grammar#Note() abort
   return s:note
 endfunction
+function! songwriter#grammar#Fret() abort
+  return s:fret
+endfunction
+function! songwriter#grammar#Separator() abort
+  return s:separator
+endfunction
+function! songwriter#grammar#IsSeparatorChar(char) abort
+  return a:char =~# s:separator_char
+endfunction
+function! songwriter#grammar#Chain() abort
+  return s:chain
+endfunction
+function! songwriter#grammar#IsChainChar(char) abort
+  return a:char =~# s:chain_char
+endfunction
 function! songwriter#grammar#Pipe() abort
   return s:pipe
 endfunction
@@ -108,9 +130,6 @@ endfunction
 function! songwriter#grammar#TrailingSpace() abort
   return s:trailing_space
 endfunction
-function! songwriter#grammar#NoteSeparators() abort
-  return s:note_separators
-endfunction
 function! songwriter#grammar#NotFret() abort
   return s:not_fret
 endfunction
@@ -120,14 +139,11 @@ endfunction
 function! songwriter#grammar#TabPrefixSyntax() abort
   return s:tab_prefix_syntax
 endfunction
-function! songwriter#grammar#IsNoteChar(char) abort
-  return a:char =~# s:note_char
+function! songwriter#grammar#IsFretChar(char) abort
+  return a:char =~# s:fret_char
 endfunction
 function! songwriter#grammar#TabWordStop() abort
   return s:tab_word_stop
-endfunction
-function! songwriter#grammar#TabAtom() abort
-  return s:tab_atom
 endfunction
 " [root, quality, bass] when `token` is a whole chord, else [].
 function! songwriter#grammar#ParseChord(token) abort

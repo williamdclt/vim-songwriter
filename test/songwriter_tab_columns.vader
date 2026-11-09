@@ -156,7 +156,7 @@ Execute (6.5.3 dropped rows with notes: pasted, with a count of dropped notes):
   let lines = ['G|--|', 'D|--|', 'A|--|', 'E|--|']
   let res = songwriter#tab#columns#Paste(lines, 0, 3, ['3-5h7', '-----', '-----', '-----', '-----', '0----'], ['e', 'B', 'G', 'D', 'A', 'E'], 0, 1)
   AssertEqual ['G|-------|', 'D|-------|', 'A|-------|', 'E|--0----|'], res.lines
-  Assert res.msg =~# '2 notes', res.msg
+  Assert res.msg =~# '3 notes', res.msg
 
 " --- 6.7 erasing a note ---
 

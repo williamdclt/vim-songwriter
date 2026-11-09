@@ -276,7 +276,7 @@ function! songwriter#tab#operator#Erase(count, reg) abort
   for l:i in range(max([a:count, 1]))
     let l:lin = songwriter#tab#model#CursorLin(l:block)
     if l:i > 0 && !s:on_note(getline('.'), col('.'))
-      let l:next = filter(map(songwriter#tab#columns#Atoms(getline('.')), 'v:val.col'), 'v:val > col(".")')
+      let l:next = filter(map(songwriter#tab#model#Notes(getline('.')), 'v:val.col'), 'v:val > col(".")')
       if empty(l:next)
         break
       endif
@@ -301,7 +301,7 @@ function! songwriter#tab#operator#Erase(count, reg) abort
 endfunction
 
 function! s:on_note(line, col) abort
-  return !empty(filter(songwriter#tab#columns#Atoms(a:line),
+  return !empty(filter(songwriter#tab#model#Notes(a:line),
         \ 'v:val.col <= a:col && a:col < v:val.col + v:val.len'))
 endfunction
 

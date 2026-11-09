@@ -15,7 +15,7 @@ never relies on concealing or rendering.
 
 | File | Role |
 |---|---|
-| `autoload/songwriter/grammar.vim` | The format's patterns (tab line, note, note group, chord, highlighting). The only place regexes for the format are written. |
+| `autoload/songwriter/grammar.vim` | The format's patterns (tab line, note, fret, separator, chain, chord, highlighting). The only place regexes for the format are written. |
 | `autoload/songwriter/tab/model.vim` | Tab block model: parse, queries, the column-insertion primitive, and `Read`/`Write` (the buffer edges). |
 | `autoload/songwriter/tab/edit.vim` | The buffer side of a tablature edit: `Commit` a pure function's result (write, cursor, lint and follow, message or refusal), `Run` a whole edit at the cursor. |
 | `autoload/songwriter/tab/slots.vim` | Slots: where a new note's room goes (pure) and the buffer's one open slot. |
@@ -77,12 +77,18 @@ the block.
   Highlighting uses the broader `^\s*[A-Ga-g]|` (both live in the grammar; they
   are not unified because that would change behaviour).
 - **Tab block**: the contiguous run of tab lines around a line.
-- **Note**: a run of digits; a two-digit fret such as `12` is one note spanning
-  two columns. Motions, `a`/`i` and digit entry work on notes.
-- **Note group** (`TabAtom`): any run of characters that are not dashes, pipes
-  or whitespace: a note with its playing techniques (`5h7`, `3/5`, `12b14`) or a
-  stand-alone mark (`x`). The linter works on note groups so that it never
-  loses a technique; it keeps each group verbatim.
+- **Note**: a fret (a run of digits; `12` is one note spanning two columns) or
+  `x`. There is one note model: motions, time columns, operators and the
+  linter all use `model#Notes`.
+- **Separator**: anything else between notes (`h`, `/`, `b`, `~`, unknown
+  notation). A separator is closer to a dash than to a note: `5h7` can be a
+  long 5 before the hammer-on, so the 7 has its own moment in time and a note
+  on another string can line up under it. It takes up space and is preserved.
+  Being the default class, notation the plugin has never heard of is safe.
+- **Chain**: a run of notes and separators with no dash. Used by string moves
+  only, since a hammer-on stays on one string; everything else works on notes.
+  Decoration around a note (`(5)`, `<12>`) is separators too, so erasing the 5
+  leaves `()`; digits that are not frets (`7b1/2`) read as notes.
 - **Bar**: the region between two pipes. On a line, the bar around column `c` is
   bounded by the nearest pipes strictly left and right of `c`
   (`model#BarAt`).
@@ -132,9 +138,11 @@ strings, whose first note comes later, keep their extra leading dashes, which
 preserves the order across strings. Likewise the rightmost note sits two dashes
 before the right pipe, and shorter strings are padded so the pipes line up.
 
-**Note groups, not just digits.** The linter places note groups (see Format
-grammar), so `5h7` or `x` moves as a unit and comes out unchanged. Everything
-else in a bar (dashes, whitespace) is re-rendered as dashes.
+**Separators are kept** (spec 1.5). They are placed alongside the notes of their
+string, keeping the same distance from what precedes them, so a pushed note
+leaves its separator behind (`5h--7`). They count for the bar's edges but not
+for overlaps between strings, since they occupy no time. Everything else in a
+bar (dashes, whitespace) is re-rendered as dashes.
 
 **Empty bar** (no note on any string) becomes `|--|`.
 
@@ -146,7 +154,7 @@ lints to `|--|`. This applies to every lint, so an abandoned new-bar slot (spec
 5) disappears, and `cap` leaves a single bar. A cursor that was in a deleted
 bar lands on the tab's last pipe.
 
-**Overlapping notes** (spec 1.3, two-digit notes or longer note groups). Each note gets a natural output
+**Overlapping notes** (spec 1.3, two-digit notes). Each note gets a natural output
 offset `c0 - mincol + 2`, then a fixed-point pass enforces:
 
 - *same-string order*: a note keeps its original gap to the previous note on
@@ -332,6 +340,10 @@ before and after like the other tablature-mode edits.
   (spec 6.8): a lone `S` would wait for 'timeoutlen' to rule out `Sk`, and
   `cc` already does it. No count: digits enter notes
   (spec 6.12), and moving one string at a time is what is needed.
+- **Chains move whole.** A hammer-on or slide cannot change strings halfway, so
+  `s`/`S` take the chain under the cursor (spec 7.1). `K`/`J` act on a time
+  column and refuse a chain that starts before it, rather than dragging notes
+  from another column along.
 - **One string per move.** A column moves as a whole, every note by one string,
   so its notes never collide with each other: sources are cleared first, then
   each note is written on its new string.
