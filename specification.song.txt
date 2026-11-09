@@ -99,7 +99,7 @@ Each line is a guitar string, the numbers are the fretted notes, played sequenti
 
 [[Bugs]]
 These are known bugs that need fixing
-- (none known)
+- Linting a tab whose lines do not end with a pipe wipes their content: `e|--3--5--` becomes `e||`. This hits `||` and every tablature-mode edit that lints (`a`, `i`, `l` opening a slot, digits).
 
 [Chords]
 
