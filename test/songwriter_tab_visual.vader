@@ -83,20 +83,100 @@ Expect songwriter:
   B|--5--|
   G|--5--|
 
-" --- 6.9.3 V ---
+" --- 6.9.3 V: a column selection, limited to the tab ---
 
-Given songwriter (6.9.3 Vd deletes the whole tab):
+Given songwriter (6.9.3 V selects the cursor's column on every string of the tab):
+  Intro
+  e|--3--5--7--|
+  B|-----5-----|
+  end
+
+Execute (6.9.3 V selects the cursor's column on every string of the tab):
+  call cursor(2, 8)
+  execute "normal V\<Esc>"
+  AssertEqual "\<C-V>", visualmode()
+  AssertEqual [2, 8], getpos("'<")[1:2]
+  AssertEqual [3, 8], getpos("'>")[1:2]
+
+Given songwriter (6.9.3 Vd deletes the column under the cursor):
+  e|--3--5--7--|
+  B|-----5-----|
+
+Execute (6.9.3 Vd deletes the column under the cursor):
+  call cursor(1, 8)
+  normal Vd
+Expect songwriter:
+  e|--3--7--|
+  B|--------|
+
+Given songwriter (6.9.3 V from a lower string, then l and y, yanks columns):
+  e|--3--5--7--|
+  B|-----5-----|
+
+Execute (6.9.3 V from a lower string, then l and y, yanks columns):
+  call cursor(2, 5)
+  normal Vly
+  AssertEqual ['3--5--', '---5--'], getreg('"', 1, 1)
+
+Given songwriter (6.9.3 j does not leave the tab's strings):
+  Intro
+  e|--3--5--|
+  B|--1--5--|
+  end
+
+Execute (6.9.3 j does not leave the tab's strings):
+  call cursor(2, 5)
+  execute "normal Vj\<Esc>"
+  AssertEqual [2, 5], getpos("'<")[1:2]
+  AssertEqual [3, 5], getpos("'>")[1:2]
+
+Given songwriter (6.9.3 k and a count are clamped to the tab):
+  Intro
+  e|--3--5--|
+  B|--1--5--|
+  G|--0--5--|
+  end
+
+Execute (6.9.3 k and a count are clamped to the tab):
+  call cursor(3, 5)
+  execute "normal vk\<Esc>"
+  AssertEqual [2, 5], getpos("'<")[1:2]
+  call cursor(2, 5)
+  execute "normal v5j\<Esc>"
+  AssertEqual [4, 5], getpos("'>")[1:2]
+
+Given songwriter (6.9.3 a partial <C-v> still moves with j/k):
+  e|--3--5--|
+  B|--1--5--|
+  G|--0--5--|
+
+Execute (6.9.3 a partial <C-v> still moves with j/k):
+  call cursor(1, 5)
+  execute "normal \<C-v>jjk\<Esc>"
+  AssertEqual [2, 5], getpos("'>")[1:2]
+
+Given songwriter (6.9.3 VV switches to whole tabs):
   Intro
   e|--3--|
   B|--1--|
   end
 
-Execute (6.9.3 Vd deletes the whole tab):
+Execute (6.9.3 VV switches to whole tabs):
   call cursor(2, 4)
-  normal Vd
+  normal VVd
 Expect songwriter:
   Intro
   end
+
+Given songwriter (6.9.3 outside tablature mode V stays line-wise):
+  e|--3--|
+  B|--1--|
+
+Execute (6.9.3 outside tablature mode V stays line-wise):
+  let b:songwriter_tabmode = 0
+  call cursor(1, 4)
+  execute "normal V\<Esc>"
+  AssertEqual 'V', visualmode()
 
 " --- 6.9.4 visual p ---
 

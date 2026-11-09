@@ -303,7 +303,11 @@ The spec items carry the behaviour; this records why, and how it is built.
 - **Visual mode.** Text objects show the real (full-height) extent as a
   blockwise selection, and extend when repeated while the selection is still
   theirs; a plain `v` selection is widened at operator time instead, so `v`
-  does not move the cursor off its string.
+  does not move the cursor off its string. `V` is a column selection (the
+  common case in a tab), not line-wise: whole tabs are already `dap`/`yap`,
+  and the native line-wise selection is one more `V` away (`VV`). `j`/`k`
+  are clamped to the tab rather than blocked on a full-height selection, so a
+  partial `<C-v>` still grows and shrinks natively.
 
 ### Moving notes between strings (spec [Tablature][[Editing]] 7)
 
