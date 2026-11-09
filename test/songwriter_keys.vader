@@ -23,6 +23,7 @@ Execute (Leaving the filetype removes every buffer map and restores options):
   set filetype=text
   AssertEqual [], filter(['_', '||', '<C-A>', 'w', '5', 'L', 'H', '<Esc>'], '!empty(maparg(v:val, "n"))')
   AssertEqual '', maparg('L', 'o') . maparg('L', 'x')
+  AssertEqual '', maparg('<C-A>', 'x') . maparg('<C-X>', 'x')
   AssertEqual 1, &l:wrap
 
 Execute (Every context key of every mode is mapped, and unmapped on leaving the filetype):

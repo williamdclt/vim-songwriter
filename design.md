@@ -127,6 +127,14 @@ else in a bar (dashes, whitespace) is re-rendered as dashes.
 
 **Empty bar** (no note on any string) becomes `|--|`.
 
+**Empty bars at the end are deleted** (spec 1.4): a trailing empty bar is
+leftover space, not music. All of them go, not just the very last one, so that
+lint stays idempotent (linting twice changes nothing); empty bars between
+notes are rests and are kept. A tab keeps at least one bar, so an all-empty tab
+lints to `|--|`. This applies to every lint, so an abandoned new-bar slot (spec
+5) disappears, and `cap` leaves a single bar. A cursor that was in a deleted
+bar lands on the tab's last pipe.
+
 **Overlapping notes** (spec 1.3, two-digit notes or longer note groups). Each note gets a natural output
 offset `c0 - mincol + 2`, then a fixed-point pass enforces:
 
@@ -295,7 +303,11 @@ The spec items carry the behaviour; this records why, and how it is built.
 - **Visual mode.** Text objects show the real (full-height) extent as a
   blockwise selection, and extend when repeated while the selection is still
   theirs; a plain `v` selection is widened at operator time instead, so `v`
-  does not move the cursor off its string.
+  does not move the cursor off its string. `V` is a column selection (the
+  common case in a tab), not line-wise: whole tabs are already `dap`/`yap`,
+  and the native line-wise selection is one more `V` away (`VV`). `j`/`k`
+  are clamped to the tab rather than blocked on a full-height selection, so a
+  partial `<C-v>` still grows and shrinks natively.
 
 ### Moving notes between strings (spec [Tablature][[Editing]] 7)
 
@@ -370,6 +382,10 @@ and are no-ops off a chord, except `<Ctrl-A>`/`<Ctrl-X>`: they transpose by
 their count, and off a chord they run Vim's own increment/decrement, so numbers
 in prose and frets in tabs still work. On a tab line `nrformats` gets
 `unsigned` for that call, since a dash before a fret is not a minus sign.
+In visual mode they act per selected line: the chords the selection touches are
+transposed (spliced right to left, so a wider chord does not shift the others'
+columns before they are found), and a line where it touches none gets Vim's
+visual increment on its selected part, again unsigned on tab lines.
 `<leader>m` treats a leading `m` or `min` (but not `maj`) as minor.
 Highlighting stays permissive and accepts false positives such as the word "A"
 (spec [Chords][[Rendering]]); it is separate from the editing grammar.

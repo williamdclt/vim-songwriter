@@ -87,6 +87,89 @@ function! s:native_increment(n, unsigned) abort
   endtry
 endfunction
 
+" `line` with every chord token that overlaps 0-indexed columns [first, last]
+" transposed by `semitones`. Tab lines hold no chords and are returned as is.
+function! songwriter#chord#TransposeChordsIn(line, first, last, semitones) abort
+  if songwriter#grammar#IsTabLine(a:line)
+    return a:line
+  endif
+  let l:tokens = []
+  let l:pat = songwriter#grammar#ChordTokenChar() . '\+'
+  let l:start = match(a:line, l:pat)
+  while l:start >= 0
+    let l:end = matchend(a:line, l:pat, l:start) - 1
+    let l:parsed = s:chord_parse(strpart(a:line, l:start, l:end - l:start + 1))
+    if !empty(l:parsed) && l:end >= a:first && l:start <= a:last
+      call add(l:tokens, {'start': l:start, 'end': l:end, 'chord': l:parsed})
+    endif
+    let l:start = match(a:line, l:pat, l:end + 1)
+  endwhile
+  let l:out = a:line
+  " Right to left, so a wider chord (A -> A#) leaves the others' columns intact.
+  for l:found in reverse(l:tokens)
+    let l:out = s:splice_chord(l:out, l:found, s:chord_transpose(l:found.chord, a:semitones))
+  endfor
+  return l:out
+endfunction
+
+" Visual <Ctrl-A>/<Ctrl-X> (spec [Chords][[Editing]]), run from visual mode with
+" a <Cmd> map. On each selected line, the chords the selection touches are
+" transposed by `semitones`; a line where it touches none gets Vim's own visual
+" increment on its selected part (frets unsigned on tab lines). Ends in normal
+" mode with the cursor at the start of the selection, as Vim's does.
+function! songwriter#chord#TransposeVisual(semitones) abort
+  let l:n = str2nr(a:semitones)
+  let l:mode = mode()
+  let l:to_eol = winsaveview().curswant >= 2147483647
+  let [l:p, l:q] = [getpos('v'), getpos('.')]
+  execute "normal! \<Esc>"
+  if l:p[1] > l:q[1] || (l:p[1] == l:q[1] && l:p[2] > l:q[2])
+    let [l:p, l:q] = [l:q, l:p]
+  endif
+  let l:eol = 2147483647
+  let [l:lcol, l:rcol] = [min([l:p[2], l:q[2]]) - 1, max([l:p[2], l:q[2]]) - 1]
+  for l:lnum in range(l:p[1], l:q[1])
+    if l:mode ==# 'V'
+      let [l:first, l:last] = [0, l:eol]
+    elseif l:mode ==# 'v'
+      let l:first = l:lnum == l:p[1] ? l:p[2] - 1 : 0
+      let l:last = l:lnum == l:q[1] ? l:q[2] - 1 : l:eol
+    else
+      let [l:first, l:last] = [l:lcol, l:to_eol ? l:eol : l:rcol]
+    endif
+    let l:line = getline(l:lnum)
+    if l:first >= len(l:line)
+      continue
+    endif
+    let l:new = songwriter#chord#TransposeChordsIn(l:line, l:first, l:last, l:n)
+    if l:new !=# l:line
+      call setline(l:lnum, l:new)
+    else
+      call s:native_visual_increment(l:lnum, l:first, min([l:last, len(l:line) - 1]), l:n)
+    endif
+  endfor
+  call cursor(l:p[1], l:mode ==# 'V' ? 1 : (l:mode ==# 'v' ? l:p[2] : l:lcol + 1))
+endfunction
+
+" Vim's own visual <Ctrl-A>/<Ctrl-X> by |n| on 0-indexed columns [first, last]
+" of line `lnum`; on a tab line, numbers are unsigned (see s:native_increment).
+function! s:native_visual_increment(lnum, first, last, n) abort
+  if a:n == 0
+    return
+  endif
+  let l:saved = &l:nrformats
+  if songwriter#grammar#IsTabLine(getline(a:lnum))
+    setlocal nrformats+=unsigned
+  endif
+  try
+    call cursor(a:lnum, a:first + 1)
+    execute 'normal! v' . (a:last - a:first > 0 ? (a:last - a:first) . 'l' : '')
+          \ . abs(a:n) . (a:n > 0 ? "\<C-A>" : "\<C-X>")
+  finally
+    let &l:nrformats = l:saved
+  endtry
+endfunction
+
 function! songwriter#chord#ChordAbove(chord) abort
    " Insert chord above cursor with alignment for lyrics
   let l:col = col('.')

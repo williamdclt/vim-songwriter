@@ -23,5 +23,7 @@ nnoremap <Plug>(songwriter-lint) <Cmd>call songwriter#tab#Lint()<CR>
 nnoremap <Plug>(songwriter-add-dash) <Cmd>call songwriter#tab#AddDash()<CR>
 nnoremap <Plug>(songwriter-transpose-up) <Cmd>call songwriter#chord#TransposeChord(v:count1)<CR>
 nnoremap <Plug>(songwriter-transpose-down) <Cmd>call songwriter#chord#TransposeChord(-v:count1)<CR>
+xnoremap <Plug>(songwriter-transpose-up) <Cmd>call songwriter#chord#TransposeVisual(v:count1)<CR>
+xnoremap <Plug>(songwriter-transpose-down) <Cmd>call songwriter#chord#TransposeVisual(-v:count1)<CR>
 nnoremap <Plug>(songwriter-toggle-minor-major) <Cmd>call songwriter#chord#ToggleMinorMajor()<CR>
 nnoremap <Plug>(songwriter-toggle-tabmode) <Cmd>call songwriter#keys#ToggleTabMode()<CR>

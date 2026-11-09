@@ -130,7 +130,7 @@ endfunction
 " Spec [Tablature][[Editing]] 5: append a new bar to the end of the tab with a
 " slot in its middle, and land the cursor on it, ready for a note. Like `a`,
 " the block is linted first (4.2) and the slot is remembered (4.3); abandoned,
-" it lints down to an empty bar `|--|`.
+" the empty bar is linted away (1.4).
 function! songwriter#tab#AddBarSlot() abort
   let l:block = songwriter#tab#model#Read()
   if empty(l:block)

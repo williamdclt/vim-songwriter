@@ -41,6 +41,7 @@ let s:tabmode.n = {
       \ '.': '=songwriter#tab#operator#Repeat()',
       \ 'o': 'call songwriter#tab#NewTab(1)',
       \ 'O': 'call songwriter#tab#NewTab(0)',
+      \ 'V': 'call songwriter#tab#operator#VisualColumn()',
       \ }
 " Spec 7: `s` (keep the fret) / `S` (keep the pitch), then `k`/`j` (the note
 " under the cursor) or `K`/`J` (its whole time column), up/down a string.
@@ -91,6 +92,8 @@ let s:tabmode.x = {
       \ 'c': 'call songwriter#tab#operator#VisualOp("c", v:register)',
       \ 'p': 'call songwriter#tab#operator#VisualPut(v:register)',
       \ 'P': 'call songwriter#tab#operator#VisualPut(v:register)',
+      \ 'j': '=songwriter#tab#operator#VisualVertical("j")',
+      \ 'k': '=songwriter#tab#operator#VisualVertical("k")',
       \ }
 
 " Spec [Tablature][[Motions]].

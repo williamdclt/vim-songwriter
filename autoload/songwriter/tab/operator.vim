@@ -175,7 +175,8 @@ function! s:linewise(op, reg, l1, l2) abort
     call deletebufline('%', l:l1, l:l2)
     call cursor(min([l:l1, line('$')]), 1)
   else
-    " 6.3.1: clear every note of each tab, keep the bars, open a slot.
+    " 6.3.1: clear every note of each tab, open a slot. Lint then drops the
+    " emptied bars at the end (1.4), leaving the first one.
     let l:cur = line('.')
     let l:lnum = l:l1
     while l:lnum <= l:l2
@@ -559,6 +560,36 @@ function! songwriter#tab#operator#VisualObject(kind, around) abort
   let s:vobj = l:o
 endfunction
 
+" Spec 6.9.3: `V` starts a blockwise selection of the cursor's column over
+" every string of the tab, cursor on the bottom string. Motions then extend it
+" by columns; an operator snaps it as in 6.9.2.
+function! songwriter#tab#operator#VisualColumn() abort
+  let l:block = songwriter#tab#model#Read()
+  if empty(l:block)
+    return
+  endif
+  let l:col = col('.')
+  call cursor(l:block.start, l:col)
+  execute "normal! \<C-V>"
+  call cursor(l:block.start + len(l:block.lines) - 1, l:col)
+endfunction
+
+" Spec 6.9.3: in a character-wise or blockwise selection, `j`/`k` stop at the
+" tab's top and bottom strings (a count is clamped), so the selection never
+" leaves the tab. Line-wise (`VV`), they are native.
+function! songwriter#tab#operator#VisualVertical(key) abort
+  let l:block = songwriter#tab#model#Read()
+  if mode() ==# 'V' || empty(l:block)
+    return a:key
+  endif
+  let l:edge = a:key ==# 'j' ? l:block.start + len(l:block.lines) - 1 : l:block.start
+  let l:target = line('.') + (a:key ==# 'j' ? v:count1 : -v:count1)
+  if a:key ==# 'j' ? l:target <= l:edge : l:target >= l:edge
+    return a:key
+  endif
+  return printf("\<Cmd>call cursor(%d, %d)\<CR>", l:edge, col('.'))
+endfunction
+
 " Spec 6.9.5: tablature-mode motions in visual mode, without side effects:
 " `w`/`b` to the next/previous note of the string, `l`/`h` to the next/previous
 " note column of the block.
@@ -597,7 +628,8 @@ function! s:take_selection() abort
 endfunction
 
 " Spec 6.9.2 / 6.9.3: d, y, c (and x as d) on a selection: widened to every
-" string, snapped unless it is one of our objects; V covers whole tabs.
+" string, snapped unless it is one of our objects; a line-wise selection
+" (`VV`) covers whole tabs.
 function! songwriter#tab#operator#VisualOp(op, reg) abort
   let l:sel = s:take_selection()
   if len(l:sel) == 2
@@ -621,7 +653,7 @@ function! songwriter#tab#operator#VisualOp(op, reg) abort
 endfunction
 
 " Spec 6.9.4: replace the selected columns with a blockwise register (rows
-" matched as for p), or the selected tabs (V) with a line-wise register.
+" matched as for p), or the selected tabs (`VV`) with a line-wise register.
 function! songwriter#tab#operator#VisualPut(reg) abort
   let l:type = getregtype(a:reg)
   let l:rows = getreg(a:reg, 1, 1)
