@@ -23,7 +23,10 @@ never relies on concealing or rendering.
 | `autoload/songwriter/tab/lint.vim` | The linter, as a pure function over a block's lines. |
 | `autoload/songwriter/tab.vim` | Tab operations and motions: buffer entry points around the model. |
 | `autoload/songwriter/tab/columns.vim` | The column model behind tablature-mode operators, pure: text object ranges, snapping, delete, extract, paste with row matching, erase. |
-| `autoload/songwriter/tab/operator.vim` | Tablature-mode operators, text objects, `x`/`X`/`p`/`P`, visual mode, registers and `.`: buffer entry points around `columns.vim`. |
+| `autoload/songwriter/tab/operator.vim` | Tablature-mode operators, text objects, `x`/`p`/`P`, `>>`/`<<`, `gp`: buffer entry points around `columns.vim`. |
+| `autoload/songwriter/tab/visual.vim` | Tablature-mode visual mode: selections, motions, operators on a selection. |
+| `autoload/songwriter/tab/register.vim` | Blockwise tab registers and the string names of their source tab. |
+| `autoload/songwriter/tab/repeat.vim` | `.` for actions that are not operators. |
 | `autoload/songwriter/tab/strings.vim` | Moving notes and time columns to another string, keeping the fret or the pitch: pure `Move()` and its entry point. |
 | `autoload/songwriter/chord.vim` | Chord model and chord editing. |
 | `autoload/songwriter/pitch.vim` | Pitch classes: note names to semitones and back (sharp spelling). Shared by chords and tab string intervals. |
@@ -298,7 +301,7 @@ The spec items carry the behaviour; this records why, and how it is built.
   yank, so after `ya|` a `.` repeats the yank (native `y` is not repeatable);
   accepted rather than reimplementing redo. `x`, `p`, `P`, `>>`, `<<` are `<Cmd>`
   actions, invisible to redo: they record themselves in `b:songwriter_repeat`
-  (`operator#Record`) with the changedtick they left, and the `.` map runs
+  (`repeat#Record`) with the changedtick they left, and the `.` map runs
   them again while the buffer is unchanged since. The string moves (spec 7)
   record themselves the same way.
 - **No counts in front of a command.** Digits enter notes in tablature mode

@@ -185,7 +185,7 @@ function! songwriter#tab#strings#Change(dir, keep_pitch, column) abort
   if empty(songwriter#tab#edit#Run(function('s:move', [a:dir, a:keep_pitch, a:column])))
     return
   endif
-  call songwriter#tab#operator#Record(printf('songwriter#tab#strings#Change(%d, %d, %d)',
+  call songwriter#tab#repeat#Record(printf('songwriter#tab#strings#Change(%d, %d, %d)',
         \ a:dir, a:keep_pitch, a:column), 1)
 endfunction
 

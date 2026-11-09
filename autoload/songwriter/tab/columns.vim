@@ -105,6 +105,39 @@ function! songwriter#tab#columns#BarObject(lines, lin, col, count, around) abort
   return [l:pipes[l:k] + 1, l:pipes[l:k2] - (a:around ? 0 : 1)]
 endfunction
 
+" `ic`/`ac` (kind 'c') or `i|`/`a|` (kind '|').
+function! songwriter#tab#columns#Object(kind, lines, lin, col, count, around) abort
+  return a:kind ==# 'c'
+        \ ? songwriter#tab#columns#ColumnObject(a:lines, a:lin, a:col, a:count, a:around)
+        \ : songwriter#tab#columns#BarObject(a:lines, a:lin, a:col, a:count, a:around)
+endfunction
+
+" Spec 6.1.4: `in`/`an`, the note at `col` on line `lin`, or on a dash the
+" nearest note of the string to the left in the bar. [s, e] or [].
+function! songwriter#tab#columns#NoteObject(lines, lin, col, around) abort
+  let l:line = a:lines[a:lin]
+  let l:bar = songwriter#tab#model#BarAt(l:line, a:col)
+  let l:notes = filter(songwriter#tab#columns#Atoms(l:line),
+        \ 'v:val.col <= a:col && songwriter#tab#model#InBar(v:val.col, l:bar)')
+  if empty(l:notes)
+    return []
+  endif
+  let l:n = l:notes[-1]
+  if !a:around
+    return [l:n.col, l:n.col + l:n.len - 1]
+  endif
+  let l:column = songwriter#tab#columns#ColumnObject(a:lines, a:lin, l:n.col, 1, 1)
+  return [l:n.col, max([l:column[1], l:n.col + l:n.len - 1])]
+endfunction
+
+" Where a tablature-mode motion can stop, sorted: `w`/`b` the note groups of
+" `line`, `l`/`h` the time columns of the block.
+function! songwriter#tab#columns#Stops(lines, line, key) abort
+  return a:key =~# '[wb]'
+        \ ? map(songwriter#tab#columns#Atoms(a:line), 'v:val.col')
+        \ : songwriter#tab#columns#Columns(a:lines)
+endfunction
+
 " Spec 6.2: snap a motion's range [s, e] outward so it never cuts a note: s
 " goes to the start of the note it is in, or, in a gap, to the previous column
 " of its bar; e goes to the end of the note it is in, and a range ending on a

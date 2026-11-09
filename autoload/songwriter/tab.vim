@@ -172,8 +172,8 @@ function! songwriter#tab#MoveNote(dir) abort
     return
   endif
   let l:cols = map(songwriter#tab#model#Notes(l:line), 'v:val.col')
-  let l:target = s:nearest(l:cols, col('.'), a:dir)
-  if l:target > 0
+  let l:target = songwriter#tab#model#Advance(l:cols, col('.'), a:dir, 1)
+  if l:target != col('.')
     call cursor(line('.'), l:target)
   endif
 endfunction
@@ -197,8 +197,8 @@ function! songwriter#tab#MoveColumn(dir) abort
   let l:cols = songwriter#tab#model#NoteColumns(l:block)
 
   if a:dir < 0
-    let l:target = s:nearest(l:cols, l:col, -1)
-    if l:target > 0
+    let l:target = songwriter#tab#model#Advance(l:cols, l:col, -1, 1)
+    if l:target != l:col
       call cursor(line('.'), l:target)
     endif
     return
@@ -207,10 +207,10 @@ function! songwriter#tab#MoveColumn(dir) abort
   let l:bar = songwriter#tab#model#BarAt(l:line, l:col)
   let l:in_bar = filter(copy(l:cols), 'songwriter#tab#model#InBar(v:val, l:bar)')
   let l:last_in_bar = empty(l:in_bar) ? 0 : max(l:in_bar)
-  let l:target = s:nearest(l:cols, l:col, 1)
+  let l:target = songwriter#tab#model#Advance(l:cols, l:col, 1, 1)
   if l:col == l:last_in_bar
     call songwriter#tab#AddNote(1)
-  elseif l:target == 0
+  elseif l:target == l:col
     if s:in_last_bar(l:line, l:col)
       call songwriter#tab#AddBarSlot()
     else
@@ -231,9 +231,3 @@ function! s:in_last_bar(line, col) abort
   return empty(filter(copy(l:pipes), 'v:val >= a:col && v:val < l:pipes[-1]'))
 endfunction
 
-" The nearest value in `cols` strictly after (dir > 0) or before (dir < 0)
-" `col`; 0 when none.
-function! s:nearest(cols, col, dir) abort
-  let l:cands = filter(copy(a:cols), a:dir > 0 ? 'v:val > a:col' : 'v:val < a:col')
-  return empty(l:cands) ? 0 : (a:dir > 0 ? min(l:cands) : max(l:cands))
-endfunction

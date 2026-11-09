@@ -117,6 +117,20 @@ function! songwriter#tab#model#InBar(col, bar) abort
         \ && (a:bar.end == 0 || a:col < a:bar.end)
 endfunction
 
+" `col` moved `count` stops forward (dir > 0) or backward (dir < 0) through the
+" sorted list `stops`, stopping at the last one reached; `col` when there is none.
+function! songwriter#tab#model#Advance(stops, col, dir, count) abort
+  let l:col = a:col
+  for l:i in range(a:count)
+    let l:c = filter(copy(a:stops), a:dir > 0 ? 'v:val > l:col' : 'v:val < l:col')
+    if empty(l:c)
+      break
+    endif
+    let l:col = a:dir > 0 ? l:c[0] : l:c[-1]
+  endfor
+  return l:col
+endfunction
+
 " The column-insertion primitive: insert `n` copies of `char` after byte offset
 " `offset` (0 = line start) on every line, padding shorter lines with dashes up
 " to `offset` first. Returns the new lines; padding happens even when n is 0.
