@@ -1,3 +1,5 @@
+" Spec [Tablature][[Motions]] 1-4, outside tablature mode: on a tab line `w`/`b`
+" stop on notes, string names and pipes (never dashes); `L`/`H` jump between pipes.
 
 Before:
   unlet! b:songwriter_tabmode

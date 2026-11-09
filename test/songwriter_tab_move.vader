@@ -1,8 +1,7 @@
-" 3.3: l/h move across note columns on the string(s) of the current bar.
-" The search is confined to the current bar; `l` at the last note of the bar
-" behaves as `a` and opens a new-note slot on every string (3.3.2); `h` at the
-" first note of the bar is a no-op (no `i` mirror, 3.3.3). No lint runs on the
-" move (spec item 4 is out of scope): leftover dashes after a slot stay until ||.
+" Spec [Tablature][[Editing]] 3.3 (songwriter#tab#MoveColumn): `l`/`h` move to the
+" next/previous note column on any string; `l` on the last note of its bar opens
+" a slot as `a` does (3.3.2); `h` never does, and is a no-op before the first
+" note (3.3.3). Moving does not lint.
 
 Before:
   unlet! b:songwriter_tabmode

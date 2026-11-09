@@ -1,274 +1,197 @@
-## Module layout (autoload)
-The implementation lives under `autoload/songwriter/`, split by concern; each
-module keeps its own private helpers as `s:` script-locals:
-- `songwriter#util` - the shared tab-line concern: `s:TabLinePat`,
-  `songwriter#util#IsTablatureLine()`, `songwriter#util#find_tab_block()`, and
-  `songwriter#util#insert_char_at_col()`. Used by both `tab` and `chord`.
-- `songwriter#tab` - tablature editing: `AddDashes`, `AddDash`, `AddBar`, `Lint`,
-  `TabChord`, plus the private linter helpers `s:extract_atoms` /
-  `s:parse_tab_lines` / `s:relax_bar` / `s:render_bar` / `s:lint_block`.
-- `songwriter#chord` - chord parsing/transpose: the `s:Chromatic` /
-  `s:FlatToSharp` / `s:RootPat` constants and `s:chord_parse` / `s:chord_build`
-  / `s:chord_transpose` / `s:splice_chord` / `s:find_chord_at_cursor`, plus
-  `TransposeChord`, `ChordAbove`, `ChordQuality`, `ToggleMinorMajor`.
+# Design
 
-`plugin/songwriter.vim` is now thin: a `g:loaded_songwriter_plugin` guard, the
-`Songwriter*()` global wrappers (kept so the test-suite and the ftplugin
-mappings bind unchanged), and the `:command` definitions. `ftplugin` keeps its
-buffer motions and delegates its tab-line test to
-`songwriter#util#IsTablatureLine`. Because `rtp` includes the repo, every public
-name autoloads on first use.
+Lasting design decisions and their rationale, by topic. Keep this file in sync
+with the code: edit the relevant section in place (see AGENTS.md).
 
-## Architecture: shared helpers
+## Constraint: plain text first
 
-### Tab-block scanner + single tab-line pattern (`s:find_tab_block` / `s:TabLinePat`)
+A `.song.txt` must stay readable by someone with a plain text editor who has
+never heard of this plugin (README). The plugin only highlights and edits; it
+never relies on concealing or rendering.
 
-Every tab operation (add bar, add dash, add dashes, lint, insert chord above)
-needs "the contiguous block of tab lines around the cursor." This was
-previously copy-pasted into all five functions. It is now one helper,
-`s:find_tab_block()`, which returns `[start, end, lines]`, or `[0, 0, []]` when
-the cursor is not on a tab line. Callers guard with
-`if empty(l:block[2]) | return | endif` and use `l:block[0]` (start line) and
-`l:block[2]` (lines).
+## Architecture
 
-The "is this a tab line?" predicate — a string name immediately followed by a
-bar pipe — is defined **once** as `s:TabLinePat = '^\a[|]'` and is used by
-`s:find_tab_block`. The ftplugin gate `SongwriterIsTablatureLine` now uses the
-same `^\a[|]` literal (it previously used the narrower `^[eEaAdDgGbB][|]`).
-All test inputs (`e|…` and prose) match both, so no motion test changes; this
-was a behavioural unification towards the design-documented `^\a[|]`.
+### Modules
 
-### Column-op helper (`s:insert_char_at_col`)
+| File | Role |
+|---|---|
+| `autoload/songwriter/grammar.vim` | The format's patterns (tab line, note, chord root/token, chord highlighting). The only place regexes for the format are written. |
+| `autoload/songwriter/tab/model.vim` | Tab block model: parse, queries, the column-insertion primitive, and `Read`/`Write` (the buffer edges). |
+| `autoload/songwriter/tab/lint.vim` | The linter, as a pure function over a block's lines. |
+| `autoload/songwriter/tab.vim` | Tab operations and motions: buffer entry points plus pure helpers (`AppendSlot`, `PrependSlot`). |
+| `autoload/songwriter/chord.vim` | Chord model and chord editing. |
+| `autoload/songwriter/keys.vim` | Context-dependent keys: tables and `Dispatch()`, tablature-mode flag, tab-line `w`/`b`/`L`/`H`. |
+| `plugin/songwriter.vim` | `:Songwriter*` commands and `<Plug>(songwriter-*)` maps. |
+| `ftplugin/songwriter.vim` | Buffer options and key bindings, with a complete `b:undo_ftplugin`. |
+| `syntax/songwriter.vim` | Highlighting, with patterns taken from the grammar. |
 
-`SongwriterAddDash` (insert `-`) and `SongwriterAddBar` (insert `|`) differed
-only in the character inserted; the "insert one char at the cursor column on
-every string, padding short lines with dashes first" logic is shared as
-`s:insert_char_at_col(char)`, and the two commands are now thin wrappers over
-it. Insertion lands *after* the character at the cursor column (i.e. `col+1`,
-1-indexed), preserving the original `AddBar`/`AddDash` behaviour. `SongwriterAddDashes`
-still appends `--` to the whole line, which is a different operation, so it is
-not folded in. This shape also makes spec `[Tablature → Editing] 3` ("press a
-number replaces the dash") a small addition of a `replace_dash_at_col` variant
-later, when that feature is built.
+There are no global functions: everything public is `songwriter#…` and
+autoloads on first use.
 
-### Chord model (parse / build / transpose / splice)
-`TransposeChord`, `ChordQuality`, `ToggleMinorMajor`, and `TabChord` each needed
-the chord at the cursor, its root spelling, its quality, and a way to splice a new
-chord token back into a line — copy-pasted across the four, with the chromatic
-scale and the flat-to-sharp table declared twice. Centralised into a small model:
+### Data flow
 
-- `s:Chromatic`, `s:FlatToSharp`, `s:RootPat` — shared constants; one spelling per
-  pitch, sharp-based.
-- `s:chord_parse(name)` -> `{name, root, quality}`. `root` keeps its raw spelling
-  (a flat stays a flat); `quality` is everything after it; no letter means empty
-  root/quality.
-- `s:chord_build(root, quality)` -> a chord token.
-- `s:chord_transpose(parsed, semitones)` -> new token (flats normalized to
-  sharps, the single unambiguous spelling in `s:Chromatic`).
-- `s:splice_chord(line, bounds, newc)` -> the string replacement shared by every
-  chord-editing feature.
+An operation is a thin buffer entry point around pure logic:
 
-A new chord action is now: find the chord (`s:find_chord_at_cursor`),
-`s:chord_parse`, transform root/quality, `s:chord_build`, `s:splice_chord` back.
-The four public chord functions differ only in how they transform the parsed chord,
-which is the one thing worth keeping small and explicit. Note: the parsed dict in
-`s:chord_parse` must stay on one line — a multi-line `{` `}` without `\`
-continuations is an error (E723).
+1. `songwriter#tab#model#Read()` parses the block around the cursor (or returns
+   `{}` off a tab line, which every entry point treats as a no-op);
+2. a pure function computes the result: new lines and/or a cursor column
+   (`{'lines': [...], 'col': n}`, `{}` for "nothing to do");
+3. the entry point writes it back (`model#Write`, `cursor()`).
 
-## Tablatures
+Pure functions are testable without buffer setup and composable: spec item 4
+(lint after an edit) is "edit, then lint, then follow the moved note", which is
+why `lint#Lint` reports where every note moved.
 
-Motions and editing capabilities should be scoped to tablature lines explicitly using `getline('.') =~# '^\a[|]'`, when possible. If not possible, this should be documented in the specifications file.
+### Keys
 
-## Design decisions
+Keys whose meaning depends on context are declared in tables in `keys.vim` and
+mapped as `<expr>` maps calling `songwriter#keys#Dispatch(key)`, which picks, in
+order: the tablature-mode action (mode on and cursor on a tab line), the
+tab-line action, or the key's default. Actions run through `<Cmd>…<CR>` (Vim
+8.2.1978+ / Neovim 0.5+): no mode change, no command-line echo, and valid as an
+operator-pending motion. Plain keys (`||`, `_`, `<C-A>`, `<leader>m`…) map to
+`<Plug>(songwriter-*)` so users can rebind them.
 
-### Linter (`SongwriterLint` / `s:lint_block`)
+Visual-mode `L`/`H` still use a `:call …<CR>` map, which leaves visual mode (a
+known defect, kept as-is until it is fixed deliberately).
 
-The linter operates on the contiguous block of tab lines surrounding the
-**cursor's current line** (found the same way as the bar-alignment helpers),
-not the whole buffer, and is a no-op on non-tab lines. It is a bar-aligned
-re-flow, not a full auto-formatter.
+`||` is not a double bar line (the format has none); it is the key that lints
+the block.
 
-**Why per-bar, not whole-buffer.** Relative note order on each string is
-fundamental: it defines when notes play. Two adjacent notes on the same string
-(e.g. `e|---5--4--|`, a 7-5 run) carry a distinct temporal relationship that is
-meaningless if the notes are collapsed onto the same column. A formatter that
-packed notes into one column would silently alter the score. The invariant,
-therefore, is: *never move a note to the same column as another note on the
-same string.* Concretely, a bar keeps its width `max_col - min_col + 5` (two
-leading + two trailing dashes + the note span) instead of collapsing to width 5.
+## Format grammar
 
-**Two leading / two trailing are per-BAR, on the bar's global first/last note**
-— not per-string. The 2 left dashes attach to the bar's globally leftmost note
-(equivalently every string in the bar shares one left pipe and the leftmost note
-of the whole bar sits 2 from it); other strings, whose first note arrives later,
-simply get more leading dashes, which is exactly what preserves relative
-order-across-strings. Likewise the bar's globally rightmost note sits 2 from the
-shared right pipe, and shorter strings are padded with trailing dashes so their
-pipes line up. This reuses the block-alignment model of `SongwriterAddDashes`
-(shared width per bar).
+- **Tab line**: a string name immediately followed by a pipe, `^\a[|]`. Tab
+  features are scoped to such lines explicitly; anything else is prose.
+  Highlighting uses the broader `^\s*[A-Ga-g]|` (both live in the grammar; they
+  are not unified because that would change behaviour).
+- **Tab block**: the contiguous run of tab lines around a line.
+- **Note**: a run of digits; a two-digit fret such as `12` is one note spanning
+  two columns. Other symbols (`h`, `p`, `/`, `x`…) are not notes (see the lint
+  bug in the spec).
+- **Bar**: the region between two pipes. On a line, the bar around column `c` is
+  bounded by the nearest pipes strictly left and right of `c`
+  (`model#BarAt`).
 
-**Empty bar** (no note on *any* string in that bar, e.g. a rest bar) degenerates
-to width 2 (`|--|`). `--` vs `----` for a truly empty bar is cosmetic and left
-as the minimal `--`.
+## Tablature
 
-**Structure (decomposed).** `s:lint_block` is now a thin orchestrator over three
-documentable steps, each named after the model stage it implements:
-- `s:parse_tab_lines(lines)` -> `[regions, P, NL]`: split each line on pipes into
-  bar-region strings (dropping the string-name prefix and anything after the
-  final pipe), and find the widest bar count `P`.
-- `s:relax_bar(atoms, mincol)` -> a list of note dicts carrying a final output
-  column `start`; the fixed-point pass enforcing the two invariants above.
-- `s:render_bar(work, NL)` -> one region string per line, each padded so the
-  pipes line up (bar width = content span + two trailing dashes).
+### Block model
 
-The per-bar atom collection (gather `atoms`, `mincol`, and whether the bar is
-empty) stays in `s:lint_block`, which then calls `relax_bar` + `render_bar` for
-each non-empty bar and assembles the lines. This is a like-for-like decomposition
-of the previous single function; the 21 lint assertions are the behaviour oracle.
+`model#Parse(start, lines)` gives `{start, lines, strings}` with each string's
+notes (`{col, len, text}`) and pipe columns. Columns are 1-indexed byte columns,
+as `col()` returns (tab lines are ASCII). Queries: `NoteColumns` (block-wide,
+sorted, unique), `BarAt`, `InBar`. The single mutation primitive is
+`InsertColumns(lines, offset, n, char)`: pad every line with dashes up to
+`offset`, then insert `n` copies of `char` after it, on every string, so pipes
+and notes stay vertically aligned.
 
-**Pipes vs `||`.** A single `|` is a bar boundary. Typing `||` does not denote a
-double bar-line (this format has no double pipes); it is the *trigger* that
-lints the current tab block. A buffer-local `||` mapping lives in
-`ftplugin/songwriter.vim` and is intentionally untested by design.
+### Column insertion (`_`, `:SongwriterAddBar`)
 
-**Malformed input.** A line that cannot be split into bar regions (no pipe /
-not a tab line) is left alone; the linter only touches well-formed tab lines.
+`_` (spec [Tablature][[Editing]] 2) inserts a dash, `:SongwriterAddBar` a pipe,
+after the cursor column (at column `col+1`) on every string of the block.
+`:SongwriterAddDashes` appends `--` to every string.
 
-## Tab dash insertion (`_`)
+### Linter (`||`, spec [Tablature][[Editing]] 1)
 
-`_` on a tab block inserts one `-` at the cursor column on every string of the
-contiguous block (spec [[Editing]] 2), implemented as `SongwriterAddDash` and
-mirroring `SongwriterAddBar` block-for-block: it scopes to the block found with
-`getline('.') =~# '^\a[|]'`, reads the cursor column, and inserts via
-`strpart(line, 0, col) . '-' . strpart(line, col)` — so the new dash lands after
-the character at the cursor column (column `col+1`), exactly as `SongwriterAddBar`
-places its `|`. Short lines are padded with dashes first. No-op on non-tab lines.
+The linter works on the block around the cursor, bar by bar. It is a re-flow,
+not a full formatter.
 
-The buffer-local `_` normal-mode mapping lives in `ftplugin/songwriter.vim` and,
-like the `||` mapping, is intentionally untested by design; the function is tested.
+**Note order is sacred.** Relative note order on each string defines when notes
+are played: `e|---5--4--|` is a sequence, and collapsing the two notes onto one
+column would change the music. So the invariant is: never move a note onto the
+same column as another note of the same string. A bar keeps its width
+`max_col - min_col + 5` (two leading dashes, the note span, two trailing
+dashes).
 
-### Overlapping two-digit notes (`spec 1.3`)
+**Two leading / two trailing dashes are per bar, not per string.** The bar's
+leftmost note (on any string) sits two dashes after the shared left pipe; other
+strings, whose first note comes later, keep their extra leading dashes, which
+preserves the order across strings. Likewise the rightmost note sits two dashes
+before the right pipe, and shorter strings are padded so the pipes line up.
 
-Notes are parsed as *atoms* — maximal runs of digit characters — so a two-digit
-fret number like `12` is a single atom spanning two columns, not two notes. A
-note is re-flowed to a natural output column of `c0 - mincol + 2` (two dashes
-after the bar's left pipe), then a fixed-point relaxation enforces two
-invariants per bar:
+**Empty bar** (no note on any string) becomes `|--|`.
 
-* **Same-string order** — a string's notes keep their *original relative gap*
-  (`prev.start + (c0 - prev.c0)`), so sequential notes are never collapsed onto
-  one column. This preserves the re-flow model of 1.1/1.2.
-* **Cross-string de-overlap** — when a note starts strictly after a note on a
-  *different* string but still inside that note's column span (`other.start <
-  start <= other.end`), the two numbers overlap without being aligned; the later
-  one is pushed right until exactly one dash separates them
-  (`start = other.end + 2`).
+**Overlapping two-digit notes** (spec 1.3). Each note gets a natural output
+offset `c0 - mincol + 2`, then a fixed-point pass enforces:
 
-`Aligned` two-note numbers (same start column) are an explicit exception and are
-never split: the condition `other.start < start` is false for two notes that
-begin on the same column, so they stay stacked. The same property means a
-single-digit note that merely lines up with the first digit of a neighbouring
-`12` is also left alone — only a *second* digit that lands inside another
-number's span is ever pushed. Resolution runs to a fixed point (capped at 200
-iterations, never exceeded in practice) because pushing one note can in turn
-collide with a later one on a neighbouring string.
+- *same-string order*: a note keeps its original gap to the previous note on
+  its string;
+- *cross-string de-overlap*: a note starting strictly after a note on another
+  string but inside that note's span is pushed right to leave exactly one dash
+  after it. Notes starting on the same column are aligned and never split; a
+  single digit lining up with the first digit of a `12` is left alone.
 
-## Tablature mode (`<leader>t`; spec item 3)
+The pass is capped at 200 iterations (never reached in practice): pushing one
+note can collide with another on a neighbouring string.
 
-`<leader>t` toggles a buffer-local `b:songwriter_tabmode` (default 0). In that mode
-the key motions w/b/l/h become note-level (the actual movement lives in
-`s:digit_run_starts`, `songwriter#tab#MoveNote`, `songwriter#tab#MoveColumn`):
+**Output**: `lint#Lint(lines)` returns `{lines, moves}`; `moves` lists every
+note's line and its column before and after, so callers can keep the cursor on
+the same note. Only the string name's first character is kept, and anything
+after the final pipe is dropped.
 
-- **3.1 w/b — the note on the current line.** A *note* is the start column of a
-  digit run `[0-9]+` (the two-digit frets 10-19 read as one run, so we land on
-  the left digit). w goes to the next run start to the right of the cursor, b the
-  one to the left, in either case ignoring the dashes and pipes between. The
-  guard `!SongwriterIsTablatureLine(getline('.'))` no-ops on a prose line.
-- **l/h — cross-bar note-column navigation (spec 3.3).** `MoveColumn`
-    collects the digit-run start columns on *every* string of the block and
-    moves to the nearest one on the requested side
-      (`SongwriterMoveColumn(+1/-1) = l/h`). A plain move is **block-wide**: a
-      pipe is not an obstacle, so `l`/`h` may land on a note in a neighbouring
-      bar. `w`/`b` stay on the current line; `L`/`H` jump between bars.
-        - **3.3.2 — the one special case.** When the cursor sits on the **last
-      note of its current bar**, `l` does *not* skip that bar: it *behaves as
-      `a`*, opening a new-note slot on every string (`s:append_note_right`), so a
-      fresh note can be typed there. Pressing `l` again — the cursor is now on
-      the opened slot, not on a note — performs the normal block-wide advance to
-      the next note, which may be the first note of the following bar. This is the
-      balance the user is after: easy to append a note in a bar *and* easy to keep
-      moving on; the resulting dashes are tidied on demand with `||`.
-        - **3.3.3/3.3.4 — `h`.** `h` advances block-wide to the previous note and
-      has **no** `i`-style append at a bar’s start (3.3.3, no mirror). At the
-      tablature’s very first note there is nothing to the left, so `h` is a
-      no-op (3.3.4).
-        - **Bar-aware append.** `s:append_note_right` bounds its “last note” to
-      the cursor’s current bar (via the new `s:bar_end` helper) so that opening a
-      slot at the end of a *non-final* bar widens the space after **that** bar’s
-      last note and keeps its pipe aligned — it does *not* reach across to a
-      later bar. The 1-dash / 2-dash spacing from the 3.1 work is untouched; only
-      the note it measures from is now the current bar’s last note.
-        - **Empty-string edge.** When the cursor sits on an empty string’s
-      last-note column — the last note itself lives on a neighbouring string — the
-      slot still opens on it, because `s:append_note_right` anchors `e` on the
-      current bar’s last note *across the block*, not the cursor line alone:
-        `e|--4--|` / `b|------|` with the cursor on the empty string yields
-        `e|--4----|` / `b|--------|`.
-        - **No linting on the move.** Spec item 4 (lint-on-edit) is out of
-      scope, so `l`/`h` do not run the linter; a slot’s dashes stay until `||`.
+### Tablature mode (`<leader>t`, spec [Tablature][[Editing]] 3)
 
-- **3.3 digits — enter a note.** A digit 0-9 in tablature mode on a tab line
-  goes into the cell under the cursor: on a dash/blank it is a straight
-  *replace* (`songwriter#tab#EnterNote`, the literal spec wording); on a digit it
-  *appends* to the right so a two-digit fret (10-19) can be typed one key at a
-  time (the 1.3 de-overlap linting then fixes the spacing). The digit maps bake
-  the fret as a bare *number* (`… ? ':call SongwriterEnterNote(4)<CR>' : '4'`)
-  so the ex-command has no inner quotes to fight the single-quoted fallback; the
-  wrapper coerces it back to a string with `a:digit . ''`. Off a tab line the
-  digit is a no-op (it falls back to its default count behaviour). Because `0`-`9`
-  are otherwise count-prefics, the map guard `get(b:,'songwriter_tabmode',0) &&
-  SongwriterIsTablatureLine()` keeps them as ordinary counts everywhere else.
-- **a/i — open a note slot on every string (spec 3.1, formerly 3.4).** `a`
-   `SongwriterAddNote(1)` opens a slot to the **right** of the current note on
-    every string (s:append_note_right): it inserts as many dashes as are needed so
-    the slot sits **exactly one dash from the current note** *and* the following pipe
-    (or next note) keeps its **two-dash** gap. e.g. `e|--4--|` -> `e|--4----|`. The
-    old "always three dashes, land on the second on the near side" behaviour is
-    obsolete: it ignored the following pipe/next note (the removed "Old requirement").
-    `i` (`AddNote(-1)`, s:prepend_note_left) mirrors to the **left**: one dash before
-    the current note, two after the preceding pipe. The cursor lands on the new slot
-    itself, which is a dash the user then fills with a digit. No-op when there is no
-    digit run in the asked direction. `a`/`i` do not auto-lint themselves: the
-   slot *is* the new space, so the `||` lint key is what tidies it afterwards.
-   Spec item 4 (lint-on-edit: when a note is entered, when `a`/`i` open or abort a
-   slot) is the pending feature and is out of scope for this work; leftover dashes
-   after a/a-i insert are acceptable.
+A buffer-local flag, `b:songwriter_tabmode`, off by default; no teardown needed.
 
-### Why the maps are inline, not function-calling
+- **`w`/`b` (3.2)**: next/previous note start on the current line, skipping
+  dashes and pipes; a two-digit fret is landed on at its first digit.
+- **`l`/`h` (3.3)**: next/previous column where any string of the block has a
+  note. A pipe is not an obstacle: the move may land in a neighbouring bar.
+  - *3.3.2, the one special case*: on the last note column of the cursor's
+    bar, `l` does not skip ahead; it opens a slot as `a` does, so a note can be
+    appended to that bar. Pressing `l` again (now on the slot, not on a note)
+    moves on to the next note, possibly in the next bar. `l` with no note further
+    right also opens a slot. This is the balance sought: easy to append within a
+    bar, easy to keep moving.
+  - `h` never opens a slot (no mirror of 3.3.2) and is a no-op before the first
+    note.
+  - Moving does not lint; leftover dashes stay until `||` (spec item 4 is not
+    implemented yet).
+- **`a`/`i` (3.1)**: open a slot for a new note on every string and land on it.
+  `a` anchors on the rightmost note end, on any string, among notes starting at
+  or before the cursor within the cursor's bar (bounded by the bar's closing
+  pipe), so the slot opens in the current bar even when the cursor line is an
+  empty string. It inserts as many dashes as needed for the slot to sit exactly
+  one dash after the anchor while the next pipe keeps a 2-dash gap (a next note,
+  1 dash): `e|--4--|` -> `e|--4----|`. `i` mirrors this to the left of the
+  leftmost note at or after the cursor, keeping the preceding pipe 2 dashes away.
+  No anchor note: no-op. `a`/`i` do not lint.
+- **Digits (3.4)**: a digit on a dash replaces it; on a digit it is appended to
+  its right, so a two-digit fret is typed one key at a time (the linter fixes
+  the spacing). Off tablature mode or a tab line, digits keep their count
+  meaning.
 
-The motion mappings are written as fully inline `<expr>` maps — `get(b:,
-'songwriter_tabmode',0) && SongwriterIsTablatureLine() ?
-':call SongwriterMoveNote(1)<CR>' : 'w'` — just like L/H below. They must *not*
-call a helper that returns the ex-command string: an `<expr>` map whose RHS is a
-function returning a `:call ...<CR>` string did not execute reliably, while the
-equivalent inline form in L/H does. As a corollary, the w/b search pattern
-`[0-9a-zA-Z|]` stays inline and its `|` is escaped as `\|`, exactly as it was
-before this change.
+### Outside tablature mode
 
-Off a tab line every one of these keys falls back to its default behaviour
-(`w`/`b` are still the usual tab-line `search('[0-9a-zA-Z|]', ...)`; `l`/`h`
-stay character-wise), so nothing outside tablature mode is disturbed. The toggle
-(`SongwriterToggleTabMode`) just flips the flag and echoes the new state; because
-`b:` is buffer-local and defaults to 0, no teardown is needed.
+On a tab line, `w`/`b` stop on notes, string names and pipes but never on dashes
+(spec [Tablature][[Motions]] 1-2), and `L`/`H` jump to the next/previous pipe
+(3-4) using `search()`, which ignores `iskeyword`. Off a tab line every key keeps
+its default behaviour.
 
-## Bar-line jumps (L/H)
+## Chords
 
-L/H jump to the next/previous bar pipe `|` on the current tab line. They use
-`search('|', 'W'/'bW')` so the pipe is always found (the `W` flag ignores
-`iskeyword`); off a tab line the mapping falls back to the default `L`/`H`.
+The chord model in `chord.vim`:
 
+- `s:chord_parse(name)` -> `{name, root, quality}`; `root` keeps its spelling,
+  `quality` is everything after it;
+- `s:chord_build(root, quality)`;
+- `s:chord_transpose(parsed, semitones)`: flats are normalised to sharps, the
+  single spelling in the chromatic scale;
+- `s:splice_chord(line, bounds, new)`.
 
+A chord action is: find the chord under the cursor, parse, transform root or
+quality, build, splice back. The public actions differ only in the transform.
+The chord found under the cursor is any token of chord characters around a root
+letter, which is permissive (see the chord-detection bug in the spec).
+Highlighting accepts false positives such as the word "A" (spec [Chords]
+[[Rendering]]).
 
+## Testing
 
-
-
+- Vader, `make test`; the pre-commit hook enforces a green suite.
+- Buffer transformations use `Given songwriter` / `Execute` or `Do` / `Expect`,
+  so the before/after tab is visible; cursor positions and pure functions use
+  `Assert*`.
+- Vader reuses one buffer across cases and files, so buffer state (the
+  tablature-mode flag) is reset in a `Before:` block wherever keys are typed.
+- Key mappings are exercised end-to-end with `normal` where the result is
+  observable; `Dispatch` and `b:undo_ftplugin` have their own tests.

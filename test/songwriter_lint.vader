@@ -1,6 +1,7 @@
-" Tests for SongwriterLint: align bar pipes across all strings and normalise
-" dashes so that the first note of a bar sits two dashes after the left pipe and
-" the last note sits two dashes before the right pipe. Note order is preserved.
+" Spec [Tablature][[Editing]] 1 (`||`, songwriter#tab#Lint): align bar pipes
+" across all strings and normalise dashes so that the first note of a bar sits
+" two dashes after the left pipe and the last note two dashes before the right
+" pipe. Note order is preserved.
 
 Given (does not lint non-tab lines):
   some prose

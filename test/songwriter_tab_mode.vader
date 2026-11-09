@@ -1,17 +1,13 @@
-" Spec [Tablature -> Editing] 3: <leader>t toggles a buffer-local "tablature"
-" mode (b:songwriter_tabmode). In it, the motions w/b/l/h become note-level:
-"    3.1 w/b move to the next/prev NOTE on the current line, skipping dashes/pipes.
-"    3.2 l/h move to the next/prev column where ANY line of the block has a note.
-"
-" The mappings are buffer glue, but motion mappings are exercised end-to-end via
-" `normal` here (as in songwriter_tab_motion.vader). The prose no-op guards are
-" tested at the function level, because on a non-tab line the keys fall back to
-" their default behaviour (so the mapping cannot show the no-op directly).
+" Spec [Tablature][[Editing]] 3: <leader>t toggles a buffer-local tablature mode
+" (b:songwriter_tabmode) in which `w`/`b` move between notes on the current line
+" (3.2) and `l`/`h` between note columns of the whole block (3.3). Motions are
+" exercised end-to-end via `normal`; the prose no-op guards at function level,
+" since off a tab line the keys fall back to their default behaviour.
 
 Before:
   unlet! b:songwriter_tabmode
 
-" --- 3.1 w/b: note on the current line, skipping dashes and pipes ---
+" --- 3.2 w/b: note on the current line, skipping dashes and pipes ---
 
 Given songwriter (w in tablature mode skips dashes to the next note):
   e|--4--|--1--|
@@ -63,7 +59,7 @@ Execute (b in tablature mode lands on the first digit of a two-digit fret):
 Then:
   AssertEqual 9, col('.')
 
-" --- 3.2 l/h: the next/prev column where ANY line has a note ---
+" --- 3.3 l/h: the next/prev column where ANY line has a note ---
 
 Given songwriter (l in tablature mode skips to a note column that only exists on another string):
   e|----4----|

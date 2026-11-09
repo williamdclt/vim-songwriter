@@ -1,3 +1,6 @@
+" Spec [Tablature][[Editing]] 2 (`_`, songwriter#tab#AddDash): insert a dash
+" after the cursor column on every string of the tab block.
+
 Given (_ inserts a dash at the cursor column on every tab string):
   e|----|
   B|----|

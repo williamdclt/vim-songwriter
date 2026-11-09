@@ -1,3 +1,6 @@
+" Spec [Chords][[Editing]]: :SongwriterChordAbove, :SongwriterChordQuality and
+" <leader>m (songwriter#chord#ToggleMinorMajor).
+
 Given (insert chord above cursor with alignment):
   Hello world
 

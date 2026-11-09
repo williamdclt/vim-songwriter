@@ -1,12 +1,11 @@
-" Spec [Tablature -> Editing] 3.4 (numbers enter a note) and 3.1 (a/i open a
-" 1-dash-gap slot for a note on every string). These exercise the note-entry
-" functions; the buffer key mappings are glue, untested by design (like || and
-" _), except the two integration smoke tests at the end that type the keys.
+" Spec [Tablature][[Editing]] 3.4 (digits enter a note) and 3.1 (`a`/`i` open a
+" slot for a new note on every string). Function-level tests, plus integration
+" smoke tests at the end that type the keys.
 
 Before:
   unlet! b:songwriter_tabmode
 
-" --- 3.3 EnterNote: replace a dash with the digit on the current tab line ---
+" --- 3.4 EnterNote: replace a dash with the digit on the current tab line ---
 
 Given songwriter (a digit enters the note on an empty slot):
   e|---|

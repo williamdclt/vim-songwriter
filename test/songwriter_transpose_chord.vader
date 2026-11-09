@@ -1,3 +1,6 @@
+" Spec [Chords][[Editing]]: <Ctrl-A>/<Ctrl-X> (songwriter#chord#TransposeChord)
+" transpose the chord under the cursor by a semitone.
+
 Given (transpose chord up chromatically):
                Am7
 
