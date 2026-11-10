@@ -181,7 +181,7 @@ buffer is opened (and unset by `b:undo_ftplugin`); unset means off.
   dashes and pipes; a two-digit fret is landed on at its first digit.
 - **`l`/`h` (3.3)**: next/previous column where any string of the block has a
   note. A pipe is not an obstacle: the move may land in a neighbouring bar.
-  - *3.3.2, the one special case*: on the last note column of the cursor's
+  - *3.3.2, the special case*: on the last note column of the cursor's
     bar, `l` does not skip ahead; it opens a slot as `a` does, so a note can be
     appended to that bar. Pressing `l` again (now on the slot, not on a note)
     moves on to the next note, possibly in the next bar. This is the balance
@@ -195,8 +195,16 @@ buffer is opened (and unset by `b:undo_ftplugin`); unset means off.
     and a second `l` starts the next bar. Elsewhere, `l` with no note further
     right opens a slot as `a` does; a line with no closing pipe has no bar to
     close, so it never gets a new bar.
-  - `h` never opens a slot (no mirror of 3.3.2) and is a no-op before the first
-    note.
+  - *Empty bars (3.3.4)*: an empty bar with a note column after it is a stop
+    of its own, next to its opening pipe, for both `l` and `h`: landing there
+    opens a slot in its middle (`slots#EmptyBar`, as `c` does in an empty bar),
+    since a bar with no time column could otherwise never be reached to write
+    in. Abandoned, the slot lints back to `|--|`, which is not deleted since it
+    is not the last bar. Trailing empty bars are not stops: lint deletes them
+    (1.4), and `l` there keeps the end-of-tab behaviour. The bar under the
+    cursor is not a stop, so `l`/`h` from its slot move on.
+  - Apart from empty bars, `h` never opens a slot (no mirror of 3.3.2) and is
+    a no-op before the first note.
   - Moving does not lint, except to abandon an open slot (4.3, below).
 - **`L`/`H` (3.5)**: first time column of the next bar / last of the previous
   bar (`columns#BarStop`, pure), so a bar jump lands where a note can be
