@@ -43,9 +43,10 @@ let s:standard = ['e', 'b', 'g', 'd', 'a', 'e']
 " first), in the order `==` goes through them from line `lin`: by root string,
 " `lin` first, then each lower string, then each higher one; on a string, by
 " fret (open-position shapes first on the same fret); the voicings at the 12th
-" fret after all the others. {'error'} when there is none.
+" fret after all the others. The root's letter may be lowercase (10.1).
+" {'error'} when there is none.
 function! songwriter#tab#voicings#Voicings(names, chord, lin) abort
-  let l:parsed = songwriter#grammar#ParseChord(a:chord)
+  let l:parsed = songwriter#grammar#ParseChord(songwriter#tab#voicings#Name(a:chord))
   if empty(l:parsed)
     return {'error': printf('songwriter: %s is not a chord', a:chord)}
   endif
@@ -78,6 +79,12 @@ function! songwriter#tab#voicings#Voicings(names, chord, lin) abort
     return {'error': printf('songwriter: no voicing of %s on these strings', a:chord)}
   endif
   return l:result
+endfunction
+
+" Spec 10.1: `chord` with its root's letter in uppercase (`am` -> `Am`, `bb5`
+" -> `Bb5`). The quality keeps its case: `M7` and `m7` differ.
+function! songwriter#tab#voicings#Name(chord) abort
+  return toupper(a:chord[0 : 0]) . a:chord[1 :]
 endfunction
 
 " Spec 10.2: the shaped voicings of the chord with root pitch class `pc` and
@@ -209,13 +216,14 @@ function! songwriter#tab#voicings#Enter(chord) abort
     return
   endif
   let l:lin = songwriter#tab#model#CursorLin(l:block)
+  let l:chord = songwriter#tab#voicings#Name(a:chord)
   let l:voicings = songwriter#tab#voicings#Voicings(
-        \ songwriter#tab#model#Names(l:block.lines), a:chord, l:lin)
+        \ songwriter#tab#model#Names(l:block.lines), l:chord, l:lin)
   if type(l:voicings) == v:t_dict
     call songwriter#tab#edit#Error(l:voicings.error)
     return
   endif
-  call s:put(l:block, l:lin, col('.'), a:chord, l:voicings, 0, 0)
+  call s:put(l:block, l:lin, col('.'), l:chord, l:voicings, 0, 0)
 endfunction
 
 " Spec 10.4: `==`, replace the chord just entered with its next voicing, in
