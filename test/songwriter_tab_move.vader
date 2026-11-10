@@ -315,9 +315,9 @@ Execute (3.3.4 l on the slot of the empty bar closes it and moves on):
   call songwriter#tab#MoveColumn(1)
   call songwriter#tab#MoveColumn(1)
 Then:
-  AssertEqual 14, col('.')
-Expect songwriter:
-  e|--4--|--|--1--|
+  AssertEqual 17, col('.')
+Expect songwriter (the lint of the first slot is kept, 4.3.3):
+  e|--4--|-----|--1--|
 
 Given songwriter (3.3.4 h reaches the empty bar through the slot before the next note):
   e|--4--|--|--1--|

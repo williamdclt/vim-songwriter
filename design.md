@@ -350,6 +350,13 @@ Tablature-mode edits lint the block:
     several keys share one undo step, and `:undo` would take earlier changes
     with it: then (or if undoing did not give the lines back) the recorded
     lines are written instead.
+  - *A motion closing a slot keeps the lint (4.3.3)*: otherwise walking an
+    unlinted tab with `l`/`h` would lint it at every slot and unlint it at
+    every close, and the whole tab would jump at each step. `AddNote` and
+    `AddBarSlot` record the linted lines in the mark (`slots#Linted`); the
+    motions call `slots#Abandon(1)`, which undoes the slot as above and then
+    writes the linted lines back, an undo step of its own. `<Esc>` and the
+    other closers still give back the tab from before the lint.
   - *A slot that is part of a bigger edit is linted*: `c` (6.6), `o`/`O` (8)
     and `:SongwriterNewTab` (9) open a slot in what they made; `<Esc>` there
     must keep the deletion or the new tab, so closing lints, leaving an empty

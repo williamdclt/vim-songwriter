@@ -1,7 +1,8 @@
 " Spec [Tablature][[Editing]] 4: edits in tablature mode lint the block
 " (4.1 entering a note, 4.2 before `a`/`i` open a slot). A slot closed without
-" a note gives the tab back as it was, leaving no undo step (4.3, 4.3.1), and
-" moving in the normal state never lints (4.3.2). The cursor follows the note
+" a note gives the tab back as it was, leaving no undo step (4.3, 4.3.1), except
+" that a motion closing it keeps the lint (4.3.3), and moving in the normal
+" state never lints (4.3.2). The cursor follows the note
 " (or the gap between notes) it was on. Typed end-to-end with `normal`, or with
 " `feedkeys` where undo steps matter (`normal` makes one undo step of all its
 " keys).
@@ -128,6 +129,81 @@ Then:
   AssertEqual 11, col('.')
 Expect songwriter:
   e|--4--|--1--|
+
+" --- 4.3.3 a motion closing a slot keeps the lint of 4.2 ---
+
+Given songwriter (4.3.3 h after a keeps the lint, back on the note):
+  e|-----4-----|
+
+Execute (4.3.3 h after a keeps the lint, back on the note):
+  call cursor(1, 8)
+  normal ah
+Then:
+  AssertEqual 5, col('.')
+Expect songwriter:
+  e|--4--|
+
+Given songwriter (4.3.3 l after a keeps the lint and moves on to the next note):
+  e|-0---3-|
+  B|-------|
+
+Execute (4.3.3 l after a keeps the lint and moves on to the next note):
+  call cursor(1, 4)
+  normal al
+Then:
+  AssertEqual 9, col('.')
+Expect songwriter:
+  e|--0---3--|
+  B|---------|
+
+Given songwriter (4.3.3 walking with l only moves the dashes around the cursor):
+  e|-0---3-5-|
+  B|---------|
+
+Execute (4.3.3 walking with l only moves the dashes around the cursor):
+  call cursor(1, 4)
+  normal all
+  AssertEqual ['e|--0---3---5--|', 'B|-------------|'], getline(1, 2)
+  normal l
+  AssertEqual ['e|--0---3-5--|', 'B|-----------|'], getline(1, 2)
+Then:
+  AssertEqual 11, col('.')
+
+Given songwriter (4.3.3 w after a keeps the lint):
+  e|-----4-----|--1--|
+
+Execute (4.3.3 w after a keeps the lint):
+  call cursor(1, 8)
+  normal aw
+Then:
+  AssertEqual 11, col('.')
+Expect songwriter:
+  e|--4--|--1--|
+
+Given songwriter (4.3.3 Esc after a walk keeps the lint):
+  e|-0---3-|
+
+Execute (4.3.3 Esc after a walk keeps the lint):
+  call cursor(1, 4)
+  execute "normal all\<Esc>"
+Then:
+  AssertEqual 9, col('.')
+Expect songwriter:
+  e|--0---3--|
+
+Given songwriter (4.3.3 the kept lint is one undo step):
+  e|-----4-----|
+
+Execute (4.3.3 the kept lint is one undo step):
+  let &undolevels = &undolevels
+  let seq = undotree().seq_cur
+  call cursor(1, 8)
+  call feedkeys("ah", 'xt')
+  AssertEqual ['e|--4--|'], getline(1, 1)
+  call feedkeys("u", 'xt')
+  AssertEqual seq, undotree().seq_cur
+Expect songwriter:
+  e|-----4-----|
 
 Given songwriter (4.3 j/k do not close the slot; a later h does):
   e|--4--|

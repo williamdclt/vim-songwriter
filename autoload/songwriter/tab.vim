@@ -171,6 +171,7 @@ function! songwriter#tab#AddNote(side) abort
   endif
   let l:mark = songwriter#tab#slots#Mark(a:side)
   let l:block = songwriter#tab#edit#LintAndFollow(l:block)
+  call songwriter#tab#slots#Linted(l:mark, l:block)
   let l:lin = songwriter#tab#model#CursorLin(l:block)
   let l:result = a:side > 0
         \ ? songwriter#tab#slots#Append(l:block, l:lin, col('.'))
@@ -192,6 +193,7 @@ function! songwriter#tab#AddBarSlot() abort
   endif
   let l:mark = songwriter#tab#slots#Mark(1)
   let l:block = songwriter#tab#edit#LintAndFollow(l:block)
+  call songwriter#tab#slots#Linted(l:mark, l:block)
   call songwriter#tab#edit#Apply(l:block, songwriter#tab#slots#AppendBar(l:block))
   call songwriter#tab#slots#Open(l:mark)
 endfunction
@@ -277,7 +279,7 @@ endfunction
 " An open slot is closed first (4.3), and the move goes on from the slot's
 " side (see s:from_slot).
 function! songwriter#tab#MoveWord(key) abort
-  let l:slot = songwriter#tab#slots#Abandon()
+  let l:slot = songwriter#tab#slots#Abandon(1)
   let l:line = getline('.')
   if !songwriter#grammar#IsTabLine(l:line)
     return
@@ -292,7 +294,7 @@ endfunction
 " Spec [Tablature][[Editing]] 3.5: the bar motions `W`/`B`/`E` (`key`),
 " `count` times (see columns#BarStop). An open slot is closed first (4.3).
 function! songwriter#tab#MoveBar(key, count) abort
-  call songwriter#tab#slots#Abandon()
+  call songwriter#tab#slots#Abandon(1)
   let l:block = songwriter#tab#model#Read()
   if empty(l:block)
     return
@@ -326,7 +328,7 @@ endfunction
 " `l`/`h` do in the normal state, in both states, never opening a slot. An open
 " slot is closed first and the move goes on from its note (see s:from_slot).
 function! songwriter#tab#StepColumn(dir) abort
-  let l:slot = songwriter#tab#slots#Abandon()
+  let l:slot = songwriter#tab#slots#Abandon(1)
   let l:block = songwriter#tab#model#Read()
   if empty(l:block)
     return
@@ -374,12 +376,12 @@ function! s:leave_slot(block, slot, dir) abort
   let l:back = get(a:slot, 'side', 0) == -a:dir
   if !l:back && songwriter#tab#model#Advance(songwriter#tab#model#Stops(a:block, getline('.')), l:col, a:dir, 1) == l:col
     if a:dir > 0 && songwriter#tab#model#InLastBar(getline('.'), l:col) && s:bar_has_notes(a:block, l:col)
-      call songwriter#tab#slots#Abandon()
+      call songwriter#tab#slots#Abandon(1)
       call songwriter#tab#AddBarSlot()
     endif
     return
   endif
-  call songwriter#tab#slots#Abandon()
+  call songwriter#tab#slots#Abandon(1)
   let l:block = songwriter#tab#model#Read()
   call s:land(l:block, s:from_slot(a:slot, songwriter#tab#model#Stops(l:block, getline('.')), col('.'), a:dir))
 endfunction
