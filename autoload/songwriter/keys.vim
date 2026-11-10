@@ -23,6 +23,8 @@ let s:tabmode.n = {
       \ 'b': 'call songwriter#tab#MoveNote(-1)',
       \ 'l': 'call songwriter#tab#MoveColumn(1)',
       \ 'h': 'call songwriter#tab#MoveColumn(-1)',
+      \ 'L': 'call songwriter#tab#StepColumn(1)',
+      \ 'H': 'call songwriter#tab#StepColumn(-1)',
       \ 'W': 'call songwriter#tab#MoveBar("W", v:count1)',
       \ 'B': 'call songwriter#tab#MoveBar("B", v:count1)',
       \ 'E': 'call songwriter#tab#MoveBar("E", v:count1)',
@@ -60,13 +62,16 @@ for s:d in range(10)
 endfor
 unlet s:d
 
-" Spec 6.1 (text objects), 6.2.1 (pure motions after an operator) and 6.8
+" Spec 6.1 (text objects), 6.2.1 (pure motions after an operator, `L`/`H`
+" being `l`/`h`, 3.3.5) and 6.8
 " (a doubled operator, `dd`, acts on the column).
 let s:tabmode.o = {
       \ 'w': 'call songwriter#tab#operator#Motion("w")',
       \ 'b': 'call songwriter#tab#operator#Motion("b")',
       \ 'l': 'call songwriter#tab#operator#Motion("l")',
       \ 'h': 'call songwriter#tab#operator#Motion("h")',
+      \ 'L': 'call songwriter#tab#operator#Motion("l")',
+      \ 'H': 'call songwriter#tab#operator#Motion("h")',
       \ 'ic': 'call songwriter#tab#operator#Object("c", 0)',
       \ 'ac': 'call songwriter#tab#operator#Object("c", 1)',
       \ 'i|': 'call songwriter#tab#operator#Object("|", 0)',
@@ -83,6 +88,8 @@ let s:tabmode.x = {
       \ 'b': 'call songwriter#tab#visual#Motion("b")',
       \ 'l': 'call songwriter#tab#visual#Motion("l")',
       \ 'h': 'call songwriter#tab#visual#Motion("h")',
+      \ 'L': 'call songwriter#tab#visual#Motion("l")',
+      \ 'H': 'call songwriter#tab#visual#Motion("h")',
       \ 'W': 'call songwriter#tab#visual#Motion("W")',
       \ 'B': 'call songwriter#tab#visual#Motion("B")',
       \ 'E': 'call songwriter#tab#visual#Motion("E")',

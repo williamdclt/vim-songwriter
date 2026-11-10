@@ -70,6 +70,15 @@ Execute (6.9.2 v with l moves by column, then y):
   normal vly
   AssertEqual ['3--------', '---5-----'], getreg('"', 1, 1)
 
+Given songwriter (6.9.5 v with L moves by column as l does):
+  e|--3--------|
+  B|-----5-----|
+
+Execute (6.9.5 v with L moves by column as l does):
+  call cursor(1, 5)
+  normal vLy
+  AssertEqual ['3--------', '---5-----'], getreg('"', 1, 1)
+
 Given songwriter (6.9.2 a <C-v> on some strings is widened to all of them):
   e|--3--5--|
   B|--1--5--|
