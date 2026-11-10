@@ -64,6 +64,7 @@ let s:tabmode.n = {
       \ 'O': 'call songwriter#tab#NewTab(0)',
       \ 'V': 'call songwriter#tab#visual#Column()',
       \ '=': 'call songwriter#tab#voicings#Prompt()',
+      \ '+': 'call songwriter#tab#voicings#Plus()',
       \ }
 " Spec 7: `s` (keep the fret) / `S` (keep the pitch), then `k`/`j` (the note
 " under the cursor) or `K`/`J` (its whole time column), up/down a string.

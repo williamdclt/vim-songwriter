@@ -131,6 +131,88 @@ function! songwriter#tab#voicings#Requality(lines, lin, col, quality) abort
   return {'chord': l:chord, 'voicings': l:voicings, 'index': l:index}
 endfunction
 
+" Spec 10.8: the qualities `+` goes through, each with the one after it.
+let s:plus = [['5', ''], ['', 'm']]
+
+" Spec 10.8: the chord `+` writes from the note at column `col` of line `lin`,
+" rooted on it: when the column holds exactly a power chord rooted there, the
+" major chord; when it holds a major chord rooted there, the minor chord;
+" otherwise the power chord. Returns {'chord', 'voicings', 'index'}, the
+" voicing rooted on that string at that fret; {} on a minor chord rooted there
+" (nothing to do); {'error'} when the note is not a fret, its string name is
+" not a note, or no voicing is rooted there.
+function! songwriter#tab#voicings#Extend(lines, lin, col) abort
+  let l:note = {}
+  for l:n in songwriter#tab#model#Notes(a:lines[a:lin])
+    if a:col >= l:n.col && a:col < l:n.col + l:n.len
+      let l:note = l:n
+    endif
+  endfor
+  if empty(l:note) || l:note.text !~# '^' . songwriter#grammar#Fret() . '$'
+    return {'error': 'songwriter: + goes on a fretted note'}
+  endif
+  let l:fret = str2nr(l:note.text, 10)
+  let l:names = songwriter#tab#model#Names(a:lines)
+  let l:open = songwriter#pitch#Class(l:names[a:lin])
+  if l:open < 0
+    return {'error': printf('songwriter: string name %s is not a note', l:names[a:lin])}
+  endif
+  let l:root = songwriter#pitch#Name(l:open + l:fret)
+  let l:column = s:frets(a:lines, l:note.col)
+  let l:quality = '5'
+  for [l:from, l:to] in s:plus
+    if s:rooted(l:names, l:root . l:from, a:lin, l:fret, l:column) >= 0
+      let l:quality = l:to
+    endif
+  endfor
+  if s:rooted(l:names, l:root . 'm', a:lin, l:fret, l:column) >= 0
+    return {}
+  endif
+  let l:chord = l:root . l:quality
+  let l:voicings = songwriter#tab#voicings#Voicings(l:names, l:chord, a:lin)
+  if type(l:voicings) == v:t_dict
+    return l:voicings
+  endif
+  let l:index = s:rooted(l:names, l:chord, a:lin, l:fret, [])
+  if l:index < 0
+    return {'error': printf('songwriter: no %s rooted on %s, fret %d', l:chord, l:names[a:lin], l:fret)}
+  endif
+  return {'chord': l:chord, 'voicings': l:voicings, 'index': l:index}
+endfunction
+
+" The index of the first voicing of `chord` (in its 10.4 order from line
+" `lin`) rooted on line `lin` at fret `fret`, and, unless `column` is empty,
+" whose frets are `column`. -1 when there is none.
+function! s:rooted(names, chord, lin, fret, column) abort
+  let l:voicings = songwriter#tab#voicings#Voicings(a:names, a:chord, a:lin)
+  if type(l:voicings) == v:t_dict
+    return -1
+  endif
+  for l:k in range(len(l:voicings))
+    let l:v = l:voicings[l:k]
+    if l:v.lin == a:lin && l:v.fret == a:fret && (empty(a:column) || l:v.frets ==# a:column)
+      return l:k
+    endif
+  endfor
+  return -1
+endfunction
+
+" The time column at column `col`, as a voicing's frets: one per line, the
+" fret of the note starting on it, -1 for none, -2 for a note that is not a
+" fret (`x`).
+function! s:frets(lines, col) abort
+  let l:frets = repeat([-1], len(a:lines))
+  for l:i in range(len(a:lines))
+    for l:n in songwriter#tab#model#Notes(a:lines[l:i])
+      if l:n.col == a:col
+        let l:frets[l:i] = l:n.text =~# '^' . songwriter#grammar#Fret() . '$'
+              \ ? str2nr(l:n.text, 10) : -2
+      endif
+    endfor
+  endfor
+  return l:frets
+endfunction
+
 " The time column a chord goes on from column `col` of line `lin`: the start
 " of the note under it, else `col`.
 function! s:column(lines, lin, col) abort
@@ -290,6 +372,22 @@ function! songwriter#tab#voicings#Enter(chord) abort
     return
   endif
   call s:put(l:block, l:lin, col('.'), l:chord, l:voicings, 0, 0)
+endfunction
+
+" Spec 10.8: `+`, a power chord on the note under the cursor, then the major
+" and the minor chord on its root (Extend). A refusal is echoed (10.6).
+function! songwriter#tab#voicings#Plus() abort
+  let l:block = songwriter#tab#model#Read()
+  if empty(l:block)
+    return
+  endif
+  let l:lin = songwriter#tab#model#CursorLin(l:block)
+  let l:r = songwriter#tab#voicings#Extend(l:block.lines, l:lin, col('.'))
+  if has_key(l:r, 'error')
+    call songwriter#tab#edit#Error(l:r.error)
+  elseif !empty(l:r)
+    call s:put(l:block, l:lin, col('.'), l:r.chord, l:r.voicings, l:r.index, 0)
+  endif
 endfunction
 
 " Spec 10.4: `==`, replace the chord just entered with its next voicing, in
