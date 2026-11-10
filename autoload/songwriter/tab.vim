@@ -239,16 +239,15 @@ function! songwriter#tab#MoveNote(dir) abort
   endif
 endfunction
 
-" Spec [Tablature][[Editing]] 3.5: `L` (dir +1) / `H` (dir -1) move to the
-" first time column of the next bar / the last of the previous bar, `count`
-" bars away (see columns#BarStop). An open slot is abandoned first (4.3).
-function! songwriter#tab#MoveBar(dir, count) abort
+" Spec [Tablature][[Editing]] 3.5: the bar motions `W`/`B`/`E` (`key`),
+" `count` times (see columns#BarStop). An open slot is closed first (4.3).
+function! songwriter#tab#MoveBar(key, count) abort
   call songwriter#tab#slots#Abandon()
   let l:block = songwriter#tab#model#Read()
   if empty(l:block)
     return
   endif
-  let l:col = songwriter#tab#columns#BarStop(l:block.lines, getline('.'), col('.'), a:dir, a:count)
+  let l:col = songwriter#tab#columns#BarStop(l:block.lines, getline('.'), col('.'), a:key, a:count)
   if l:col != col('.')
     call cursor(line('.'), l:col)
   endif

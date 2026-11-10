@@ -94,13 +94,13 @@ Execute (6.2 dl removes the column; on the bar's last column it stops at the pip
 Expect songwriter:
   e|--3--|--7--|
 
-Given songwriter (6.2 dL deletes to the end of the bar):
+Given songwriter (6.2 dW deletes to the end of the bar):
   e|--3--5--7--|
   B|-----5-----|
 
-Execute (6.2 dL deletes to the end of the bar):
+Execute (6.2 dW deletes to the end of the bar):
   call cursor(1, 8)
-  normal dL
+  normal dW
 Expect songwriter:
   e|--3--|
   B|-----|

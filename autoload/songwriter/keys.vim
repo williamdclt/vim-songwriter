@@ -23,8 +23,9 @@ let s:tabmode.n = {
       \ 'b': 'call songwriter#tab#MoveNote(-1)',
       \ 'l': 'call songwriter#tab#MoveColumn(1)',
       \ 'h': 'call songwriter#tab#MoveColumn(-1)',
-      \ 'L': 'call songwriter#tab#MoveBar(1, v:count1)',
-      \ 'H': 'call songwriter#tab#MoveBar(-1, v:count1)',
+      \ 'W': 'call songwriter#tab#MoveBar("W", v:count1)',
+      \ 'B': 'call songwriter#tab#MoveBar("B", v:count1)',
+      \ 'E': 'call songwriter#tab#MoveBar("E", v:count1)',
       \ 'a': 'call songwriter#tab#AddNote(1)',
       \ 'i': 'call songwriter#tab#AddNote(-1)',
       \ '<Esc>': 'call songwriter#tab#insert#Escape()',
@@ -82,8 +83,9 @@ let s:tabmode.x = {
       \ 'b': 'call songwriter#tab#visual#Motion("b")',
       \ 'l': 'call songwriter#tab#visual#Motion("l")',
       \ 'h': 'call songwriter#tab#visual#Motion("h")',
-      \ 'L': 'call songwriter#tab#visual#Motion("L")',
-      \ 'H': 'call songwriter#tab#visual#Motion("H")',
+      \ 'W': 'call songwriter#tab#visual#Motion("W")',
+      \ 'B': 'call songwriter#tab#visual#Motion("B")',
+      \ 'E': 'call songwriter#tab#visual#Motion("E")',
       \ 'ic': 'call songwriter#tab#visual#Object("c", 0)',
       \ 'ac': 'call songwriter#tab#visual#Object("c", 1)',
       \ 'i|': 'call songwriter#tab#visual#Object("|", 0)',
@@ -104,16 +106,16 @@ let s:tabmode.x = {
 let s:tabline.n = {
       \ 'w': 'call songwriter#keys#TabWord(1)',
       \ 'b': 'call songwriter#keys#TabWord(-1)',
-      \ 'L': 'call songwriter#keys#JumpBarLine(1)',
-      \ 'H': 'call songwriter#keys#JumpBarLine(-1)',
+      \ 'W': 'call songwriter#keys#JumpBarLine(1)',
+      \ 'B': 'call songwriter#keys#JumpBarLine(-1)',
       \ }
 let s:tabline.o = {
-      \ 'L': 'call songwriter#keys#JumpBarLine(1)',
-      \ 'H': 'call songwriter#keys#JumpBarLine(-1)',
+      \ 'W': 'call songwriter#keys#JumpBarLine(1)',
+      \ 'B': 'call songwriter#keys#JumpBarLine(-1)',
       \ }
 let s:tabline.x = {
-      \ 'L': 'call songwriter#keys#JumpBarLine(1)',
-      \ 'H': 'call songwriter#keys#JumpBarLine(-1)',
+      \ 'W': 'call songwriter#keys#JumpBarLine(1)',
+      \ 'B': 'call songwriter#keys#JumpBarLine(-1)',
       \ }
 
 " Every key of `mode` (default 'n') that needs a dispatching map.
@@ -162,7 +164,7 @@ function! songwriter#keys#TabWord(dir) abort
   call search(songwriter#grammar#TabWordStop(), a:dir > 0 ? 'W' : 'bW')
 endfunction
 
-" Spec [Tablature][[Motions]] 3-4: `L`/`H` jump to the next/previous pipe.
+" Spec [Tablature][[Motions]] 3-4: `W`/`B` jump to the next/previous pipe.
 function! songwriter#keys#JumpBarLine(dir) abort
   let v:searchforward = a:dir > 0
   call search(songwriter#grammar#Pipe(), a:dir > 0 ? 'W' : 'bW')

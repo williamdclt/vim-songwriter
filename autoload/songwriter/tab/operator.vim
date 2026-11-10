@@ -24,7 +24,7 @@ function! songwriter#tab#operator#Start(op) abort
 endfunction
 
 " `Y`, `S` (target "column": the column, as `yy`/`cc`) and `D`, `C` (target
-" "bar-end": to the end of the bar, as `dL`/`cL`): the operator, then its
+" "bar-end": to the end of the bar, as `dW`/`cW`): the operator, then its
 " target as a <Cmd> (a returned key would not be remapped).
 function! songwriter#tab#operator#StartOn(op, target) abort
   let l:keys = songwriter#tab#operator#Start(a:op)

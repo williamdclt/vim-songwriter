@@ -1,5 +1,5 @@
 " Spec [Tablature][[Motions]] 1-4, outside tablature mode: on a tab line `w`/`b`
-" stop on notes, string names and pipes (never dashes); `L`/`H` jump between pipes.
+" stop on notes, string names and pipes (never dashes); `W`/`B` jump between pipes.
 
 Before:
   unlet! b:songwriter_tabmode b:songwriter_slot
@@ -58,39 +58,39 @@ Execute (w from string name stops on bar line):
 Then:
   AssertEqual 2, col('.')
 
-Given songwriter (L jumps to next bar line on tablature):
+Given songwriter (W jumps to next bar line on tablature):
   e|--4-----------|--1-----------|
 
-Execute (L jumps to next bar line on tablature):
+Execute (W jumps to next bar line on tablature):
   call cursor(1, 5)
-  normal L
+  normal W
 Then:
   AssertEqual 17, col('.')
 
-Given songwriter (H jumps to previous bar line on tablature):
+Given songwriter (B jumps to previous bar line on tablature):
   e|--4-----------|--1-----------|
 
-Execute (H jumps to previous bar line on tablature):
+Execute (B jumps to previous bar line on tablature):
   call cursor(1, 20)
-  normal H
+  normal B
 Then:
   AssertEqual 17, col('.')
 
-Given songwriter (L from string name jumps to first bar line):
+Given songwriter (W from string name jumps to first bar line):
   e|--4-----------|
 
-Execute (L from string name jumps to first bar line):
+Execute (W from string name jumps to first bar line):
   call cursor(1, 1)
-  normal L
+  normal W
 Then:
   AssertEqual 2, col('.')
 
-Given songwriter (H from after first bar line jumps back to it):
+Given songwriter (B from after first bar line jumps back to it):
   e|--4-----------|
 
-Execute (H from after first bar line jumps back to it):
+Execute (B from after first bar line jumps back to it):
   call cursor(1, 5)
-  normal H
+  normal B
 Then:
   AssertEqual 2, col('.')
 
