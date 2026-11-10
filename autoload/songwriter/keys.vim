@@ -135,7 +135,8 @@ function! s:action(action) abort
   return a:action[0] ==# '=' ? eval(a:action[1:]) : "\<Cmd>" . a:action . "\<CR>"
 endfunction
 
-" Tablature mode: a buffer-local flag, off by default.
+" Tablature mode: a buffer-local flag, set on by the ftplugin and off when
+" unset.
 function! songwriter#keys#InTabMode() abort
   return get(b:, 'songwriter_tabmode', 0)
 endfunction

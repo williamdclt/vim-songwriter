@@ -174,7 +174,8 @@ after the final pipe is dropped.
 
 ### Tablature mode (`<leader>t`, spec [Tablature][[Editing]] 3)
 
-A buffer-local flag, `b:songwriter_tabmode`, off by default; no teardown needed.
+A buffer-local flag, `b:songwriter_tabmode`, set on by the ftplugin when a
+buffer is opened (and unset by `b:undo_ftplugin`); unset means off.
 
 - **`w`/`b` (3.2)**: next/previous note start on the current line, skipping
   dashes and pipes; a two-digit fret is landed on at its first digit.
