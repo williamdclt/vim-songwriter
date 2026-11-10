@@ -141,6 +141,28 @@ Execute (6.2.2 a motion never cuts a two-digit note):
 Expect songwriter:
   e|--5--|
 
+Given songwriter (6.11 dd on the last bar's only column: the bar goes, cursor on the previous bar's last column):
+  e|--3--5--|--7--|
+  B|--------|--8--|
+
+Execute (6.11 dd on the last bar's only column: the bar goes, cursor on the previous bar's last column):
+  call cursor(2, 14)
+  normal dd
+  AssertEqual [2, 8], [line('.'), col('.')]
+Expect songwriter:
+  e|--3--5--|
+  B|--------|
+
+Given songwriter (6.11 x on the last bar's lone note: cursor on the previous bar's last column):
+  e|--3--5--|--7--|
+
+Execute (6.11 x on the last bar's lone note: cursor on the previous bar's last column):
+  call cursor(1, 14)
+  normal x
+  AssertEqual 8, col('.')
+Expect songwriter:
+  e|--3--5--|
+
 " --- 6.4 yank and registers ---
 
 Given songwriter (6.4 yac yanks a blockwise column, buffer unchanged):
