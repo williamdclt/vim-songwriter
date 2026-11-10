@@ -290,6 +290,23 @@ text, and arrow keys would be needed).
   note the same way (3.4.3); on a note it stays the erase of spec 6.7. Off tablature mode or a tab
   line, digits keep their count meaning. Digits work in both states and keep
   the state they are typed in.
+- **Typing a run of notes (3.4.1.1-3.4.1.3)**: in the insert state the next
+  note is the common case, so a digit straight after a note opens a slot after
+  it (`AddNote(1)`, what `l` does) unless appending it makes a real fret (no
+  leading zero, at most `g:songwriter_max_fret`). The fret range resolves the
+  `12`-or-`1 2` ambiguity: only `1` and `2` (up to 24) can start a two-digit
+  fret, and `<Space>`, which is `l` in the insert state, ends a `1` that is
+  meant alone. The cursor stays on the typed note rather than moving to the
+  next slot right away, so `j`/`k` still build a chord on the note's column,
+  and nothing is opened that would have to be closed again. The normal state
+  keeps the plain append of 3.4.1: there a digit edits the note under the
+  cursor, it never adds one.
+  Separators are typed the same way: straight after a note (`JustTyped`, a
+  dispatch context of its own in `keys.vim`), `h p b r t s / ~` write a
+  separator in a new column (on every string, so later notes keep their gap),
+  and `typing.separator` makes the next digit go in a new column right after
+  it. Those keys lose their meaning only for that one keystroke, where moving
+  or pasting is rare; `\` is left out as it is the default `<leader>`.
 
 ### Linting after edits (spec [Tablature][[Editing]] 4)
 

@@ -72,6 +72,14 @@ state (moving opens room for new notes). The insert state shows
 In the insert state, `l` / `h` step through notes *and* the gaps between them,
 opening a slot in each gap; `l` past the last note adds a new bar.
 
+In the insert state, notes are typed one after the other: `a5789` gives
+`5-7-8-9`. A digit joins the fret before it only when that makes a real fret
+(`12`, `24`; at most `g:songwriter_max_fret`, 24 by default), so `25` is two
+notes. Press `<Space>` (same as `l`) to end a `1` or `2` meant alone: `1 5`.
+`j` / `k` after a note stay on its column, to type a chord (`5j7`).
+Technique markers are typed straight after a note: `5h7`, `7b`, `5/9~`
+(`h p b r t s / ~`).
+
 Use Vim's `f` and `r` to edit technique markers: `fhr/` turns a hammer-on into
 a slide.
 

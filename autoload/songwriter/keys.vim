@@ -6,16 +6,30 @@
 "     {mode}noremap <buffer> <expr> {key} songwriter#keys#Dispatch({key}, {mode})
 " Dispatch picks the action for the current context, most specific first, and
 " falls back to the key's default behaviour:
-"   1. s:tabmode[mode] - tablature mode on (<leader>t) and cursor on a tab line
-"   2. s:tabline[mode] - cursor on a tab line
-"   3. the key itself
+"   1. s:typed[mode]   - tablature mode, insert state, straight after a note
+"                        was typed (songwriter#tab#JustTyped)
+"   2. s:tabinsert[mode] - tablature mode, insert state
+"   3. s:tabmode[mode] - tablature mode on (<leader>t) and cursor on a tab line
+"   4. s:tabline[mode] - cursor on a tab line
+"   5. the key itself
 " An action is an Ex command, run with <Cmd> (no mode change, no command-line
 " echo), or, when it starts with `=`, an expression whose value is the keys to
 " run (operators need this: they return `g@`). Special keys are written in <>
 " notation ('<Esc>'). To add a context key: add it to a table.
 
+let s:typed = {'n': {}, 'o': {}, 'x': {}}
+let s:tabinsert = {'n': {}, 'o': {}, 'x': {}}
 let s:tabmode = {}
 let s:tabline = {}
+
+" Spec [Tablature][[Editing]] 3.4.1.3: separator keys write a separator
+" straight after a typed note.
+for s:sep in ['h', 'p', 'b', 'r', 't', 's', '/', '~']
+  let s:typed.n[s:sep] = printf('call songwriter#tab#EnterSeparator(%s)', string(s:sep))
+endfor
+unlet s:sep
+" Spec 3.4.1.2: `<Space>` is `l`.
+let s:tabinsert.n['<Space>'] = 'call songwriter#tab#MoveColumn(1)'
 
 " Spec [Tablature][[Editing]] 3, 6 and 8.
 let s:tabmode.n = {
@@ -142,14 +156,23 @@ let s:tabline.x = {
 " Every key of `mode` (default 'n') that needs a dispatching map.
 function! songwriter#keys#ContextKeys(...) abort
   let l:mode = a:0 ? a:1 : 'n'
-  return uniq(sort(keys(s:tabmode[l:mode]) + keys(s:tabline[l:mode])))
+  return uniq(sort(keys(s:typed[l:mode]) + keys(s:tabinsert[l:mode])
+        \ + keys(s:tabmode[l:mode]) + keys(s:tabline[l:mode])))
 endfunction
 
 function! songwriter#keys#Dispatch(key, ...) abort
   let l:mode = a:0 ? a:1 : 'n'
   if songwriter#grammar#IsTabLine(getline('.'))
-    if songwriter#keys#InTabMode() && has_key(s:tabmode[l:mode], a:key)
-      return s:action(s:tabmode[l:mode][a:key])
+    if songwriter#keys#InTabMode()
+      if has_key(s:typed[l:mode], a:key) && songwriter#tab#JustTyped()
+        return s:action(s:typed[l:mode][a:key])
+      endif
+      if has_key(s:tabinsert[l:mode], a:key) && songwriter#tab#insert#Active()
+        return s:action(s:tabinsert[l:mode][a:key])
+      endif
+      if has_key(s:tabmode[l:mode], a:key)
+        return s:action(s:tabmode[l:mode][a:key])
+      endif
     endif
     if has_key(s:tabline[l:mode], a:key)
       return s:action(s:tabline[l:mode][a:key])
