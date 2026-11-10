@@ -83,6 +83,18 @@ Technique markers are typed straight after a note: `5h7`, `7b`, `5/9~`
 Use Vim's `f` and `r` to edit technique markers: `fhr/` turns a hammer-on into
 a slide.
 
+### Writing chords
+
+`=` then a chord name and `<Enter>` writes a whole chord on the time column,
+with its root on the cursor's string: on the A string `=Am<Enter>` is the open
+Am, on the low E string the barre at the 5th fret. `==` right after it cycles to
+the next voicing: lower strings first, then higher ones, then the 12th fret.
+In the insert state it fills the slot, and the next digit goes on after it.
+
+Shapes (E, A, D at any fret, open C and G) cover major, `m`, `7`, `m7`, `maj7`,
+`sus2`, `sus4` in standard tuning. Power chords (`=E5`) are root, fifth and
+octave, and follow any tuning (drop D gives the one-finger shape).
+
 ### Moving
 
 | Key            | Moves to                                          |

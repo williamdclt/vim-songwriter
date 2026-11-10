@@ -28,6 +28,7 @@ never relies on concealing or rendering.
 | `autoload/songwriter/tab/visual.vim` | Tablature-mode visual mode: selections, motions, operators on a selection. |
 | `autoload/songwriter/tab/register.vim` | Blockwise tab registers and the string names of their source tab. |
 | `autoload/songwriter/tab/repeat.vim` | `.` for actions that are not operators. |
+| `autoload/songwriter/tab/voicings.vim` | Whole chords on a time column: voicings of a chord name in their cycle order, placing one (pure), and `=`/`==`. |
 | `autoload/songwriter/tab/strings.vim` | Moving notes and time columns to another string, keeping the fret or the pitch: pure `Move()` and its entry point. |
 | `autoload/songwriter/chord.vim` | Chord model and chord editing. |
 | `autoload/songwriter/pitch.vim` | Pitch classes: note names to semitones and back (sharp spelling). Shared by chords and tab string intervals. |
@@ -472,6 +473,37 @@ before and after like the other tablature-mode edits.
   would touch the next note or the pipe, or right before the column when a
   note ends just before it there. Insertion points never cut a note in two on
   another string; the following lint normalises the spacing.
+
+### Chords on a column (`=`, `==`, spec [Tablature][[Editing]] 10)
+
+`tab/voicings.vim`: pure `Voicings()` (a chord name and string names in, the
+voicings in their cycle order out) and `Place()`, and the entry points.
+
+- **The root is on the cursor's string.** The string is already where the
+  cursor is, and it is the choice a guitarist makes first (open Am from the A
+  string, barre from the low E), so no other argument is needed to pick
+  between open and barre shapes.
+- **`==` cycles, ordered by how often a voicing is wanted.** Lower root strings
+  come before higher ones (the E-string barre is the usual second choice after
+  an A-string shape), lower frets first, and the 12th-fret repeats of open
+  shapes last. `==` is one key read by `=` (`getchar()`), not a second map, so a
+  lone `=` never waits for 'timeoutlen'. It works only straight after `=` or
+  `==` (the voicing list is kept in `tab/state.vim` with its changedtick), and
+  joins their undo step.
+- **Fixed shapes for standard tuning, intervals for power chords.** Full chord
+  shapes are only playable as the familiar fingerings in standard tuning, so
+  they are tables of fret offsets (CAGED: E, A, D at any fret; C and G in open
+  position only, where they are actually used) and other tunings are refused.
+  A power chord is three strings and computes well from the string names, as
+  `S` does (spec 7.3), so drop D gets its one-finger shape for free.
+- **The chord replaces the column**, as a digit replaces a note: the notes
+  starting on it go, and a two-digit fret gets room as a moved note does
+  (`columns#MakeRoom`, spec 7.5). Unplayed strings stay dashes: muting marks are
+  the user's call (`x`).
+- **Typing on.** In the insert state a chord counts as a typed note
+  (`typing.chord`): a digit after it opens the next slot even when it would
+  extend the root's fret (`1` then `2` is not `12`), and separators are not
+  typed after it.
 
 ### New tab (`o`/`O`, `:SongwriterNewTab`, spec [Tablature][[Editing]] 8, 9)
 

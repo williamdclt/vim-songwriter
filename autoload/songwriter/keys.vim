@@ -31,7 +31,7 @@ unlet s:sep
 " Spec 3.4.1.2: `<Space>` is `l`.
 let s:tabinsert.n['<Space>'] = 'call songwriter#tab#MoveColumn(1)'
 
-" Spec [Tablature][[Editing]] 3, 6 and 8.
+" Spec [Tablature][[Editing]] 3, 6, 8 and 10.
 let s:tabmode.n = {
       \ 'w': 'call songwriter#tab#MoveWord("w")',
       \ 'b': 'call songwriter#tab#MoveWord("b")',
@@ -63,6 +63,7 @@ let s:tabmode.n = {
       \ 'o': 'call songwriter#tab#NewTab(1)',
       \ 'O': 'call songwriter#tab#NewTab(0)',
       \ 'V': 'call songwriter#tab#visual#Column()',
+      \ '=': 'call songwriter#tab#voicings#Prompt()',
       \ }
 " Spec 7: `s` (keep the fret) / `S` (keep the pitch), then `k`/`j` (the note
 " under the cursor) or `K`/`J` (its whole time column), up/down a string.
