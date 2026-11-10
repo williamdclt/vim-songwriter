@@ -10,6 +10,7 @@ let g:loaded_songwriter_plugin = 1
 command! -nargs=0 SongwriterAddBar call songwriter#tab#AddBar()
 command! -nargs=0 SongwriterAddDash call songwriter#tab#AddDash()
 command! -nargs=0 SongwriterAddDashes call songwriter#tab#AddDashes()
+command! -nargs=? SongwriterNewTab call songwriter#tab#NewTabNamed(<q-args>)
 command! -nargs=0 SongwriterLint call songwriter#tab#Lint()
 command! -nargs=1 SongwriterTabChord call songwriter#tab#TabChord(<q-args>)
 command! -nargs=1 SongwriterChordAbove call songwriter#chord#ChordAbove(<q-args>)
