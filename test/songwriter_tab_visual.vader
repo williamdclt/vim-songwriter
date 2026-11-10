@@ -204,6 +204,18 @@ Expect songwriter:
 
 " --- 6.9.5 motions keep visual mode ---
 
+Given songwriter (6.9.5 visual L/H move by bar as in normal mode (3.5)):
+  e|--3--|--5--7--|
+
+Execute (6.9.5 visual L/H move by bar as in normal mode (3.5)):
+  let b:songwriter_tabmode = 1
+  call cursor(1, 5)
+  execute "normal vL\<Esc>"
+  AssertEqual 11, col("'>")
+  call cursor(1, 14)
+  execute "normal vH\<Esc>"
+  AssertEqual 5, col("'<")
+
 Given songwriter (6.9.5 visual L stays in visual mode, outside tablature mode too):
   e|--3--|--5--|
 

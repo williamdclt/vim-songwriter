@@ -94,10 +94,15 @@ endfunction
 
 " Spec 6.9.5: tablature-mode motions in visual mode, without side effects:
 " `w`/`b` to the next/previous note of the string, `l`/`h` to the next/previous
-" note column of the block.
+" note column of the block, `L`/`H` to the next/previous bar (3.5).
 function! songwriter#tab#visual#Motion(key) abort
   let l:block = songwriter#tab#model#Read()
   if empty(l:block)
+    return
+  endif
+  if a:key =~# '[LH]'
+    call cursor(line('.'), songwriter#tab#columns#BarStop(l:block.lines, getline('.'),
+          \ col('.'), a:key ==# 'L' ? 1 : -1, v:count1))
     return
   endif
   let l:stops = songwriter#tab#columns#Stops(l:block.lines, getline('.'), a:key)
