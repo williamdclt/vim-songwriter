@@ -70,7 +70,7 @@ Execute (6.1.2 di| empties the bar):
   call cursor(1, 8)
   normal di|
 Expect songwriter:
-  e|--|--7--|
+  e|-----|--7--|
 
 " --- 6.2 motions ---
 

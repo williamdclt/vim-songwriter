@@ -131,9 +131,9 @@ Execute (3.3.4 l on the slot of the empty bar lints it back and moves on):
   call cursor(1, 5)
   normal lll
 Then:
-  AssertEqual 14, col('.')
+  AssertEqual 17, col('.')
 Expect songwriter:
-  e|--4--|--|--1--|
+  e|--4--|-----|--1--|
 
 Given songwriter (3.3.4 h enters the empty bar before the cursor, opening a slot):
   e|--4--|--|--1--|
@@ -157,7 +157,7 @@ Execute (3.3.4 h on the slot of the empty bar lints it back and moves on):
 Then:
   AssertEqual 5, col('.')
 Expect songwriter:
-  e|--4--|--|--1--|
+  e|--4--|-----|--1--|
 
 Given songwriter (3.3.4 h crosses several empty bars one at a time):
   e|--4--|--|--|--1--|
@@ -169,7 +169,7 @@ Execute (3.3.4 h crosses several empty bars one at a time):
 Then:
   AssertEqual 11, col('.')
 Expect songwriter:
-  e|--4--|-----|--|--1--|
+  e|--4--|-----|-----|--1--|
 
 " --- 3.5 L/H: first time column of the next bar, last of the previous ---
 

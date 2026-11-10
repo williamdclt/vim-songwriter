@@ -37,19 +37,19 @@ Expect songwriter:
   A|-----|
   E|-----|
 
-Given songwriter (abandoned, the slot is linted away):
+Given songwriter (abandoned, the slot is linted to an empty bar):
 
-Execute (abandoned, the slot is linted away):
+Execute (abandoned, the slot is linted to an empty bar):
   SongwriterNewTab
   execute "normal \<Esc>"
 
 Expect songwriter:
-  e|--|
-  B|--|
-  G|--|
-  D|--|
-  A|--|
-  E|--|
+  e|-----|
+  B|-----|
+  G|-----|
+  D|-----|
+  A|-----|
+  E|-----|
 
 Given songwriter (string names can be given, highest first):
 

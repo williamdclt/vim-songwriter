@@ -100,11 +100,11 @@ Expect songwriter:
   e|--3--|
   B|--1--|
 
-Given songwriter (An abandoned new tab is linted to one empty bar):
+Given songwriter (An abandoned new tab is linted to one empty bar of five dashes):
   e|--3--|
   B|--1--|
 
-Execute (An abandoned new tab is linted to one empty bar):
+Execute (An abandoned new tab is linted to one empty bar of five dashes):
   let b:songwriter_tabmode = 1
   call cursor(1, 5)
   execute "normal o\<Esc>"
@@ -113,8 +113,8 @@ Expect songwriter:
   e|--3--|
   B|--1--|
 
-  e|--|
-  B|--|
+  e|-----|
+  B|-----|
 
 Given songwriter (o is a single undo step):
   e|--3--|
