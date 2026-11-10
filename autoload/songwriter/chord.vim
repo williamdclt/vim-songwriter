@@ -122,13 +122,14 @@ endfunction
 " Visual <Ctrl-A>/<Ctrl-X> (spec [Chords][[Editing]]), run from visual mode with
 " a <Cmd> map. On each selected line, the chords the selection touches are
 " transposed by `semitones`; a line where it touches none gets Vim's own visual
-" increment on its selected part (frets unsigned on tab lines). Ends in normal
-" mode with the cursor at the start of the selection, as Vim's does.
+" increment on its selected part (frets unsigned on tab lines). The selection
+" is kept (same corners and cursor end), so <Ctrl-A> can be pressed again.
 function! songwriter#chord#TransposeVisual(semitones) abort
   let l:n = str2nr(a:semitones)
   let l:mode = mode()
   let l:to_eol = winsaveview().curswant >= s:eol
   let [l:p, l:q] = [getpos('v'), getpos('.')]
+  let [l:anchor, l:cursor] = [l:p, getcurpos()]
   execute "normal! \<Esc>"
   if l:p[1] > l:q[1] || (l:p[1] == l:q[1] && l:p[2] > l:q[2])
     let [l:p, l:q] = [l:q, l:p]
@@ -154,7 +155,19 @@ function! songwriter#chord#TransposeVisual(semitones) abort
       call s:native_visual_increment(l:lnum, l:first, min([l:last, len(l:line) - 1]), l:n)
     endif
   endfor
-  call cursor(l:p[1], l:mode ==# 'V' ? 1 : (l:mode ==# 'v' ? l:p[2] : l:lcol + 1))
+  call s:reselect(l:mode, l:anchor, l:cursor, l:to_eol)
+endfunction
+
+" Start visual mode `mode` from position `anchor` (getpos()) to `cursor`
+" (getcurpos(), whose curswant sets a blockwise selection's right edge);
+" `to_eol` extends a blockwise selection to the end of every line (`$`).
+function! s:reselect(mode, anchor, cursor, to_eol) abort
+  call setpos('.', a:anchor)
+  execute 'normal! ' . a:mode
+  call setpos('.', a:cursor)
+  if a:to_eol
+    normal! $
+  endif
 endfunction
 
 " Vim's own visual <Ctrl-A>/<Ctrl-X> by |n| on 0-indexed columns [first, last]

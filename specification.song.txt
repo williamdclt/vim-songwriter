@@ -137,7 +137,7 @@ There will be false positives (like `A` for an A major chord is likely to appear
 
 [[Editing]]
 - `<Ctrl-A>` / `<Ctrl-X>` — transpose chord under cursor up/down (by the count's number of semitones) ✓. Off a chord, they keep Vim's normal behaviour of incrementing/decrementing the next number on the line; on a tab line, dashes are not minus signs (`--3` is fret 3). ✓
-    In visual mode, they transpose every chord the selection touches; a selected line with no chord keeps Vim's visual increment of its first number (frets unsigned on a tab line). ✓
+    In visual mode, they transpose every chord the selection touches; a selected line with no chord keeps Vim's visual increment of its first number (frets unsigned on a tab line). The selection stays, so they can be pressed again. ✓
 - A chord is a whole token: a root, a known quality and an optional `/bass` (`Bad` and `xAm` are not chords). A slash chord is edited as one chord (`D/F#` transposes to `D#/G`, toggles to `Dm/F#`). ✓
 - `<leader>m` — toggle minor/major ✓
 - `:SongwriterChordAbove <chord>` — insert chord above cursor, aligned to cursor column ✓
