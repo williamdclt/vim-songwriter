@@ -58,7 +58,8 @@ function! s:column_for(cols, col) abort
   return empty(l:right) ? 0 : l:right[0]
 endfunction
 
-function! s:on_pipe_or_name(line, col) abort
+" True when column `col` of `line` is its string name or a pipe.
+function! songwriter#tab#columns#OnPipeOrName(line, col) abort
   return a:col < songwriter#tab#model#BodyOffset() || a:line[a:col - 1] ==# '|'
 endfunction
 
@@ -66,7 +67,7 @@ endfunction
 " column `col` of line `lin`. [s, e], or [] on a pipe, the string name or in a
 " bar without notes. A count stops at the bar's last column.
 function! songwriter#tab#columns#ColumnObject(lines, lin, col, count, around) abort
-  if s:on_pipe_or_name(a:lines[a:lin], a:col)
+  if songwriter#tab#columns#OnPipeOrName(a:lines[a:lin], a:col)
     return []
   endif
   let [l:bar, l:cols] = s:bar_columns(a:lines, a:lin, a:col)
@@ -294,7 +295,7 @@ function! songwriter#tab#columns#Snap(lines, lin, s, e) abort
       endif
     endfor
   endfor
-  if !l:covered && !s:on_pipe_or_name(a:lines[a:lin], a:s)
+  if !l:covered && !songwriter#tab#columns#OnPipeOrName(a:lines[a:lin], a:s)
     let [l:bar, l:cols] = s:bar_columns(a:lines, a:lin, a:s)
     let l:left = filter(copy(l:cols), 'v:val < a:s')
     if !empty(l:left)
@@ -308,7 +309,7 @@ function! songwriter#tab#columns#Snap(lines, lin, s, e) abort
       endif
     endfor
   endfor
-  if l:ends && !s:on_pipe_or_name(a:lines[a:lin], l:e)
+  if l:ends && !songwriter#tab#columns#OnPipeOrName(a:lines[a:lin], l:e)
     let [l:bar, l:cols] = s:bar_columns(a:lines, a:lin, l:e)
     let l:e = s:gap_end(a:lines, a:lin, l:bar, l:cols, l:e)
   endif
@@ -502,7 +503,7 @@ endfunction
 " on any string; a separator is never removed). Returns {'lines', 'col'}, or {} when nothing changes, including on
 " a bar's first column (lint keeps two dashes after the pipe there).
 function! songwriter#tab#columns#ShiftColumn(lines, lin, col, dir) abort
-  if s:on_pipe_or_name(a:lines[a:lin], a:col)
+  if songwriter#tab#columns#OnPipeOrName(a:lines[a:lin], a:col)
     return {}
   endif
   let [l:bar, l:cols] = s:bar_columns(a:lines, a:lin, a:col)
@@ -553,7 +554,7 @@ function! songwriter#tab#columns#Overlay(lines, lin, col, rows, regnames) abort
     return l:m
   endif
   let l:c = 0
-  if !s:on_pipe_or_name(a:lines[a:lin], a:col)
+  if !songwriter#tab#columns#OnPipeOrName(a:lines[a:lin], a:col)
     let [l:bar, l:cols] = s:bar_columns(a:lines, a:lin, a:col)
     let l:c = s:column_for(l:cols, a:col)
   endif
@@ -581,4 +582,61 @@ function! songwriter#tab#columns#Overlay(lines, lin, col, rows, regnames) abort
     endfor
   endfor
   return {'lines': l:out, 'col': l:c, 'msg': l:m.msg}
+endfunction
+
+" Make room on line `to` for a note of width `len` at column `c` (spec 7.5, 10.5):
+" a dash before the column when a note ends right before it, dashes after it
+" when the note would touch the next note (a 1-dash gap is kept) or the pipe.
+" Dashes are inserted on every line. Returns {'lines', 'col'} (the column may
+" move right by one), or {'error'}.
+function! songwriter#tab#columns#MakeRoom(lines, to, c, len) abort
+  let l:lines = a:lines
+  let l:c = a:c
+  let l:t = l:lines[a:to]
+  if s:in_chain(l:t, l:c)
+    return {'error': printf('string %s already has a note there', songwriter#tab#model#Name(l:lines[a:to]))}
+  endif
+  if l:c > 1 && s:in_chain(l:t, l:c - 1)
+    if s:splits(l:lines, l:c - 1)
+      return {'error': printf('no room on string %s', songwriter#tab#model#Name(l:lines[a:to]))}
+    endif
+    let l:lines = songwriter#tab#model#InsertColumns(l:lines, l:c - 1, 1, '-')
+    let l:c += 1
+    let l:t = l:lines[a:to]
+  endif
+  let l:free = len(matchstr(l:t, songwriter#grammar#DashRun(), l:c - 1))
+  let l:next = l:t[l:c - 1 + l:free : l:c - 1 + l:free]
+  if l:next ==# ''
+    let l:lines[a:to] = l:t . repeat('-', l:c - 1 + a:len - len(l:t))
+    return {'lines': l:lines, 'col': l:c}
+  endif
+  let l:k = a:len + (l:next ==# '|' ? 0 : 1) - l:free
+  if l:k <= 0
+    return {'lines': l:lines, 'col': l:c}
+  endif
+  " Insert after the latest offset in the dash run that splits no note.
+  let l:o = l:c - 1 + l:free
+  while l:o >= l:c && s:splits(l:lines, l:o)
+    let l:o -= 1
+  endwhile
+  if l:o < l:c
+    return {'error': printf('no room on string %s', songwriter#tab#model#Name(l:lines[a:to]))}
+  endif
+  return {'lines': songwriter#tab#model#InsertColumns(l:lines, l:o, l:k, '-'), 'col': l:c}
+endfunction
+
+" True when inserting after byte offset `o` would cut a note in two on a line.
+function! s:splits(lines, o) abort
+  for l:l in a:lines
+    if s:in_chain(l:l, a:o) && s:in_chain(l:l, a:o + 1)
+      return 1
+    endif
+  endfor
+  return 0
+endfunction
+
+" True when column `col` of `line` is part of a chain.
+function! s:in_chain(line, col) abort
+  return a:col > songwriter#tab#model#BodyOffset() && a:col <= len(a:line)
+        \ && songwriter#grammar#IsChainChar(a:line[a:col - 1])
 endfunction
