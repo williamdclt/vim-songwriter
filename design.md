@@ -218,6 +218,13 @@ text, and arrow keys would be needed).
     lines end with a pipe, appends a new bar `-----|` and lands on its middle
     dash, a slot like any other. On the new bar's slot (a bar with no note)
     `l` does nothing, so holding `l` never piles up bars.
+- **`L`/`H` (3.3.5)**: the normal-state `l`/`h` in both states
+  (`StepColumn`), so the insert state has a way through notes that does not
+  stop on every gap. An open slot is closed first and the move goes on from
+  its note as `l`/`h` would (`s:from_slot`); they never open one, not even in
+  an empty bar or at the end of the tab. After an operator and in visual mode
+  they are `l`/`h`. Vim's own `L`/`H` (bottom/top of the window) are little
+  use in a tab, whose few lines all fit on screen.
 - **`W`/`B`/`E` (3.5)**: by bar, as Vim's WORD motions are a bigger
   `w`/`b`/`e` (`columns#BarStop`, pure). `W` goes to the first time column of
   the next bar, `B` to the first of the cursor's bar or the previous one, `E`
@@ -433,10 +440,9 @@ native key away, and the command takes the tuning as its argument.
 
 On a tab line, `w`/`b` stop on notes, string names and pipes but never on dashes
 (spec [Tablature][[Motions]] 1-2), and `W`/`B` jump to the next/previous pipe
-(3-4) using `search()`, which ignores `iskeyword`. `L`/`H` keep their native
-meaning (5): on a tab line, Vim's `W`/`B` see the whole line as one WORD and
-are useless, while `L`/`H` (bottom/top of the window) are useful in a long
-song. Off a tab line every key keeps
+(3-4) using `search()`, which ignores `iskeyword`: on a tab line, Vim's own
+`W`/`B` see the whole line as one WORD and are useless. `L`/`H` keep their
+native meaning (5). Off a tab line every key keeps
 its default behaviour.
 
 ## Chords

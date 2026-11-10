@@ -232,12 +232,12 @@ Execute (3.5 W closes an open slot):
 Expect songwriter:
   e|--4--|--1--|
 
-Given songwriter (3.5 L/H keep their native meaning in tablature mode):
+Given songwriter (L/H keep their native meaning outside tablature mode ([[Motions]] 5)):
   e|--4--|--1--|
   B|--4--|--1--|
 
-Execute (3.5 L/H keep their native meaning in tablature mode):
-  let b:songwriter_tabmode = 1
+Execute (L/H keep their native meaning outside tablature mode ([[Motions]] 5)):
+  let b:songwriter_tabmode = 0
   call cursor(1, 5)
   normal L
   AssertEqual 2, line('.')

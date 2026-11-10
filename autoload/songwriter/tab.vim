@@ -273,6 +273,21 @@ function! songwriter#tab#MoveColumn(dir) abort
   endif
 endfunction
 
+" Spec 3.3.5: `L` (dir +1) / `H` (dir -1) move to the next/previous stop as
+" `l`/`h` do in the normal state, in both states, never opening a slot. An open
+" slot is closed first and the move goes on from its note (see s:from_slot).
+function! songwriter#tab#StepColumn(dir) abort
+  let l:slot = songwriter#tab#slots#Abandon()
+  let l:block = songwriter#tab#model#Read()
+  if empty(l:block)
+    return
+  endif
+  let l:target = s:from_slot(l:slot, s:stops(l:block), col('.'), a:dir)
+  if l:target != col('.')
+    call cursor(line('.'), l:target)
+  endif
+endfunction
+
 " Spec 3.3.3 and 5: `l`/`h` in the insert state, where the gaps between notes
 " are stops too. On the open slot, close it (4.3) and move on (see
 " s:leave_slot). On a note column, open a slot after it (`l`, as `a`) or

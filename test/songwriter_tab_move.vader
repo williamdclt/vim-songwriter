@@ -434,6 +434,88 @@ Then:
 Expect songwriter:
   e|--4--|--1--|
 
+" === 3.3.5 L/H: column moves that never open a slot ===
+
+Given songwriter (3.3.5 L/H move across time columns in the normal state):
+  e|--3--5--|--7--|
+  B|--1-----|-----|
+
+Execute (3.3.5 L/H move across time columns in the normal state):
+  call cursor(1, 5)
+  normal L
+  AssertEqual 8, col('.')
+  normal L
+  AssertEqual 14, col('.')
+  normal H
+  AssertEqual 8, col('.')
+Then:
+  Assert !songwriter#tab#insert#Active()
+Expect songwriter:
+  e|--3--5--|--7--|
+  B|--1-----|-----|
+
+Given songwriter (3.3.5 L/H in the insert state move across notes without opening a slot):
+  e|--3--5--|--7--|
+
+Execute (3.3.5 L/H in the insert state move across notes without opening a slot):
+  call cursor(1, 5)
+  call songwriter#tab#insert#Enter()
+  normal LL
+  AssertEqual 14, col('.')
+  normal H
+  AssertEqual 8, col('.')
+Then:
+  Assert songwriter#tab#insert#Active()
+Expect songwriter:
+  e|--3--5--|--7--|
+
+Given songwriter (3.3.5 L closes the slot opened by a and goes to the next note):
+  e|--3--5--|
+
+Execute (3.3.5 L closes the slot opened by a and goes to the next note):
+  call cursor(1, 5)
+  normal aL
+Then:
+  AssertEqual 8, col('.')
+Expect songwriter:
+  e|--3--5--|
+
+Given songwriter (3.3.5 L closes the slot opened by i and lands on its note):
+  e|--3--5--|
+
+Execute (3.3.5 L closes the slot opened by i and lands on its note):
+  call cursor(1, 8)
+  normal iL
+Then:
+  AssertEqual 8, col('.')
+Expect songwriter:
+  e|--3--5--|
+
+Given songwriter (3.3.5 L stops on an empty bar without opening its slot):
+  e|--4--|-----|--1--|
+
+Execute (3.3.5 L stops on an empty bar without opening its slot):
+  call cursor(1, 5)
+  call songwriter#tab#insert#Enter()
+  normal L
+Then:
+  AssertEqual 11, col('.')
+  Assert empty(songwriter#tab#state#Get('slot'))
+Expect songwriter:
+  e|--4--|-----|--1--|
+
+Given songwriter (3.3.5 L on the last note of the tab stays, with no new bar):
+  e|--3--5--|
+
+Execute (3.3.5 L on the last note of the tab stays, with no new bar):
+  call cursor(1, 8)
+  call songwriter#tab#insert#Enter()
+  normal L
+Then:
+  AssertEqual 8, col('.')
+Expect songwriter:
+  e|--3--5--|
+
 " --- Off a tab line ---
 
 Given songwriter (l stays put on a prose line, in either state):

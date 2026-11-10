@@ -42,7 +42,7 @@ A note is a fret (digits: `12` is one note) or `x` (a muted note). Anything else
 2. Motions like `w` MUST NOT stop on `-` ✓
 3. `W` (uppercase) MUST jump to the next `|` (in tablature mode, see [[Editing]] 3.5) ✓
 4. `B` (uppercase) MUST jump to the previous `|` (in tablature mode, see [[Editing]] 3.5) ✓
-5. `L` and `H` keep their native meaning (bottom / top of the window). ✓
+5. Outside tablature mode, `L` and `H` keep their native meaning (bottom / top of the window); in tablature mode, see [[Editing]] 3.3.5. ✓
 
 [[Editing]]
 1. `||` should lint the current tablature. A line whose last bar has no closing pipe (`e|--3--5--`) gets one: that bar is linted like any other, never dropped (`e|--3--5--|`). Whitespace after the final pipe is not a bar. ✓
@@ -67,6 +67,7 @@ A note is a fret (digits: `12` is one note) or `x` (a muted note). Anything else
         3.3.2 In the normal state, `l` and `h` only move: with no column further that way, the cursor stays. `h` does the opposite of `l` (moving left). ✓
         3.3.3 In the insert state, the gaps between notes are stops too. On a note, `l` opens a slot after it as `a` does, and `h` a slot before it as `i` does. On a slot, `l` / `h` close it (4.3) and move to the next / previous note. With the cursor on the 3 of `e|--3-5--|`: `l` opens a slot between 3 and 5 (`e|--3---5--|`, cursor on the middle dash), `l` again closes it and lands on 5 (`e|--3-5--|`), `l` again opens a slot after 5. Crossing a bar line, each gap is visited once: from the last note of a bar, `l` opens a slot in that bar, then the next `l` goes to the first note of the next bar. ✓
         3.3.4 An empty bar (no note on any string) is a stop of its own for `l` and `h`, on its middle dash. In the insert state, landing there opens a slot in its middle (`e|--4--|--|--1--|` -> `e|--4--|-----|--1--|`), ready for a digit; left without a note, it is closed as any slot (4.3). ✓
+        3.3.5 `L` and `H` move to the next / previous stop as `l` and `h` do in the normal state, in both states: they never open a slot, so they are the quick way through notes in the insert state. There, they close an open slot first (4.3) and go on from the note it was opened by, as `l` / `h` would. After an operator and in visual mode, they are `l` / `h` (6.2.1, 6.9.5). ✓
     3.4 numbers should enter the note: replace the character under cursor with the number. On a note, the whole note is replaced. ✓
         3.4.1 A digit typed straight after another one (without moving or editing in between) is appended to it, so two-digit frets can be typed (`1` then `2` gives `12`). ✓
         3.4.2 A digit on a separator does nothing. Separators are edited with Vim's own `f` and `r`, which tablature mode leaves alone (`fhr/` turns a hammer-on into a slide, `f-rh` adds one). ✓
@@ -113,7 +114,7 @@ A note is a fret (digits: `12` is one note) or `x` (a muted note). Anything else
         6.9.2 A plain `v` selection (or a `<C-v>` covering only some strings) is shown as-is, and widened and snapped as in 6.2 when an operator is applied. ✓
         6.9.3 `V` starts a column selection: a blockwise selection of the cursor's column on every string of the tab, cursor on the bottom string, extended by the motions of 6.9.5 and snapped as in 6.9.2 by an operator. In a `v` or `<C-v>` selection, `j`/`k` never leave the tab's strings. `V` again (`VV`) switches to native line-wise visual, which selects whole tabs (6.3). ✓
         6.9.4 Visual `p` replaces the selected columns with the register (delete, then paste in their place, with 6.5.3 row matching). ✓
-        6.9.5 Tab motions (`w`, `b`, `l`, `h`, `W`, `B`, `E`) work in visual mode without leaving it. ✓
+        6.9.5 Tab motions (`w`, `b`, `l`, `h`, `L`, `H`, `W`, `B`, `E`) work in visual mode without leaving it. ✓
     6.10 Each operation, including the lints before and after it, is a single undo step, and `.` repeats it (with its register). After a yank, `.` repeats the yank. ✓
     6.11 After `d`, `x` (6.7.2) and `p`, the tab is linted, and the cursor is on the first note at or after the change. Lint trimming to 2 dashes at bar edges (1.2) still applies: a rest left at the start or end of a bar disappears. ✓
     6.12 Digits enter notes in tablature mode (3.4), so a count cannot be typed in front of a command (`3x` types a 3). Counts work after an operator (`d2ac`, `d3w`, `d3d`) and in visual mode. ✓
