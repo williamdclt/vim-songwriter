@@ -151,8 +151,9 @@ endfunction
 " Spec [Tablature][[Editing]] 8: add an empty tab under (below 1, `o`) or
 " over (below 0, `O`) the block around the cursor, with the same string names
 " and a blank line between the two, and land on the slot in its middle, on the
-" cursor's string. The slot is remembered as `a`'s is (4.3): a digit fills it,
-" and abandoned, it is linted to an empty bar. An open slot is abandoned first.
+" cursor's string, in the insert state. The slot is part of the new tab, so
+" closed without a note it is linted to an empty bar (4.3). An open slot is
+" closed first.
 function! songwriter#tab#NewTab(below) abort
   call songwriter#tab#slots#Abandon()
   let l:block = songwriter#tab#model#Read()
