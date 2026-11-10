@@ -161,6 +161,51 @@ function! songwriter#tab#NewTab(below) abort
   call songwriter#tab#slots#Open()
 endfunction
 
+" The string names of a new tab when none are given (standard guitar tuning).
+let s:default_names = 'eBGDAE'
+
+" Spec [Tablature][[Editing]] 9 (`:SongwriterNewTab`): add an empty tab with
+" string `names` (one letter each, highest first; default eBGDAE). In a tab it
+" goes under that tab; on a blank line it takes that line's place; elsewhere it
+" goes under the cursor line. A blank line keeps it apart from a neighbouring
+" tab. Tablature mode is turned on and the cursor lands on the slot of the top
+" string, remembered as `o`'s is (8). Invalid names are refused with a message.
+function! songwriter#tab#NewTabNamed(names) abort
+  let l:names = empty(a:names) ? s:default_names : a:names
+  if !songwriter#grammar#IsStringNames(l:names)
+    call songwriter#tab#edit#Error('songwriter: string names are single letters, highest first (eBGDAE): ' . l:names)
+    return
+  endif
+  call songwriter#tab#slots#Abandon()
+  let l:tab = songwriter#tab#slots#EmptyTabNamed(split(l:names, '\zs'))
+  let l:block = songwriter#tab#model#Read()
+  if !empty(l:block)
+    let l:after = l:block.end
+  elseif getline('.') =~# '^\s*$'
+    let l:after = line('.') - 1
+    call deletebufline('%', line('.'))
+  else
+    let l:after = line('.')
+  endif
+  let l:lines = copy(l:tab.lines)
+  let l:first = l:after + 1
+  if l:after >= 1 && songwriter#grammar#IsTabLine(getline(l:after))
+    call insert(l:lines, '')
+    let l:first += 1
+  endif
+  if l:after < line('$') && songwriter#grammar#IsTabLine(getline(l:after + 1))
+    call add(l:lines, '')
+  endif
+  if line('$') == 1 && getline(1) ==# '' && l:after == 0
+    call setline(1, l:lines)
+  else
+    call append(l:after, l:lines)
+  endif
+  let b:songwriter_tabmode = 1
+  call cursor(l:first, l:tab.col)
+  call songwriter#tab#slots#Open()
+endfunction
+
 " === Linting after edits (spec [Tablature][[Editing]] 4) ===
 
 " === Motions ===

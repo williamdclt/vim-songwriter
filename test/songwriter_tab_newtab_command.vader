@@ -1,0 +1,160 @@
+" Spec [Tablature][[Editing]] 9: `:SongwriterNewTab [names]` adds an empty tab
+" (string names highest first, default eBGDAE), with a slot open on its top
+" string, and turns tablature mode on.
+
+Before:
+  unlet! b:songwriter_tabmode b:songwriter_slot
+
+Given songwriter (in an empty buffer, the tab fills the empty line):
+
+Execute (in an empty buffer, the tab fills the empty line):
+  SongwriterNewTab
+
+Expect songwriter:
+  e|-----|
+  B|-----|
+  G|-----|
+  D|-----|
+  A|-----|
+  E|-----|
+
+Execute (the cursor is on the slot of the top string, in tablature mode):
+  SongwriterNewTab
+  AssertEqual [1, 5], [line('.'), col('.')]
+  AssertEqual 1, b:songwriter_tabmode
+
+Given songwriter (a digit fills the slot):
+
+Execute (a digit fills the slot):
+  SongwriterNewTab
+  normal 7
+
+Expect songwriter:
+  e|--7--|
+  B|-----|
+  G|-----|
+  D|-----|
+  A|-----|
+  E|-----|
+
+Given songwriter (abandoned, the slot is linted away):
+
+Execute (abandoned, the slot is linted away):
+  SongwriterNewTab
+  execute "normal \<Esc>"
+
+Expect songwriter:
+  e|--|
+  B|--|
+  G|--|
+  D|--|
+  A|--|
+  E|--|
+
+Given songwriter (string names can be given, highest first):
+
+Execute (string names can be given, highest first):
+  SongwriterNewTab GDAE
+
+Expect songwriter:
+  G|-----|
+  D|-----|
+  A|-----|
+  E|-----|
+
+Given songwriter (invalid string names are refused):
+  verse
+
+Execute (invalid string names are refused):
+  SongwriterNewTab E-A
+  SongwriterNewTab C#
+  AssertEqual ['verse'], getline(1, '$')
+
+Given songwriter (on a prose line, the tab goes under it):
+  verse
+  chorus
+
+Execute (on a prose line, the tab goes under it):
+  call cursor(1, 1)
+  SongwriterNewTab GDAE
+  AssertEqual [2, 5], [line('.'), col('.')]
+
+Expect songwriter:
+  verse
+  G|-----|
+  D|-----|
+  A|-----|
+  E|-----|
+  chorus
+
+Given songwriter (on a blank line, the tab replaces it):
+  verse
+
+  chorus
+
+Execute (on a blank line, the tab replaces it):
+  call cursor(2, 1)
+  SongwriterNewTab AE
+
+Expect songwriter:
+  verse
+  A|-----|
+  E|-----|
+  chorus
+
+Given songwriter (in a tab, the new tab goes under it, after a blank line):
+  e|--3--|
+  B|--1--|
+  outro
+
+Execute (in a tab, the new tab goes under it, after a blank line):
+  call cursor(1, 5)
+  SongwriterNewTab AE
+
+Expect songwriter:
+  e|--3--|
+  B|--1--|
+
+  A|-----|
+  E|-----|
+  outro
+
+Given songwriter (a blank line keeps it apart from a tab right under it):
+  verse
+  e|--3--|
+
+Execute (a blank line keeps it apart from a tab right under it):
+  call cursor(1, 1)
+  SongwriterNewTab AE
+
+Expect songwriter:
+  verse
+  A|-----|
+  E|-----|
+
+  e|--3--|
+
+Given songwriter (on a blank line between two tabs, blank lines keep the three apart):
+  e|--3--|
+
+  e|--5--|
+
+Execute (on a blank line between two tabs, blank lines keep the three apart):
+  call cursor(2, 1)
+  SongwriterNewTab AE
+
+Expect songwriter:
+  e|--3--|
+
+  A|-----|
+  E|-----|
+
+  e|--5--|
+
+Given songwriter (the new tab is one undo step):
+  verse
+
+Execute (the new tab is one undo step):
+  SongwriterNewTab AE
+  normal u
+  AssertEqual ['verse'], getline(1, '$')

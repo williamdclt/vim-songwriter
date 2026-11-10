@@ -20,7 +20,12 @@ endfunction
 " with the slot on the middle dash (as the new bar of spec 5).
 " Returns {'lines', 'col'}.
 function! songwriter#tab#slots#EmptyTab(block) abort
-  return {'lines': map(copy(a:block.lines), "songwriter#tab#model#Name(v:val) . '|' . s:new_bar . '|'"),
+  return songwriter#tab#slots#EmptyTabNamed(songwriter#tab#model#Names(a:block.lines))
+endfunction
+
+" Pure. As EmptyTab, with the string `names` given as a list, highest first.
+function! songwriter#tab#slots#EmptyTabNamed(names) abort
+  return {'lines': map(copy(a:names), "v:val . '|' . s:new_bar . '|'"),
         \ 'col': songwriter#tab#model#BodyOffset() + s:new_bar_slot}
 endfunction
 

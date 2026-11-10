@@ -190,14 +190,55 @@ Expect songwriter:
   A#m
   verse 3
 
-Given songwriter (visual <C-A> is one undo step and leaves visual mode):
+Given songwriter (visual <C-A> is one undo step and keeps the selection):
   Am
   e|--3--|
 
-Execute (visual <C-A> is one undo step and leaves visual mode):
+Execute (visual <C-A> is one undo step and keeps the selection):
   execute "normal ggVj\<C-A>"
   AssertEqual ['A#m', 'e|--4--|'], getline(1, 2)
-  AssertEqual 'n', mode()
-  AssertEqual [1, 1], [line('.'), col('.')]
+  execute "normal \<Esc>"
+  AssertEqual 'V', visualmode()
+  AssertEqual [1, 2], [line("'<"), line("'>")]
+  AssertEqual [2, 1], [line('.'), col('.')]
   normal u
   AssertEqual ['Am', 'e|--3--|'], getline(1, 2)
+
+Given songwriter (visual <C-A> twice transposes twice):
+  Am   G7
+  Em   C
+
+Execute (visual <C-A> twice transposes twice):
+  execute "normal ggVj\<C-A>\<C-A>"
+Expect songwriter:
+  Bm   A7
+  F#m   D
+
+Given songwriter (charwise visual <C-A> keeps the selection):
+  Am   G7   D
+
+Execute (charwise visual <C-A> keeps the selection):
+  call cursor(1, 6)
+  execute "normal vl\<C-A>\<Esc>"
+  AssertEqual 'v', visualmode()
+  AssertEqual [6, 7], [col("'<"), col("'>")]
+  AssertEqual 'Am   G#7   D', getline(1)
+
+Given songwriter (blockwise visual <C-A> keeps the selection, also on lines with no chord):
+  Am   G7
+  e|--3--|
+
+Execute (blockwise visual <C-A> keeps the selection, also on lines with no chord):
+  " Outside tablature mode, where l is a plain motion.
+  let b:songwriter_tabmode = 0
+  execute "normal gg\<C-V>jl\<C-A>\<Esc>"
+  AssertEqual "\<C-V>", visualmode()
+  AssertEqual [1, 1, 2, 2], [line("'<"), col("'<"), line("'>"), col("'>")]
+
+Given songwriter (blockwise visual <C-A> to the end of lines keeps the selection to the end):
+  Am   G7
+  C
+
+Execute (blockwise visual <C-A> to the end of lines keeps the selection to the end):
+  execute "normal gg\<C-V>j$\<C-A>\<C-A>"
+  AssertEqual ['Bm   A7', 'D'], getline(1, 2)

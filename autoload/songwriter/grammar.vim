@@ -3,7 +3,8 @@
 " from here; do not write one of these patterns inline elsewhere.
 
 " A tablature line: a string name immediately followed by a bar pipe (`e|--`).
-let s:tab_line = '^\a[|]'
+let s:string_name = '\a'
+let s:tab_line = '^' . s:string_name . '[|]'
 
 " A tab line whose last bar is closed: nothing but whitespace after its final
 " pipe (`e|--3--|`, not `e|--3--`).
@@ -79,6 +80,10 @@ let s:section_syntax = [
       \ '\[\s*[A-Za-z][A-Za-z0-9 -]*\s*\]',
       \ ]
 
+" Whether `names` is a run of string names, one character each (`eBGDAE`).
+function! songwriter#grammar#IsStringNames(names) abort
+  return a:names =~# '^' . s:string_name . '\+$'
+endfunction
 function! songwriter#grammar#TabLine() abort
   return s:tab_line
 endfunction

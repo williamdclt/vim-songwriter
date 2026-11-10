@@ -370,7 +370,7 @@ before and after like the other tablature-mode edits.
   note ends just before it there. Insertion points never cut a note in two on
   another string; the following lint normalises the spacing.
 
-### New tab (`o`/`O`, spec [Tablature][[Editing]] 8)
+### New tab (`o`/`O`, `:SongwriterNewTab`, spec [Tablature][[Editing]] 8, 9)
 
 `o`/`O` open a tab the way they open a line in text: under / over the whole
 current tab, never between its strings. The new tab copies the string names, so
@@ -379,6 +379,13 @@ does (`|-----|`, slot in the middle, `b:songwriter_slot`), so the same rules
 fill or abandon it. The blank line keeps the two tabs separate blocks (as a
 line-wise paste does, 6.3.2). The cursor keeps its string, so typing goes on
 on the string being worked on. Outside tablature mode `o`/`O` stay native.
+
+`:SongwriterNewTab` (spec 9) is the way in when there is no tab yet to press
+`o` in. It builds the same empty tab from given string names (validated by
+`grammar#IsStringNames`, the same single-letter name a tab line starts with),
+and turns tablature mode on, since the slot it opens only means something
+there. It is a command rather than a key: a key on a prose line would take a
+native key away, and the command takes the tuning as its argument.
 
 ### Outside tablature mode
 
@@ -416,7 +423,9 @@ in prose and frets in tabs still work. On a tab line `nrformats` gets
 In visual mode they act per selected line: the chords the selection touches are
 transposed (spliced right to left, so a wider chord does not shift the others'
 columns before they are found), and a line where it touches none gets Vim's
-visual increment on its selected part, again unsigned on tab lines.
+visual increment on its selected part, again unsigned on tab lines. Unlike
+Vim's, the selection is kept afterwards (same corners, cursor on the same end),
+so pressing `<Ctrl-A>` again keeps transposing.
 `<leader>m` treats a leading `m` or `min` (but not `maj`) as minor.
 Highlighting stays permissive and accepts false positives such as the word "A"
 (spec [Chords][[Rendering]]); it is separate from the editing grammar.
