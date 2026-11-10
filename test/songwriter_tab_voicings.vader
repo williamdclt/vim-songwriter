@@ -56,6 +56,32 @@ Execute (10.2 qualities and their spellings):
   AssertEqual [2, 3, 2, 0, -1, -1], songwriter#tab#voicings#Voicings(g:std, 'D', 3)[0].frets
   AssertEqual [0, 0, 1, 2, 2, 0], songwriter#tab#voicings#Voicings(g:std, 'E', 5)[0].frets
 
+Execute (10.1 the root's letter is case-insensitive; the quality is not):
+  AssertEqual [0, 1, 2, 2, 0, -1], songwriter#tab#voicings#Voicings(g:std, 'am', 4)[0].frets
+  AssertEqual [-1, -1, -1, 8, 8, 6], songwriter#tab#voicings#Voicings(g:std, 'bb5', 5)[0].frets
+  AssertEqual [0, 2, 1, 2, 0, -1], songwriter#tab#voicings#Voicings(g:std, 'aM7', 4)[0].frets
+
+Given songwriter (10.1 =am is A minor, named Am):
+  e|-----|
+  B|-----|
+  G|-----|
+  D|-----|
+  A|-----|
+  E|-----|
+
+Execute (10.1 =am is A minor, named Am):
+  call cursor(5, 5)
+  execute "normal =am\<CR>"
+  AssertEqual 'Am', b:songwriter_voicing.chord
+
+Expect songwriter (10.1 =am is A minor, named Am):
+  e|--0--|
+  B|--1--|
+  G|--2--|
+  D|--2--|
+  A|--0--|
+  E|-----|
+
 Execute (10.2 the E shape has no sus2: E sus2 starts elsewhere):
   let v = songwriter#tab#voicings#Voicings(g:std, 'Esus2', 5)
   Assert empty(filter(copy(v), 'v:val.shape ==# "E"'))
