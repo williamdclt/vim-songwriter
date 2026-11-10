@@ -174,6 +174,38 @@ note's line, bar, width and column before and after, so callers can keep the cur
 the same note. Only the string name's first character is kept, and anything
 after the final pipe is dropped.
 
+### Vim's units in a tab
+
+Text is one-dimensional; a tab has two axes, time (left to right) and strings
+(top to bottom). Each of Vim's units is mapped onto the axis where it means
+something, so that its keys keep their instinctive sense:
+
+| Vim unit  | In a tab | Keys |
+|-----------|----------|------|
+| character | the time column as a position, the note as content | `l` `h`, `x`, `ic`/`ac`, `in`/`an` |
+| word      | a chain on one string: a dash is the space between words | `w` `b` `e` `ge`, `iw`/`aw` |
+| WORD      | a bar | `W` `B` `E`, `i\|`/`a\|` (`iW`/`aW`) |
+| line      | for editing, the time column; for moving, the string | `dd` `yy` `>>`; `j` `k` |
+| sentence  | nothing: the format marks no phrases or beats | native |
+| paragraph | a tab (tabs are separated by blank lines) | native `{` `}` `ip`/`ap` |
+
+- **A word is a chain**: Vim's word is a run of non-blanks, and a chain is a
+  run of notes and separators with no dash, so `5h7` is one word, as it is one
+  unit for the string moves (spec 7.1). `l` still reaches its 7, which has its
+  own time column, so `l` <= `w` <= `W` in reach.
+- **The line splits in two.** A text line is both the unit `j`/`k` move
+  across and the record `dd`/`yy`/`>>` act on. Across strings, a string cannot
+  be that record (nobody means to delete the G string), so editing goes to the
+  time column (see "Operators and text objects") and moving stays on strings.
+  `D`/`C` need an end, which a column does not have: they borrow the bar's.
+- **An operator's reach follows its motion** (spec 6.2). The string motions
+  (`l` `h` `w` `b` `e` `ge`) move along one string, so after an operator they
+  erase notes on that string, each as `x` does; `dl` is `x`, as in Vim.
+  Widening `dw` to every string would delete every other string's notes up to
+  wherever this string plays next, which in a sparse tab is much more than a
+  word. Column-wide targets (`ac`, `a|`, `dd`, `dW`, `d$`, `f`/`t`) act on
+  time columns.
+
 ### Tablature mode (`<leader>t`, spec [Tablature][[Editing]] 3)
 
 A buffer-local flag, `b:songwriter_tabmode`, set on by the ftplugin when a
@@ -196,8 +228,10 @@ text, and arrow keys would be needed).
   Entering shows `-- TAB INSERT --`, after a `redraw` so that repeated state
   changes replace each other instead of piling up into a hit-enter prompt;
   `songwriter#keys#Mode()` is there for status lines.
-- **`w`/`b` (3.2)**: next/previous note start on the current line, skipping
-  dashes and pipes; a two-digit fret is landed on at its first digit.
+- **`w`/`b`/`e`/`ge` (3.2)**: by word (a chain, see "Vim's units in a tab")
+  on the current line: `w`/`b` stop on a word's first note, `e`/`ge` on its
+  last (`model#Words`). Dashes and pipes are not stops; a two-digit fret is
+  landed on at its first digit.
 - **`l`/`h` in the normal state (3.3.1, 3.3.2)**: next/previous stop: a column
   where any string of the block has a note, or the middle dash of an empty bar
   (3.3.4), since a bar with no time column could otherwise never be reached.
@@ -334,16 +368,20 @@ The spec items carry the behaviour; this records why, and how it is built.
   motion. `D`/`C` stop at the bar's end, the column-wise analogue of a line's
   end. `Y`/`D`/`C` return the operator followed by their target as a
   `<Cmd>`, since keys returned by a `noremap` would not reach our maps.
-- **Notes.** `in`/`an` act on one string, but keep the register a
-  full-height column with dashes elsewhere, the same shape as `x` writes, so a
-  copied note pastes on its own string and as new time. `gp` is the other way
+- **Notes.** `in`/`an`, `iw`/`aw` and the string motions (6.2.2) act on one
+  string, but keep the register a full-height column with dashes elsewhere,
+  the same shape as `x` writes, so a copied note pastes on its own string and
+  as new time. Objects yank their exact range; a string motion yanks what `x`
+  would write for each note it covers, one after the other, so `dl` and `x`
+  fill the register alike. Either way, deleting erases each note as `x` does,
+  right to left so that a removed column does not shift the next ones. `gp` is the other way
   to paste: onto an existing column, no time added, refusing to replace a
   note, since silently changing music is what these operations avoid.
 - **`>>`/`<<`** nudge rhythm: a dash before the column, inserted or removed on
   every string, so what follows moves with it. Lint keeps two dashes after a
   pipe, so on a bar's first column they would be undone and do nothing.
-- **Text object names.** `ic`/`ac` (column), `i|`/`a|` (bar), `in`/`an`
-  (note). Bare letters
+- **Text object names.** `ic`/`ac` (column), `i|`/`a|` (bar, also
+  `iW`/`aW`), `in`/`an` (note), `iw`/`aw` (word). Bare letters
   are motions after an operator (`db`), and `ib`/`ab` are Vim's parenthesis
   objects; `i|` follows Vim's delimiter objects (`i"`, `i(`). Our objects set an
   "exact" flag so the operator does not snap them (`ic` would otherwise grow
