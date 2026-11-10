@@ -184,7 +184,7 @@ Expect songwriter (10.1 =Am on the low E string is the barre):
   A|--7--|
   E|--5--|
 
-Given songwriter (10.1 <Esc> cancels):
+Given songwriter (10.1 <Esc> or an empty name cancels):
   e|-----|
   B|-----|
   G|-----|
@@ -192,13 +192,16 @@ Given songwriter (10.1 <Esc> cancels):
   A|-----|
   E|-----|
 
-Execute (10.1 <Esc> cancels):
+Execute (10.1 <Esc> or an empty name cancels):
   call cursor(5, 5)
-  " Typed (feedkeys `t`): from `:normal`, <Esc> on a command line enters it.
-  call feedkeys("=\<Esc>", 'xt')
-  call feedkeys("=Am\<Esc>", 'xt')
+  " From `:normal`, <Esc> on a command line enters it, and a typed <Esc>
+  " (feedkeys `t`) makes Vim wait on stdin for a key code: the name is
+  " emptied instead.
+  execute "normal =\<Esc>"
+  execute "normal =\<CR>"
+  execute "normal =Am\<C-U>\<CR>"
 
-Expect songwriter (10.1 <Esc> cancels):
+Expect songwriter (10.1 <Esc> or an empty name cancels):
   e|-----|
   B|-----|
   G|-----|
