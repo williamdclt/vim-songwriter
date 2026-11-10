@@ -80,6 +80,11 @@ notes. Press `<Space>` (same as `l`) to end a `1` or `2` meant alone: `1 5`.
 Technique markers are typed straight after a note: `5h7`, `7b`, `5/9~`
 (`h p b r t s / ~`).
 
+In the insert state, the arrow keys carry the note under the cursor:
+`<Up>` / `<Down>` to the next string, `<Left>` / `<Right>` through the notes and
+the gaps between them, as `h` / `l` go. A note it lands on is replaced, and comes
+back when the carried note moves on; the room it leaves behind closes.
+
 Use Vim's `f` and `r` to edit technique markers: `fhr/` turns a hammer-on into
 a slide.
 

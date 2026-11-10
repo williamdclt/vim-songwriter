@@ -78,7 +78,7 @@ function! songwriter#tab#EnterNote(digit) abort
   let l:typing = songwriter#tab#state#Get('typing')
   let l:here = !empty(l:typing) && l:typing.line == line('.') && l:typing.col == l:col
   let l:insert = songwriter#tab#insert#Active()
-  let l:note = s:note_at(l:line, l:col)
+  let l:note = songwriter#tab#model#NoteAt(l:line, l:col)
   if l:here && l:insert && get(l:typing, 'separator', 0)
     silent! undojoin
     let l:block = songwriter#tab#model#Read()
@@ -141,7 +141,7 @@ endfunction
 " gap, in the same undo step as the note. The cursor lands on it, and the next
 " digit goes right after it (EnterNote).
 function! songwriter#tab#EnterSeparator(char) abort
-  let l:note = s:note_at(getline('.'), col('.'))
+  let l:note = songwriter#tab#model#NoteAt(getline('.'), col('.'))
   let l:block = songwriter#tab#model#Read()
   if empty(l:note) || empty(l:block)
     return
@@ -155,16 +155,6 @@ function! songwriter#tab#EnterSeparator(char) abort
   call cursor(line('.'), l:end + 1)
   call songwriter#tab#state#Set('typing', {'line': line('.'), 'col': col('.'), 'separator': 1})
   call songwriter#tab#insert#Keep()
-endfunction
-
-" The note of `line` covering column `col`, or {}.
-function! s:note_at(line, col) abort
-  for l:n in songwriter#tab#model#Notes(a:line)
-    if a:col >= l:n.col && a:col < l:n.col + l:n.len
-      return l:n
-    endif
-  endfor
-  return {}
 endfunction
 
 " Spec [Tablature][[Editing]] 3.1: open room for a new note on every string,

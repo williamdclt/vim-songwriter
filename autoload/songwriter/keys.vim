@@ -30,6 +30,11 @@ endfor
 unlet s:sep
 " Spec 3.4.1.2: `<Space>` is `l`.
 let s:tabinsert.n['<Space>'] = 'call songwriter#tab#MoveColumn(1)'
+" Spec 3.6: the arrows carry the note under the cursor.
+for s:arrow in ['<Up>', '<Down>', '<Left>', '<Right>']
+  let s:tabinsert.n[s:arrow] = printf('=songwriter#tab#carry#Key(%s)', string(s:arrow))
+endfor
+unlet s:arrow
 
 " Spec [Tablature][[Editing]] 3, 6, 8 and 10.
 let s:tabmode.n = {

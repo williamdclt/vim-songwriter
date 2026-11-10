@@ -1,7 +1,8 @@
 " autoload/songwriter/tab/state.vim - buffer state tied to one buffer version.
 "
-" The open slot, the digit being typed and the action `.` repeats each hold
-" only while the buffer is unchanged since they were recorded. They are stored
+" The open slot, the digit being typed, the note carried by the arrows and the
+" action `.` repeats each hold only while the buffer is unchanged since they
+" were recorded. They are stored
 " as b:songwriter_{name} with the b:changedtick they were set at.
 
 function! songwriter#tab#state#Set(name, value) abort

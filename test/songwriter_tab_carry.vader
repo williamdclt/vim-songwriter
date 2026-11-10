@@ -1,0 +1,282 @@
+" Spec [Tablature][[Editing]] 3.6: in the insert state, the arrow keys carry
+" the note under the cursor through the tab. `feedkeys` where undo steps
+" matter (`normal` makes one undo step of all its keys).
+
+Before:
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_insert b:songwriter_carry
+  let b:songwriter_tabmode = 1
+
+" === Left / right ===
+
+Given songwriter (3.6 Right carries a lone note onto the next column, replacing its note):
+  e|--3--5--7--|
+
+Execute (3.6 Right carries a lone note onto the next column, replacing its note):
+  call cursor(1, 8)
+  call songwriter#tab#insert#Enter()
+  execute "normal \<Right>"
+Then:
+  AssertEqual 8, col('.')
+  Assert songwriter#tab#insert#Active()
+
+Expect songwriter (3.6 Right carries a lone note onto the next column, replacing its note):
+  e|--3--5--|
+
+Given songwriter (3.6 Right again opens a gap after that column and puts its note back):
+  e|--3--5--7--|
+
+Execute (3.6 Right again opens a gap after that column and puts its note back):
+  call cursor(1, 8)
+  call songwriter#tab#insert#Enter()
+  execute "normal \<Right>\<Right>"
+Then:
+  AssertEqual 10, col('.')
+
+Expect songwriter (3.6 Right again opens a gap after that column and puts its note back):
+  e|--3--7-5--|
+
+Given songwriter (3.6 Right past the last note adds a bar):
+  e|--3--5--7--|
+
+Execute (3.6 Right past the last note adds a bar):
+  call cursor(1, 8)
+  call songwriter#tab#insert#Enter()
+  execute "normal \<Right>\<Right>\<Right>"
+Then:
+  AssertEqual 14, col('.')
+
+Expect songwriter (3.6 Right past the last note adds a bar):
+  e|--3--7--|--5--|
+
+Given songwriter (3.6 Right in the new bar does nothing):
+  e|--3--5--7--|
+
+Execute (3.6 Right in the new bar does nothing):
+  call cursor(1, 8)
+  call songwriter#tab#insert#Enter()
+  execute "normal \<Right>\<Right>\<Right>\<Right>"
+
+Expect songwriter (3.6 Right in the new bar does nothing):
+  e|--3--7--|--5--|
+
+Given songwriter (3.6 back where it started, the tab is as it was):
+  e|--3----5--7--|
+
+Execute (3.6 back where it started, the tab is as it was):
+  call cursor(1, 10)
+  call songwriter#tab#insert#Enter()
+  execute "normal \<Right>\<Right>\<Left>\<Left>"
+Then:
+  AssertEqual 10, col('.')
+
+Expect songwriter (3.6 back where it started, the tab is as it was):
+  e|--3----5--7--|
+
+Given songwriter (3.6 Left carries a note onto the previous column):
+  e|--3--5--7--|
+
+Execute (3.6 Left carries a note onto the previous column):
+  call cursor(1, 8)
+  call songwriter#tab#insert#Enter()
+  execute "normal \<Left>"
+Then:
+  AssertEqual 5, col('.')
+
+Expect songwriter (3.6 Left carries a note onto the previous column):
+  e|--5--7--|
+
+Given songwriter (3.6 Left again opens a gap before that column):
+  e|--3--5--7--|
+
+Execute (3.6 Left again opens a gap before that column):
+  call cursor(1, 8)
+  call songwriter#tab#insert#Enter()
+  execute "normal \<Left>\<Left>"
+Then:
+  AssertEqual 5, col('.')
+
+Expect songwriter (3.6 Left again opens a gap before that column):
+  e|--5-3--7--|
+
+Given songwriter (3.6 a note just typed is carried, its slot closed behind it):
+  e|--3--5--|
+
+Execute (3.6 a note just typed is carried, its slot closed behind it):
+  call cursor(1, 5)
+  execute "normal a7\<Right>"
+
+Expect songwriter (3.6 a note just typed is carried, its slot closed behind it):
+  e|--3-7--|
+
+Given songwriter (3.6 a note carried across a bar line, its bar emptied):
+  e|--3--|--5--|--7--|
+
+Execute (3.6 a note carried across a bar line, its bar emptied):
+  call cursor(1, 11)
+  call songwriter#tab#insert#Enter()
+  execute "normal \<Left>"
+
+Expect songwriter (3.6 a note carried across a bar line, its bar emptied):
+  e|--5--|-----|--7--|
+
+Given songwriter (3.6 a note carried out of the last bar takes the bar with it):
+  e|--3--|--5--|
+
+Execute (3.6 a note carried out of the last bar takes the bar with it):
+  call cursor(1, 11)
+  call songwriter#tab#insert#Enter()
+  execute "normal \<Left>\<Left>"
+
+Expect songwriter (3.6 a note carried out of the last bar takes the bar with it):
+  e|--5-3--|
+
+Given songwriter (3.6 a note carried back into the last bar):
+  e|--3--|--5--|
+
+Execute (3.6 a note carried back into the last bar):
+  call cursor(1, 11)
+  call songwriter#tab#insert#Enter()
+  execute "normal \<Left>\<Right>\<Right>"
+
+Expect songwriter (3.6 a note carried back into the last bar):
+  e|--3--|--5--|
+
+Given songwriter (3.6 a two-digit fret gets room):
+  e|--3--12--5--|
+
+Execute (3.6 a two-digit fret gets room):
+  call cursor(1, 8)
+  call songwriter#tab#insert#Enter()
+  execute "normal \<Left>\<Left>"
+
+Expect songwriter (3.6 a two-digit fret gets room):
+  e|--12-3--5--|
+
+" === Up / down ===
+
+Given songwriter (3.6 Down carries the note one string down, replacing its note):
+  e|--3--5--|
+  B|--1--1--|
+
+Execute (3.6 Down carries the note one string down, replacing its note):
+  call cursor(1, 8)
+  call songwriter#tab#insert#Enter()
+  execute "normal \<Down>"
+Then:
+  AssertEqual [2, 8], [line('.'), col('.')]
+
+Expect songwriter (3.6 Down carries the note one string down, replacing its note):
+  e|--3-----|
+  B|--1--5--|
+
+Given songwriter (3.6 Up again puts back the note it replaced):
+  e|--3--5--|
+  B|--1--1--|
+
+Execute (3.6 Up again puts back the note it replaced):
+  call cursor(1, 8)
+  call songwriter#tab#insert#Enter()
+  execute "normal \<Down>\<Up>"
+Then:
+  AssertEqual [1, 8], [line('.'), col('.')]
+
+Expect songwriter (3.6 Up again puts back the note it replaced):
+  e|--3--5--|
+  B|--1--1--|
+
+Given songwriter (3.6 a lone note carried down keeps its place between the notes):
+  e|--3--5--7--|
+  B|--1--------|
+
+Execute (3.6 a lone note carried down keeps its place between the notes):
+  call cursor(1, 8)
+  call songwriter#tab#insert#Enter()
+  execute "normal \<Down>"
+
+Expect songwriter (3.6 a lone note carried down keeps its place between the notes):
+  e|--3---7--|
+  B|--1-5----|
+
+Given songwriter (3.6 Up on the top string does nothing):
+  e|--3--5--|
+  B|--1--1--|
+
+Execute (3.6 Up on the top string does nothing):
+  call cursor(1, 8)
+  call songwriter#tab#insert#Enter()
+  execute "normal \<Up>"
+Then:
+  AssertEqual [1, 8], [line('.'), col('.')]
+
+Expect songwriter (3.6 Up on the top string does nothing):
+  e|--3--5--|
+  B|--1--1--|
+
+Given songwriter (3.6 down then right):
+  e|--3--5--|
+  B|--1--1--|
+
+Execute (3.6 down then right):
+  call cursor(1, 8)
+  call songwriter#tab#insert#Enter()
+  execute "normal \<Down>\<Right>"
+
+Expect songwriter (3.6 down then right):
+  e|--3-------|
+  B|--1--1-5--|
+
+" === Undo, state, elsewhere ===
+
+Given songwriter (3.6 the moves are one undo step):
+  e|--3--5--7--|
+
+Execute (3.6 the moves are one undo step):
+  let &undolevels = &undolevels
+  call cursor(1, 8)
+  call songwriter#tab#insert#Enter()
+  call feedkeys("\<Right>", 'xt')
+  call feedkeys("\<Right>", 'xt')
+  AssertEqual 'e|--3--7-5--|', getline(1)
+  call feedkeys("u", 'xt')
+
+Expect songwriter (3.6 the moves are one undo step):
+  e|--3--5--7--|
+
+Given songwriter (3.6 a digit after a move replaces the carried note):
+  e|--3--5--7--|
+
+Execute (3.6 a digit after a move replaces the carried note):
+  call cursor(1, 8)
+  call songwriter#tab#insert#Enter()
+  execute "normal \<Right>9"
+
+Expect songwriter (3.6 a digit after a move replaces the carried note):
+  e|--3--9--|
+
+Given songwriter (3.6 in the normal state the arrows only move):
+  e|--3--5--|
+
+Execute (3.6 in the normal state the arrows only move):
+  call cursor(1, 5)
+  execute "normal \<Right>"
+Then:
+  AssertEqual 6, col('.')
+
+Expect songwriter (3.6 in the normal state the arrows only move):
+  e|--3--5--|
+
+Given songwriter (3.6 off a note the arrows only move):
+  e|--3--|
+  B|-----|
+
+Execute (3.6 off a note the arrows only move):
+  call cursor(1, 5)
+  normal a
+  execute "normal \<Right>\<Down>"
+Then:
+  AssertEqual [2, 8], [line('.'), col('.')]
+  Assert songwriter#tab#insert#Active()
+
+Expect songwriter (3.6 off a note the arrows only move):
+  e|--3----|
+  B|-------|

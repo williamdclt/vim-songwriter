@@ -38,6 +38,16 @@ function! songwriter#tab#model#Notes(line) abort
   return s:matches(a:line, songwriter#grammar#Note(), songwriter#tab#model#BodyOffset())
 endfunction
 
+" The note of `line` covering column `col`, or {}.
+function! songwriter#tab#model#NoteAt(line, col) abort
+  for l:n in songwriter#tab#model#Notes(a:line)
+    if a:col >= l:n.col && a:col < l:n.col + l:n.len
+      return l:n
+    endif
+  endfor
+  return {}
+endfunction
+
 " Chains of a tab line (see grammar), left to right, same shape as Notes().
 function! songwriter#tab#model#Chains(line) abort
   return s:matches(a:line, songwriter#grammar#Chain(), songwriter#tab#model#BodyOffset())
