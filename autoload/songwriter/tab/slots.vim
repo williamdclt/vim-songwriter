@@ -159,6 +159,14 @@ function! songwriter#tab#slots#Mark(side) abort
         \ 'before': empty(l:block) ? [] : copy(l:block.lines)}
 endfunction
 
+" Record in `mark` (from Mark) the block as linted before its slot opens
+" (4.2), with the cursor column there, for a motion closing the slot to keep
+" (4.3.3).
+function! songwriter#tab#slots#Linted(mark, block) abort
+  let a:mark.linted = copy(a:block.lines)
+  let a:mark.linted_col = col('.')
+endfunction
+
 " Remember the slot under the cursor and enter the insert state (spec 3.1).
 " With a `mark` (from Mark), closing it restores the tab; without one, the slot
 " is part of a bigger edit (`c`, `o`, :SongwriterNewTab) and closing lints.
@@ -180,9 +188,13 @@ endfunction
 " Spec 4.3: close the open slot if it is still open and empty (the buffer has
 " not changed since, e.g. only `j`/`k` were pressed). A slot with a mark puts
 " the tab back as it was before it opened, leaving no undo step, and the cursor
-" back on its column (on the cursor's line); any other is linted. The insert
-" state is kept. Returns the closed slot, or {} when none was open.
-function! songwriter#tab#slots#Abandon() abort
+" back on its column (on the cursor's line); any other is linted. With
+" `keep_lint` (a motion closing it, 4.3.3), a mark that recorded the lint of
+" 4.2 (see Linted) puts the tab back as it was once linted instead, the lint
+" being an undo step of its own. The insert state is kept. Returns the closed
+" slot, or {} when none was open.
+function! songwriter#tab#slots#Abandon(...) abort
+  let l:keep_lint = a:0 && a:1
   let l:slot = songwriter#tab#state#Get('slot')
   call songwriter#tab#slots#Forget()
   if empty(l:slot)
@@ -194,7 +206,12 @@ function! songwriter#tab#slots#Abandon() abort
     if l:slot.changed
       call s:revert(l:slot)
     endif
-    call cursor(l:lnum, l:slot.from)
+    if l:keep_lint && has_key(l:slot, 'linted') && l:slot.linted !=# l:slot.before
+      call setline(l:slot.start, l:slot.linted)
+      call cursor(l:lnum, l:slot.linted_col)
+    else
+      call cursor(l:lnum, l:slot.from)
+    endif
   else
     call songwriter#tab#edit#LintAndFollow(songwriter#tab#model#Read(l:slot.line))
   endif
