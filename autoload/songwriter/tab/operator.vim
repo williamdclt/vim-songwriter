@@ -210,15 +210,19 @@ function! songwriter#tab#operator#ApplyLines(op, reg, l1, l2) abort
   endif
 endfunction
 
-" Spec 6.11: the cursor goes to the first note column at or after it.
+" Spec 6.11: the cursor goes to the first note column at or after it, or,
+" with none (the change was at the end of the tab), to the last one before it.
 function! s:to_next_column() abort
   let l:block = songwriter#tab#model#Read()
   if empty(l:block)
     return
   endif
-  let l:next = filter(songwriter#tab#columns#Columns(l:block.lines), 'v:val >= col(".")')
+  let l:cols = songwriter#tab#columns#Columns(l:block.lines)
+  let l:next = filter(copy(l:cols), 'v:val >= col(".")')
   if !empty(l:next)
     call cursor(line('.'), l:next[0])
+  elseif !empty(l:cols)
+    call cursor(line('.'), l:cols[-1])
   endif
 endfunction
 
