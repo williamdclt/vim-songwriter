@@ -40,49 +40,56 @@ A note is a fret (digits: `12` is one note) or `x` (a muted note). Anything else
 [[Motions]]
 1. Motions like `w` MUST stop on `|` (as well as `dw`, `cw`...) ✓
 2. Motions like `w` MUST NOT stop on `-` ✓
-3. `L` (uppercase) MUST jump to the next `|` (in tablature mode, see [[Editing]] 3.5) ✓
-4. `H` (uppercase) MUST jump to the previous `|` (in tablature mode, see [[Editing]] 3.5) ✓
+3. `W` (uppercase) MUST jump to the next `|` (in tablature mode, see [[Editing]] 3.5) ✗
+4. `B` (uppercase) MUST jump to the previous `|` (in tablature mode, see [[Editing]] 3.5) ✗
+5. `L` and `H` keep their native meaning (bottom / top of the window). ✗
 
 [[Editing]]
 1. `||` should lint the current tablature. A line whose last bar has no closing pipe (`e|--3--5--`) gets one: that bar is linted like any other, never dropped (`e|--3--5--|`). Whitespace after the final pipe is not a bar. ✓
     1.1 If some pipes bounding a bar are not vertically aligned across all strings, add dashes as necessary to align them. ✓
-    1.2 Trim start and end dashes so that there is exactly 2 dashes after/before the pipes bounding the bar. Empty bars should have 2 dashes. ✓
+    1.2 Trim start and end dashes so that there is exactly 2 dashes after/before the pipes bounding the bar. Empty bars should have 5 dashes (`|-----|`), so that a note typed in the middle one needs no reflow (`|--7--|`). ✗
     1.3 Split up numbers that are overlapping but not aligned (when a number is 2-digits, the second digit might overlap with another number on a different line), by pushing the second number to the right with dashes. There needs to be 1 dash between the numbers. ✓
     1.4 If the tab's last bar is empty (no note on any string), delete it; repeat while the new last bar is empty, but always keep at least one bar. ✓
     1.5 Separators are kept: each stays at its distance from what precedes it on its string, and counts as content for 1.2. They take no part in 1.3: a note may line up under a separator or under the fret after it. If a note is pushed away, the separator stays with what precedes it (`5h7` -> `5h--7`). ✓
 2. In normal mode, `_` should insert a dash (`-`) at the cursor's column position on every line of the tab. ✓
 3. `<leader>t` should toggle a special "tablature" mode. It is on when a `.song.txt` is opened. ✓
-    3.1 `a` should create space for a new note to be entered. ✓
+    Like Vim, tablature mode has a normal state and an insert state. In the normal state (the default), moving never changes the file: motions only move the cursor, and nothing is linted. The insert state is for writing notes: moving across notes opens space for new ones (3.3.3). ✗
+    3.1 `a` should create space for a new note to be entered, and enter the insert state. ✓
         3.1.1 it should add dashes to the right (across all lines) to create space for a new note: at least one dash separation with the previous note and the next note (or the pipe). ✓
         3.1.2 it should move the cursor to where the new note would be: one dash apart from the current note ✓
         3.1.3 Between two notes joined by a separator, the separator stays with the note on the far side: `a` on the 5 of `5h7` gives `5--h7`, so a digit gives `5-3h7`. A separator with no note beyond it belongs to its note, and the slot goes past it (`a` on `7b`, `i` on `/5`). ✓
-    3.2 `w` should move to the next note on the line, not stopping at dashes or pipes. `b` does the opposite (move to previous note). ✓
+        3.1.4 `i` does the same to the left of the note. `c` (6.6), `o` / `O` (8) and `:SongwriterNewTab` (9) also open a slot and enter the insert state. ✗
+        3.1.5 `<Esc>` leaves the insert state, closing an open slot (4.3). Any other change to the file (`u`, `x`, `p`, an operator...) leaves it too. ✗
+        3.1.6 The insert state is visible: `-- TAB INSERT --` is shown when it is entered, and `songwriter#keys#Mode()` returns `TAB INSERT` (empty otherwise) for use in a status line. ✗
+    3.2 `w` should move to the next note on the line, not stopping at dashes or pipes. `b` does the opposite (move to previous note). In the insert state, they close an open slot (4.3) and never open one. ✓
     3.3 `l` and `h` move across notes. ✓
         3.3.1 `l` should move to the column where _any_ line has a note. ✓
-        3.3.2 If the cursor is at the last note of the bar, `l` should behave as `a` so that new notes can easily be appended to the tablature. ✓
-        3.3.3 `h` does the opposite (moving left), except it does not behave as `i` (no mirroring requirement 3.3.2). ✓
-        3.3.4 An empty bar (no note on any string) between two bars with notes is a stop of its own for `l` and `h`: they enter it and open a slot in its middle (`e|--4--|--|--1--|` -> `e|--4--|-----|--1--|`), ready for a digit. Left without a note, the slot is linted back to `|--|` (4.3). ✓
+        3.3.2 In the normal state, `l` and `h` only move: with no column further that way, the cursor stays. `h` does the opposite of `l` (moving left). ✗
+        3.3.3 In the insert state, the gaps between notes are stops too. On a note, `l` opens a slot after it as `a` does, and `h` a slot before it as `i` does. On a slot, `l` / `h` close it (4.3) and move to the next / previous note. With the cursor on the 3 of `e|--3-5--|`: `l` opens a slot between 3 and 5 (`e|--3--5--|`, cursor between them), `l` again closes it and lands on 5 (`e|--3-5--|`), `l` again opens a slot after 5. Crossing a bar line, each gap is visited once: from the last note of a bar, `l` opens a slot in that bar, then the next `l` goes to the first note of the next bar. ✗
+        3.3.4 An empty bar (no note on any string) is a stop of its own for `l` and `h`, on its middle dash. In the insert state, landing there opens a slot in its middle (`e|--4--|--|--1--|` -> `e|--4--|-----|--1--|`), ready for a digit; left without a note, it is closed as any slot (4.3). ✗
     3.4 numbers should enter the note: replace the character under cursor with the number. On a note, the whole note is replaced. ✓
         3.4.1 A digit typed straight after another one (without moving or editing in between) is appended to it, so two-digit frets can be typed (`1` then `2` gives `12`). ✓
         3.4.2 A digit on a separator does nothing. Separators are edited with Vim's own `f` and `r`, which tablature mode leaves alone (`fhr/` turns a hammer-on into a slide, `f-rh` adds one). ✓
         3.4.3 `x` on a dash enters a muted note, like a digit (the note is linted and any open slot is filled). On a note, `x` erases it (6.7). ✓
-    3.5 `L` moves to the first time column of the next bar, `H` to the last time column of the previous bar, rather than to the pipe ([[Motions]] 3-4). On a pipe, these are the bars on either side of it. A bar with no note: the dash next to the pipe crossed. No such bar: the cursor stays. After an operator, `L`/`H` keep the pipe motion (`dL` is `D`, 6.8.1). ✓
+    3.5 Bar motions, as Vim's WORD motions are a bigger `w`/`b`/`e` ([[Motions]] 3-4): `W` moves to the first time column of the next bar; `B` to the first time column of the cursor's bar, or of the previous bar when the cursor is already there (or before it); `E` to the last time column of the cursor's bar, or of the next bar when the cursor is already there (or after it). On a pipe, the cursor's bar is the one after it for `W`/`E` and the one before it for `B`. A bar with no note: its middle dash. No such bar: the cursor stays. In the insert state, they close an open slot (4.3) and never open one. After an operator, `W`/`B` keep the pipe motion (`dW` is `D`, 6.8.1). Counts repeat them (`2W`). ✗
 4. An edit should trigger linting ✓
     4.1 When a note is entered (number typed) ✓
     4.2 When a note is inserted with `a` or `i`, BEFORE the space for the new note is inserted ✓
-    4.3 When a note insertion with `a` or `i` is aborted (esc, `h`, `l`, `w`, `b`... but not `j` or `k`) without a number having been entered ✓
+    4.3 When a slot is closed without a number having been entered (`<Esc>`, `h`, `l`, `w`, `b`... but not `j` or `k`), the tab goes back exactly as it was before the slot was opened (including the lint of 4.2), and no undo step is left: it is as if the slot was never opened. A slot opened by `c` (6.6), `o` / `O` (8) or `:SongwriterNewTab` (9) is part of a bigger edit, which is kept: closing it lints the tab instead (an empty bar stays as `|-----|`). ✗
+        4.3.1 A note typed into a slot is one undo step with the slot (and its lint): `u` after `a7` gives back the tab as it was before `a`. So is a two-digit fret (`a12`). ✗
+        4.3.2 Moving in the normal state never lints. ✗
     4.4 There might be other scenarios where it would make sense to trigger linting that are not listed here. They should be added explicitly as they are discovered.
-5. When at the end of the tab, moving right (`l`) should create a new bar. It should start insertion of a new note so it won't be 2 dashes, it will be 5 with the cursor in the middle. ✓
+5. In the insert state, at the end of the tab, moving right (`l`) from the slot after the last note (or from anywhere past it in the tab's last bar) should create a new bar. It should start insertion of a new note so it will be 5 dashes with the cursor in the middle. On that new bar's slot, `l` does nothing. A line with no closing pipe never gets a new bar. ✗
 6. In tablature mode, Vim operators (`d`, `y`, `c`, `p`, `x`...) act on whole time columns across every string of the tab, never on one string alone. Outside tablature mode, everything stays native Vim (single-line editing remains possible there). Spacing between notes is a loose indication of rhythm chosen by the user: operations must preserve it. ✓
     6.1 Text objects. ✓
         6.1.1 `ic` selects the note column under the cursor (on every string); `ac` also includes the gap (dashes) after it, up to the next note column or the bar's closing pipe. On a dash, they select the nearest note column to the left (the bar's first one if there is none). On a pipe, the string name or in an empty bar, they do nothing. ✓
         6.1.2 `i|` selects the content of the bar under the cursor (on every string); `a|` also includes one pipe, so that deleting it leaves no empty `||`. ✓
         6.1.3 Counts extend to the next columns / bars (`d2ac`, `d2a|`): columns never beyond the current bar, bars never beyond the current tab. ✓
         6.1.4 `in` selects the note under the cursor, on its string only; `an` also includes its gap. The register still holds a full-height column, with the other strings as dashes (as `x`, 6.7.3). `yan` copies a single note; `dan` is `x` (6.7); `can` erases the note like `x` and, if its column went with it, opens a slot in its place. ✓
-    6.2 Operators with motions: any target on the current line (`dw`, `d3l`, `dL`, `d$`, `df5`...) gives a column range, which is widened to every string and snapped outward so that a note (e.g. `12`) is never cut in half. A range ending on a note includes its trailing gap (like `ac`); a range starting in a gap snaps to the previous note. A range crossing a bar line closes the bar where it starts (`d$` from a note leaves that bar ending there). ✓
-        6.2.1 After an operator, the tablature-mode motions (`w`, `b`, `l`, `h`) are pure motions: they never open a slot (no 3.3.2 behaviour). ✓
+    6.2 Operators with motions: any target on the current line (`dw`, `d3l`, `dW`, `d$`, `df5`...) gives a column range, which is widened to every string and snapped outward so that a note (e.g. `12`) is never cut in half. A range ending on a note includes its trailing gap (like `ac`); a range starting in a gap snaps to the previous note. A range crossing a bar line closes the bar where it starts (`d$` from a note leaves that bar ending there). ✓
+        6.2.1 After an operator, the tablature-mode motions (`w`, `b`, `l`, `h`) are pure motions: they never open a slot. ✓
     6.3 Line-wise targets (`dap`, `yap`, `dj`, `d}`, `VV`...) are widened to every tab they touch, whole. Tabs are separated by blank lines, so `ap` is a whole tab. ✓
-        6.3.1 `cap` clears every note of the tab but keeps its bars, and tablature mode stays on. Like any lint, emptied bars at the end are then deleted (1.4), so only the first bar is left: `|--3--5--|--7--|` -> `|--|` (with the slot open, `|-----|`). ✓
+        6.3.1 `cap` clears every note of the tab but keeps its bars, and tablature mode stays on. Like any lint, emptied bars at the end are then deleted (1.4), so only the first bar is left: `|--3--5--|--7--|` -> `|-----|` (`|-----|`, with the slot open in its middle). ✓
         6.3.2 `p` of a line-wise register puts it after the end of the tab (`P`: before its start), never between strings. Tab lines pasted next to the tab are kept apart from it by a blank line. ✓
     6.4 Registers: column and bar yanks are stored as normal Vim blockwise registers (one row per string), so they interoperate with native Vim (`<C-v>` yanks, pasting outside tablature mode). The string names of the source tab are recorded alongside the register (ignored if the register has changed since). Named registers (`"a`) work as usual. ✓
     6.5 `p` / `P` paste a blockwise register. ✓
@@ -91,14 +98,14 @@ A note is a fret (digits: `12` is one note) or `x` (a muted note). Anything else
         6.5.3 When the register has a different number of rows than the tab, rows are matched from the bottom string (a bass tab `GDAE` lands on the lowest 4 strings of a guitar tab; extra strings get dashes; extra rows are dropped). If the source string names are known and differ where they meet (drop D vs E, 5-string bass, 7-string guitar), refuse with a message. If unknown, paste and say rows were matched by position. If dropped rows contained notes, paste and say how many notes were dropped. ✓
         6.5.4 A character-wise register is refused with a message. ✓
         6.5.5 The cursor lands on the first pasted note. ✓
-    6.6 `c{target}` deletes like `d{target}`, then opens a slot where the deleted content was (as `a` does, 3.1), ready for a digit. ✓
+    6.6 `c{target}` deletes like `d{target}`, then opens a slot where the deleted content was (as `a` does, 3.1), ready for a digit, in the insert state. ✓
     6.7 `x` erases the note under the cursor on the current string. ✓
         6.7.1 If another string has a note on the same column, the note becomes dashes (same width) and the column is kept. ✓
         6.7.2 If no other string has a note on that column, the note and its gap up to the next note column (or the bar's closing pipe) are removed on every string, so the following notes move earlier and the previous note keeps its gap (`e|--3----5--7--|`, `x` on 5 -> `e|--3----7--|`). Rests are only created explicitly, with `_`. ✓
         6.7.3 `x` writes to the register what `ac` would yank, with every other string as dashes. So `xp` swaps a note with the next column, as in normal Vim. ✓
         6.7.4 A separator after the erased note is part of its gap and goes with it (`x` on the 5 of `5h7` -> `7`). One before it stays (`x` on the 7 of `5h7` -> `5h`). ✓
     6.8 Doubled operators act on the time column under the cursor, as they act on a line in text: `dd` is `dac`, `yy` and `Y` are `yac`, `cc` is `cac` (`S` is not: it starts the string moves of 7). A count goes after the operator (`d3d`). So `ddp` swaps a column with the next one and `yyp` duplicates it. ✓
-        6.8.1 `D` / `C` delete / change to the end of the bar (`dL` / `cL`). ✓
+        6.8.1 `D` / `C` delete / change to the end of the bar (`dW` / `cW`). ✗
         6.8.2 `X` keeps its native meaning. ✓
     6.9 Visual mode. ✓
         6.9.1 `ic`/`ac`/`i|`/`a|` in visual mode select a blockwise rectangle covering every string, and repeating them extends the selection (`va|a|`). The cursor is on the rectangle's bottom-string corner. ✓
@@ -106,7 +113,7 @@ A note is a fret (digits: `12` is one note) or `x` (a muted note). Anything else
         6.9.2 A plain `v` selection (or a `<C-v>` covering only some strings) is shown as-is, and widened and snapped as in 6.2 when an operator is applied. ✓
         6.9.3 `V` starts a column selection: a blockwise selection of the cursor's column on every string of the tab, cursor on the bottom string, extended by the motions of 6.9.5 and snapped as in 6.9.2 by an operator. In a `v` or `<C-v>` selection, `j`/`k` never leave the tab's strings. `V` again (`VV`) switches to native line-wise visual, which selects whole tabs (6.3). ✓
         6.9.4 Visual `p` replaces the selected columns with the register (delete, then paste in their place, with 6.5.3 row matching). ✓
-        6.9.5 Tab motions (`w`, `b`, `l`, `h`, `L`, `H`) work in visual mode without leaving it. ✓
+        6.9.5 Tab motions (`w`, `b`, `l`, `h`, `W`, `B`, `E`) work in visual mode without leaving it. ✗
     6.10 Each operation, including the lints before and after it, is a single undo step, and `.` repeats it (with its register). After a yank, `.` repeats the yank. ✓
     6.11 After `d`, `x` (6.7.2) and `p`, the tab is linted, and the cursor is on the first note at or after the change. Lint trimming to 2 dashes at bar edges (1.2) still applies: a rest left at the start or end of a bar disappears. ✓
     6.12 Digits enter notes in tablature mode (3.4), so a count cannot be typed in front of a command (`3x` types a 3). Counts work after an operator (`d2ac`, `d3w`, `d3d`) and in visual mode. ✓
@@ -119,8 +126,8 @@ A note is a fret (digits: `12` is one note) or `x` (a muted note). Anything else
     7.4 A move is refused with a message, leaving the tab unchanged, when: there is no note (`s`/`S` + `k`/`j`) or no time column (`K`/`J`) under the cursor; a note of the time column is in a chain that starts earlier (`K`/`J` on the 7 of `5h7`); there is no string in that direction (for a column: one of its notes is on the top / bottom string); the destination string already has a note there; `S` would make a fret negative; `S` meets a string name that is not a note (A to G). ✓
     7.5 Moved notes leave dashes behind. When a note gets wider (`7` -> `12`) and would touch the next note (or the pipe) on its new string, dashes are inserted on every string to make room. Then the tab is linted. ✓
     7.6 The cursor moves one string with the notes (staying inside the tab), so a move can be repeated. Each move is one undo step, and `.` repeats it. ✓
-8. In tablature mode, `o` / `O` add a new tab under / over the current one, kept apart from it by a blank line. It has the same string names and a single bar with a slot open in its middle (`e|-----|`), and the cursor lands on the slot on the same string, ready for a digit (`e|--7--|`). Abandoned without a note, the slot is linted away like any other (4.3, 1.4): `e|--|`. ✓
-9. `:SongwriterNewTab [names]` starts a tab from scratch, anywhere in the file: string names one letter each, highest first (default `eBGDAE`, so `:SongwriterNewTab GDAE` for a bass). In a tab it goes under that tab; on a blank line it takes that line's place; elsewhere it goes under the cursor's line. A blank line keeps it apart from a neighbouring tab. Like `o` (8), it has a single bar with a slot open in its middle; the cursor lands on the slot of the top string, in tablature mode. ✓
+8. In tablature mode, `o` / `O` add a new tab under / over the current one, kept apart from it by a blank line. It has the same string names and a single bar with a slot open in its middle (`e|-----|`), and the cursor lands on the slot on the same string, ready for a digit (`e|--7--|`). It is in the insert state. Abandoned without a note, the slot is linted (4.3), leaving an empty bar: `e|-----|`. ✗
+9. `:SongwriterNewTab [names]` starts a tab from scratch, anywhere in the file: string names one letter each, highest first (default `eBGDAE`, so `:SongwriterNewTab GDAE` for a bass). In a tab it goes under that tab; on a blank line it takes that line's place; elsewhere it goes under the cursor's line. A blank line keeps it apart from a neighbouring tab. Like `o` (8), it has a single bar with a slot open in its middle; the cursor lands on the slot of the top string, in tablature mode and its insert state. ✗
 
 [[Bugs]]
 These are known bugs that need fixing
