@@ -1,0 +1,153 @@
+" Spec [Tablature][[Editing]] 3, 3.1.4-3.1.6: tablature mode has a normal
+" state and an insert state. Opening a slot (`a`, `i`, `c`, `o`, ...) enters
+" the insert state, `<Esc>` or any other change leaves it, and
+" songwriter#keys#Mode() tells which state is on.
+
+Before:
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_insert
+  let b:songwriter_tabmode = 1
+
+Given songwriter (tablature mode starts in the normal state):
+  e|--4--|
+
+Execute (tablature mode starts in the normal state):
+  call cursor(1, 5)
+Then:
+  Assert !songwriter#tab#insert#Active()
+  AssertEqual '', songwriter#keys#Mode()
+
+Given songwriter (3.1 a enters the insert state):
+  e|--4--|
+
+Execute (3.1 a enters the insert state):
+  call cursor(1, 5)
+  normal a
+Then:
+  Assert songwriter#tab#insert#Active()
+  AssertEqual 'TAB INSERT', songwriter#keys#Mode()
+
+Given songwriter (3.1.4 i enters the insert state):
+  e|--4--|
+
+Execute (3.1.4 i enters the insert state):
+  call cursor(1, 5)
+  normal i
+Then:
+  Assert songwriter#tab#insert#Active()
+
+Given songwriter (3.1.4 c enters the insert state):
+  e|--4--5--|
+
+Execute (3.1.4 c enters the insert state):
+  call cursor(1, 5)
+  normal cc
+Then:
+  Assert songwriter#tab#insert#Active()
+
+Given songwriter (3.1.4 o enters the insert state):
+  e|--4--|
+
+Execute (3.1.4 o enters the insert state):
+  call cursor(1, 5)
+  normal o
+Then:
+  Assert songwriter#tab#insert#Active()
+
+Given songwriter (3.1.4 :SongwriterNewTab enters the insert state):
+
+Execute (3.1.4 :SongwriterNewTab enters the insert state):
+  SongwriterNewTab
+Then:
+  Assert songwriter#tab#insert#Active()
+
+Given songwriter (3.1.5 Esc leaves the insert state):
+  e|--4--|
+
+Execute (3.1.5 Esc leaves the insert state):
+  call cursor(1, 5)
+  execute "normal a\<Esc>"
+Then:
+  Assert !songwriter#tab#insert#Active()
+  AssertEqual '', songwriter#keys#Mode()
+
+Given songwriter (3.1.5 Esc leaves the insert state after a note was typed):
+  e|--4--|
+
+Execute (3.1.5 Esc leaves the insert state after a note was typed):
+  call cursor(1, 5)
+  execute "normal a7\<Esc>"
+Then:
+  Assert !songwriter#tab#insert#Active()
+Expect songwriter:
+  e|--4-7--|
+
+Given songwriter (3.1.5 a digit keeps the insert state, so l opens the next slot):
+  e|--4--|
+
+Execute (3.1.5 a digit keeps the insert state, so l opens the next slot):
+  call cursor(1, 5)
+  normal a7l
+Then:
+  Assert songwriter#tab#insert#Active()
+  AssertEqual 9, col('.')
+Expect songwriter:
+  e|--4-7----|
+
+Given songwriter (3.1.5 any other change leaves the insert state):
+  e|--4--|
+
+Execute (3.1.5 any other change leaves the insert state):
+  let &undolevels = &undolevels
+  call cursor(1, 5)
+  call feedkeys("a7u", 'xt')
+Then:
+  Assert !songwriter#tab#insert#Active()
+
+Given songwriter (3.1.5 a digit in the normal state stays in the normal state):
+  e|--4--|
+
+Execute (3.1.5 a digit in the normal state stays in the normal state):
+  call cursor(1, 5)
+  normal 7l
+Then:
+  Assert !songwriter#tab#insert#Active()
+  AssertEqual 5, col('.')
+Expect songwriter:
+  e|--7--|
+
+Given songwriter (3.2 w in the insert state moves without opening a slot):
+  e|--4--|--1--|
+
+Execute (3.2 w in the insert state moves without opening a slot):
+  call cursor(1, 5)
+  call songwriter#tab#insert#Enter()
+  normal w
+Then:
+  AssertEqual 11, col('.')
+  Assert songwriter#tab#insert#Active()
+Expect songwriter:
+  e|--4--|--1--|
+
+Given songwriter (3.2 b on a slot opened by l goes back to its note):
+  e|--4--1--|
+
+Execute (3.2 b on a slot opened by l goes back to its note):
+  call cursor(1, 5)
+  call songwriter#tab#insert#Enter()
+  normal lb
+Then:
+  AssertEqual 5, col('.')
+Expect songwriter:
+  e|--4--1--|
+
+Given songwriter (3.2 w on a slot opened by h goes to its note):
+  e|--4--1--|
+
+Execute (3.2 w on a slot opened by h goes to its note):
+  call cursor(1, 8)
+  call songwriter#tab#insert#Enter()
+  normal hw
+Then:
+  AssertEqual 8, col('.')
+Expect songwriter:
+  e|--4--1--|

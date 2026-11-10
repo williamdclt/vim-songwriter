@@ -27,7 +27,7 @@ let s:tabmode.n = {
       \ 'H': 'call songwriter#tab#MoveBar(-1, v:count1)',
       \ 'a': 'call songwriter#tab#AddNote(1)',
       \ 'i': 'call songwriter#tab#AddNote(-1)',
-      \ '<Esc>': 'call songwriter#tab#slots#Abandon()',
+      \ '<Esc>': 'call songwriter#tab#insert#Escape()',
       \ 'd': '=songwriter#tab#operator#Start("d")',
       \ 'y': '=songwriter#tab#operator#Start("y")',
       \ 'c': '=songwriter#tab#operator#Start("c")',
@@ -143,6 +143,12 @@ endfunction
 " unset.
 function! songwriter#keys#InTabMode() abort
   return get(b:, 'songwriter_tabmode', 0)
+endfunction
+
+" Spec [Tablature][[Editing]] 3.1.6: the state of tablature mode, for a status
+" line: 'TAB INSERT' in the insert state, '' otherwise.
+function! songwriter#keys#Mode() abort
+  return songwriter#tab#insert#Active() ? 'TAB INSERT' : ''
 endfunction
 
 function! songwriter#keys#ToggleTabMode() abort

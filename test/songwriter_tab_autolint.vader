@@ -1,10 +1,13 @@
 " Spec [Tablature][[Editing]] 4: edits in tablature mode lint the block
-" (4.1 entering a note, 4.2 before `a`/`i` open a slot, 4.3 when an open slot
-" is abandoned without a note). The cursor follows the note (or the gap between
-" notes) it was on. Typed end-to-end with `normal`.
+" (4.1 entering a note, 4.2 before `a`/`i` open a slot). A slot closed without
+" a note gives the tab back as it was, leaving no undo step (4.3, 4.3.1), and
+" moving in the normal state never lints (4.3.2). The cursor follows the note
+" (or the gap between notes) it was on. Typed end-to-end with `normal`, or with
+" `feedkeys` where undo steps matter (`normal` makes one undo step of all its
+" keys).
 
 Before:
-  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_insert
   let b:songwriter_tabmode = 1
 
 " --- 4.1 entering a note lints ---
@@ -38,9 +41,10 @@ Given songwriter (4.1 a slot then a digit: the note is kept, nothing left pendin
 
 Execute (4.1 a slot then a digit: the note is kept, nothing left pending):
   call cursor(1, 5)
-  normal a5h
+  execute "normal a5\<Esc>"
 Then:
-  AssertEqual 5, col('.')
+  AssertEqual 7, col('.')
+  Assert empty(songwriter#tab#state#Get('slot'))
 Expect songwriter:
   e|--4-5--|
 
@@ -68,7 +72,7 @@ Then:
 Expect songwriter:
   e|----4--|
 
-" --- 4.3 abandoning an open slot lints ---
+" --- 4.3 closing a slot gives the tab back as it was ---
 
 Given songwriter (4.3 Esc after a removes the empty slot):
   e|--4--|
@@ -76,13 +80,26 @@ Given songwriter (4.3 Esc after a removes the empty slot):
 Execute (4.3 Esc after a removes the empty slot):
   call cursor(1, 5)
   execute "normal a\<Esc>"
+Then:
+  AssertEqual 5, col('.')
 Expect songwriter:
   e|--4--|
 
-Given songwriter (4.3 h after a lints, then moves):
+Given songwriter (4.3 closing a slot also undoes the lint before it):
+  e|-----4-----|
+
+Execute (4.3 closing a slot also undoes the lint before it):
+  call cursor(1, 8)
+  execute "normal a\<Esc>"
+Then:
+  AssertEqual 8, col('.')
+Expect songwriter:
+  e|-----4-----|
+
+Given songwriter (4.3 h after a closes the slot, back on the note):
   e|--4--|--1--|
 
-Execute (4.3 h after a lints, then moves):
+Execute (4.3 h after a closes the slot, back on the note):
   call cursor(1, 5)
   normal ah
 Then:
@@ -90,10 +107,10 @@ Then:
 Expect songwriter:
   e|--4--|--1--|
 
-Given songwriter (4.3 w after a lints, then moves):
+Given songwriter (4.3 w after a closes the slot, then moves):
   e|--4--|--1--|
 
-Execute (4.3 w after a lints, then moves):
+Execute (4.3 w after a closes the slot, then moves):
   call cursor(1, 5)
   normal aw
 Then:
@@ -101,22 +118,22 @@ Then:
 Expect songwriter:
   e|--4--|--1--|
 
-Given songwriter (4.3 l on an open slot lints, then moves on to the next bar):
+Given songwriter (4.3 l after a closes the slot, then moves on to the next bar):
   e|--4--|--1--|
 
-Execute (4.3 l on an open slot lints, then moves on to the next bar):
+Execute (4.3 l after a closes the slot, then moves on to the next bar):
   call cursor(1, 5)
-  normal ll
+  normal al
 Then:
   AssertEqual 11, col('.')
 Expect songwriter:
   e|--4--|--1--|
 
-Given songwriter (4.3 j/k do not abandon the slot; a later h does):
+Given songwriter (4.3 j/k do not close the slot; a later h does):
   e|--4--|
   B|--4--|
 
-Execute (4.3 j/k do not abandon the slot; a later h does):
+Execute (4.3 j/k do not close the slot; a later h does):
   call cursor(1, 5)
   normal aj
   AssertEqual ['e|--4----|', 'B|--4----|'], getline(1, 2)
@@ -128,10 +145,85 @@ Expect songwriter:
   e|--4--|
   B|--4--|
 
-Given songwriter (4.3 moving without an open slot does not lint):
+Given songwriter (4.3 a slot sharing its undo step with a note before it is closed too):
+  e|--4--|
+
+Execute (4.3 a slot sharing its undo step with a note before it is closed too):
+  call cursor(1, 5)
+  normal a5lh
+Then:
+  AssertEqual 7, col('.')
+Expect songwriter:
+  e|--4-5--|
+
+Given songwriter (4.3 closing a slot leaves no undo step and the buffer unmodified):
+  e|-----4-----|
+
+Execute (4.3 closing a slot leaves no undo step and the buffer unmodified):
+  let &undolevels = &undolevels
+  set nomodified
+  let seq = undotree().seq_cur
+  call cursor(1, 8)
+  call feedkeys("a\<Esc>", 'xt')
+  AssertEqual seq, undotree().seq_cur
+  Assert !&modified
+  call feedkeys("ll", 'xt')
+  AssertEqual seq, undotree().seq_cur
+Expect songwriter:
+  e|-----4-----|
+
+Given songwriter (4.3 an earlier change is kept when a slot is closed):
+  e|--4--|
+
+Execute (4.3 an earlier change is kept when a slot is closed):
+  call cursor(1, 5)
+  call feedkeys("7", 'xt')
+  let seq = undotree().seq_cur
+  call feedkeys("a\<Esc>", 'xt')
+  AssertEqual seq, undotree().seq_cur
+Expect songwriter:
+  e|--7--|
+
+" --- 4.3.1 a note typed into a slot is one undo step with it ---
+
+Given songwriter (4.3.1 u after a and a digit gives back the tab as before a):
+  e|-----4-----|
+
+Execute (4.3.1 u after a and a digit gives back the tab as before a):
+  let &undolevels = &undolevels
+  call cursor(1, 8)
+  call feedkeys("a7u", 'xt')
+Expect songwriter:
+  e|-----4-----|
+
+Given songwriter (4.3.1 a two-digit fret is in the same undo step):
+  e|--4--|
+
+Execute (4.3.1 a two-digit fret is in the same undo step):
+  let &undolevels = &undolevels
+  call cursor(1, 5)
+  call feedkeys("a12", 'xt')
+  AssertEqual 'e|--4-12--|', getline(1)
+  call feedkeys("u", 'xt')
+Expect songwriter:
+  e|--4--|
+
+Given songwriter (4.3.1 l from a typed note opens the next slot in a new undo step):
+  e|--4--|
+
+Execute (4.3.1 l from a typed note opens the next slot in a new undo step):
+  let &undolevels = &undolevels
+  call cursor(1, 5)
+  call feedkeys("a7l8u", 'xt')
+Expect songwriter:
+  e|--4-7--|
+
+" --- 4.3.2 moving in the normal state never lints ---
+
+Given songwriter (4.3.2 moving without an open slot does not lint):
   e|----4----|
 
-Execute (4.3 moving without an open slot does not lint):
+Execute (4.3.2 moving without an open slot does not lint):
   call cursor(1, 9)
   normal h
 Then:
