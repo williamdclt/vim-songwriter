@@ -20,7 +20,8 @@ never relies on concealing or rendering.
 | `autoload/songwriter/tab/edit.vim` | The buffer side of a tablature edit: `Commit` a pure function's result (write, cursor, lint and follow, message or refusal), `Run` a whole edit at the cursor. |
 | `autoload/songwriter/tab/slots.vim` | Slots: where a new note's room goes (pure) and the buffer's one open slot, with how to close it. |
 | `autoload/songwriter/tab/insert.vim` | The insert state of tablature mode: entering, keeping, leaving it, and `<Esc>`. |
-| `autoload/songwriter/tab/state.vim` | Buffer state valid only while `b:changedtick` is unchanged (slot, insert state, digit being typed, `.`). |
+| `autoload/songwriter/tab/carry.vim` | Carrying a note with the arrow keys in the insert state. |
+| `autoload/songwriter/tab/state.vim` | Buffer state valid only while `b:changedtick` is unchanged (slot, insert state, digit being typed, carried note, `.`). |
 | `autoload/songwriter/tab/lint.vim` | The linter, as a pure function over a block's lines. |
 | `autoload/songwriter/tab.vim` | Tab operations and motions: buffer entry points around the model. |
 | `autoload/songwriter/tab/columns.vim` | The column model behind tablature-mode operators, pure: text object ranges, snapping, delete, extract, paste with row matching, erase. |
@@ -308,6 +309,21 @@ text, and arrow keys would be needed).
   and `typing.separator` makes the next digit go in a new column right after
   it. Those keys lose their meaning only for that one keystroke, where moving
   or pasting is rare; `\` is left out as it is the default `<leader>`.
+
+- **Carrying a note with the arrows (3.6)** (`tab/carry.vim`): the arrows are
+  free in tablature mode (`hjkl` are taken), and moving a note is a drag, so it
+  belongs to the insert state, next to typing. The first arrow lifts the note
+  as `x` erases it; the rest of the tab, the *base*, is kept with the carry
+  state (tied to `b:changedtick`, so any other edit ends the carry). Each arrow
+  moves a position over the base (a column, a gap named after the column
+  before it, an empty bar, a new bar) along the insert-state stops of `l`/`h`,
+  and the tab is rendered again from the base with the note there. Rendering
+  from the base rather than editing the last result is what puts back a note
+  the carried one replaced and closes a gap it opened, with no bookkeeping of
+  what was overwritten; the start position renders the original lines, so
+  coming back leaves no trace. Moves after the first are joined to its undo
+  step. Off a note the arrows keep their meaning (`carry#Key` returns the
+  arrow itself), so they still move the cursor out of a slot.
 
 ### Linting after edits (spec [Tablature][[Editing]] 4)
 

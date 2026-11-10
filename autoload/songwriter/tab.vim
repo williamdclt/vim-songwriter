@@ -78,7 +78,7 @@ function! songwriter#tab#EnterNote(digit) abort
   let l:typing = songwriter#tab#state#Get('typing')
   let l:here = !empty(l:typing) && l:typing.line == line('.') && l:typing.col == l:col
   let l:insert = songwriter#tab#insert#Active()
-  let l:note = s:note_at(l:line, l:col)
+  let l:note = songwriter#tab#model#NoteAt(l:line, l:col)
   if l:here && l:insert && get(l:typing, 'separator', 0)
     silent! undojoin
     let l:block = songwriter#tab#model#Read()
@@ -141,7 +141,7 @@ endfunction
 " gap, in the same undo step as the note. The cursor lands on it, and the next
 " digit goes right after it (EnterNote).
 function! songwriter#tab#EnterSeparator(char) abort
-  let l:note = s:note_at(getline('.'), col('.'))
+  let l:note = songwriter#tab#model#NoteAt(getline('.'), col('.'))
   let l:block = songwriter#tab#model#Read()
   if empty(l:note) || empty(l:block)
     return
@@ -155,16 +155,6 @@ function! songwriter#tab#EnterSeparator(char) abort
   call cursor(line('.'), l:end + 1)
   call songwriter#tab#state#Set('typing', {'line': line('.'), 'col': col('.'), 'separator': 1})
   call songwriter#tab#insert#Keep()
-endfunction
-
-" The note of `line` covering column `col`, or {}.
-function! s:note_at(line, col) abort
-  for l:n in songwriter#tab#model#Notes(a:line)
-    if a:col >= l:n.col && a:col < l:n.col + l:n.len
-      return l:n
-    endif
-  endfor
-  return {}
 endfunction
 
 " Spec [Tablature][[Editing]] 3.1: open room for a new note on every string,
@@ -314,7 +304,7 @@ function! songwriter#tab#MoveBar(key, count) abort
 endfunction
 
 " Spec [Tablature][[Editing]] 3.3: `l` (dir +1) / `h` (dir -1). In the normal
-" state they only move (3.3.2): to the next/previous stop (see s:stops),
+" state they only move (3.3.2): to the next/previous stop (see model#Stops),
 " crossing bar pipes; with none that way, the cursor stays. In the insert state,
 " see s:insert_column.
 function! songwriter#tab#MoveColumn(dir) abort
@@ -326,7 +316,7 @@ function! songwriter#tab#MoveColumn(dir) abort
   if empty(l:block)
     return
   endif
-  let l:target = songwriter#tab#model#Advance(s:stops(l:block), col('.'), a:dir, 1)
+  let l:target = songwriter#tab#model#Advance(songwriter#tab#model#Stops(l:block, getline('.')), col('.'), a:dir, 1)
   if l:target != col('.')
     call cursor(line('.'), l:target)
   endif
@@ -341,7 +331,7 @@ function! songwriter#tab#StepColumn(dir) abort
   if empty(l:block)
     return
   endif
-  let l:target = s:from_slot(l:slot, s:stops(l:block), col('.'), a:dir)
+  let l:target = s:from_slot(l:slot, songwriter#tab#model#Stops(l:block, getline('.')), col('.'), a:dir)
   if l:target != col('.')
     call cursor(line('.'), l:target)
   endif
@@ -366,10 +356,10 @@ function! s:insert_column(dir) abort
   elseif index(songwriter#tab#model#NoteColumns(l:block), l:col) >= 0
     call songwriter#tab#AddNote(a:dir)
   else
-    let l:target = songwriter#tab#model#Advance(s:stops(l:block), l:col, a:dir, 1)
+    let l:target = songwriter#tab#model#Advance(songwriter#tab#model#Stops(l:block, getline('.')), l:col, a:dir, 1)
     if l:target != l:col
       call s:land(l:block, l:target)
-    elseif a:dir > 0 && s:in_last_bar(getline('.'), l:col)
+    elseif a:dir > 0 && songwriter#tab#model#InLastBar(getline('.'), l:col)
       call songwriter#tab#AddBarSlot()
     endif
   endif
@@ -382,8 +372,8 @@ endfunction
 function! s:leave_slot(block, slot, dir) abort
   let l:col = col('.')
   let l:back = get(a:slot, 'side', 0) == -a:dir
-  if !l:back && songwriter#tab#model#Advance(s:stops(a:block), l:col, a:dir, 1) == l:col
-    if a:dir > 0 && s:in_last_bar(getline('.'), l:col) && s:bar_has_notes(a:block, l:col)
+  if !l:back && songwriter#tab#model#Advance(songwriter#tab#model#Stops(a:block, getline('.')), l:col, a:dir, 1) == l:col
+    if a:dir > 0 && songwriter#tab#model#InLastBar(getline('.'), l:col) && s:bar_has_notes(a:block, l:col)
       call songwriter#tab#slots#Abandon()
       call songwriter#tab#AddBarSlot()
     endif
@@ -391,7 +381,7 @@ function! s:leave_slot(block, slot, dir) abort
   endif
   call songwriter#tab#slots#Abandon()
   let l:block = songwriter#tab#model#Read()
-  call s:land(l:block, s:from_slot(a:slot, s:stops(l:block), col('.'), a:dir))
+  call s:land(l:block, s:from_slot(a:slot, songwriter#tab#model#Stops(l:block, getline('.')), col('.'), a:dir))
 endfunction
 
 " Where a move in direction `dir` goes among `stops` from column `col`, the
@@ -409,7 +399,7 @@ endfunction
 " Move the cursor to column `target` of its line, opening the slot of the
 " empty bar there if it is one (3.3.4).
 function! s:land(block, target) abort
-  if index(s:empty_bar_stops(getline('.'), songwriter#tab#model#NoteColumns(a:block)), a:target) >= 0
+  if index(songwriter#tab#model#EmptyBarStops(getline('.'), songwriter#tab#model#NoteColumns(a:block)), a:target) >= 0
     let l:mark = songwriter#tab#slots#Mark(0)
     call cursor(line('.'), a:target)
     let l:mark.from = a:target
@@ -421,29 +411,6 @@ function! s:land(block, target) abort
   endif
 endfunction
 
-" The stops of `l`/`h` on the cursor's line: the columns where any string of
-" `block` has a note (3.3.1), and the middle of every empty bar (3.3.4).
-function! s:stops(block) abort
-  let l:cols = songwriter#tab#model#NoteColumns(a:block)
-  return sort(l:cols + s:empty_bar_stops(getline('.'), l:cols), 'n')
-endfunction
-
-" Spec 3.3.4: the stops of the empty bars of `line` (no column of `cols`, the
-" block's note columns, inside them): their middle dash. A bar with nothing
-" between its pipes (`||`) has no stop.
-function! s:empty_bar_stops(line, cols) abort
-  let l:pipes = songwriter#tab#model#Pipes(a:line)
-  let l:stops = []
-  for l:i in range(len(l:pipes) - 1)
-    let l:bar = {'start': l:pipes[l:i], 'end': l:pipes[l:i + 1]}
-    if l:bar.end > l:bar.start + 1
-          \ && empty(filter(copy(a:cols), 'songwriter#tab#model#InBar(v:val, l:bar)'))
-      call add(l:stops, l:bar.start + (l:bar.end - l:bar.start) / 2)
-    endif
-  endfor
-  return l:stops
-endfunction
-
 " True when the bar of the cursor's line around `col` has a note on any string
 " of `block`.
 function! s:bar_has_notes(block, col) abort
@@ -451,14 +418,3 @@ function! s:bar_has_notes(block, col) abort
   return !empty(filter(songwriter#tab#model#NoteColumns(a:block),
         \ 'songwriter#tab#model#InBar(v:val, l:bar)'))
 endfunction
-
-" True when `col` is in the last bar of a tab line that ends with a pipe:
-" the line's final pipe is the first pipe at or after `col`.
-function! s:in_last_bar(line, col) abort
-  let l:pipes = songwriter#tab#model#Pipes(a:line)
-  if empty(l:pipes) || l:pipes[-1] != len(a:line) || a:col > l:pipes[-1]
-    return 0
-  endif
-  return empty(filter(copy(l:pipes), 'v:val >= a:col && v:val < l:pipes[-1]'))
-endfunction
-
