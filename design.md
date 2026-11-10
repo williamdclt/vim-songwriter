@@ -506,6 +506,14 @@ voicings in their cycle order out) and `Place()`, and the entry points.
   voicing this module writes. Keeping the root's fret when a voicing has it
   keeps the chord where it was on the neck. A name is a quality when it is not
   a chord but `C` + it is, which separates `b` (B) from `m7` without a list.
+- **`+` reads the column, not a remembered state** (10.8). Power, major,
+  minor is the order a riff grows in, and checking which of them the column
+  holds (exactly, rooted on the cursor's note) lets `+` go on from a chord
+  typed with `=` or entered long before, with no state to keep in sync with
+  edits. Unlike 10.7 the root is the cursor's note and must stay so: the chord
+  must be rooted on that string at that fret, or `+` is refused, so the next
+  `+` still finds its root under the cursor. Minor is the end: a third quality
+  would have to be chosen arbitrarily, and `=` covers the rest.
 - **Typing on.** In the insert state a chord counts as a typed note
   (`typing.chord`): a digit after it opens the next slot even when it would
   extend the root's fret (`1` then `2` is not `12`), and separators are not

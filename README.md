@@ -95,6 +95,9 @@ In the insert state it fills the slot, and the next digit goes on after it.
 root (the note on the lowest string): on an `Em`, `=M7<Enter>` gives `EM7`, and
 `=5<Enter>` turns a single note into a power chord.
 
+`+` on a note builds a chord up from it: a power chord rooted on it, then
+(`+` again on that root) the major chord, then the minor one.
+
 Shapes (E, A, D at any fret, open C and G) cover major, `m`, `7`, `m7`, `maj7`,
 `sus2`, `sus4` in standard tuning. Power chords (`=E5`) are root, fifth and
 octave, and follow any tuning (drop D gives the one-finger shape).
