@@ -193,17 +193,21 @@ endfunction
 
 " Spec 10.1, 10.4: `=`. Read a chord name and enter it (Enter), or, on a
 " second `=`, go to the next voicing (Next). `<Esc>` or an empty name cancels.
+" The `=` shown while waiting is cleared before the voicing's message, so the
+" two never stack into a hit-enter prompt.
 function! songwriter#tab#voicings#Prompt() abort
   echo '='
   let l:key = getchar()
   let l:key = type(l:key) == v:t_number ? nr2char(l:key) : l:key
+  let l:name = ''
+  if l:key !=# '=' && l:key !=# "\<Esc>" && l:key !=# "\<CR>"
+    let l:name = trim(input('=', l:key))
+  endif
+  redraw
+  echo ''
   if l:key ==# '='
     call songwriter#tab#voicings#Next()
-    return
-  endif
-  let l:name = (l:key ==# "\<Esc>" || l:key ==# "\<CR>") ? '' : trim(input('=', l:key))
-  redraw
-  if !empty(l:name)
+  elseif !empty(l:name)
     call songwriter#tab#voicings#Enter(l:name)
   endif
 endfunction
