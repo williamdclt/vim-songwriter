@@ -74,21 +74,21 @@ Expect songwriter:
 
 " --- 6.2 motions ---
 
-Given songwriter (6.2 dw removes the note and its gap, block-wide):
+Given songwriter (6.2.2 dw removes a lone note and its gap):
   e|--3--5--7--|
-  B|-----5-----|
+  B|-----------|
 
-Execute (6.2 dw removes the note and its gap, block-wide):
+Execute (6.2.2 dw removes a lone note and its gap):
   call cursor(1, 8)
   normal dw
 Expect songwriter:
   e|--3--7--|
   B|--------|
 
-Given songwriter (6.2 dl removes the column; on the bar's last column it stops at the pipe):
+Given songwriter (6.2.2 dl removes a lone note; on the bar's last column it stops at the pipe):
   e|--3--5--|--7--|
 
-Execute (6.2 dl removes the column; on the bar's last column it stops at the pipe):
+Execute (6.2.2 dl removes a lone note; on the bar's last column it stops at the pipe):
   call cursor(1, 8)
   normal dl
 Expect songwriter:
@@ -103,39 +103,39 @@ Execute (3.3.5 dL is dl):
 Expect songwriter:
   e|--3--|--7--|
 
-Given songwriter (6.2 dW deletes to the end of the bar):
+Given songwriter (6.2.3 dW deletes to the end of the bar):
   e|--3--5--7--|
   B|-----5-----|
 
-Execute (6.2 dW deletes to the end of the bar):
+Execute (6.2.3 dW deletes to the end of the bar):
   call cursor(1, 8)
   normal dW
 Expect songwriter:
   e|--3--|
   B|-----|
 
-Given songwriter (6.2 d$ deletes to the end of the tab and closes the bar):
+Given songwriter (6.2.3 d$ deletes to the end of the tab and closes the bar):
   e|--3--5--|--7--|
 
-Execute (6.2 d$ deletes to the end of the tab and closes the bar):
+Execute (6.2.3 d$ deletes to the end of the tab and closes the bar):
   call cursor(1, 8)
   normal d$
 Expect songwriter:
   e|--3--|
 
-Given songwriter (6.2 db removes the previous note and its gap):
+Given songwriter (6.2.2 db removes the previous note and its gap):
   e|--3--5--7--|
 
-Execute (6.2 db removes the previous note and its gap):
+Execute (6.2.2 db removes the previous note and its gap):
   call cursor(1, 11)
   normal db
 Expect songwriter:
   e|--3--7--|
 
-Given songwriter (6.2 a motion never cuts a two-digit note):
+Given songwriter (6.2.2 a motion never cuts a two-digit note):
   e|--12--5--|
 
-Execute (6.2 a motion never cuts a two-digit note):
+Execute (6.2.2 a motion never cuts a two-digit note):
   call cursor(1, 6)
   normal dw
 Expect songwriter:

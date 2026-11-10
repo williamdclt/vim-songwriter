@@ -1,0 +1,310 @@
+" Spec [Tablature][[Editing]] 3.2, 6.1.5, 6.1.6, 6.2.2: in tablature mode a
+" word is a chain on one string (a dash is the space between words), and the
+" string motions (`l`, `h`, `w`, `b`, `e`, `ge`) erase notes on the cursor's
+" string after an operator, as `x` does.
+
+Before:
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing
+  let b:songwriter_tabmode = 1
+  call setreg('"', [])
+
+" --- 3.2 word motions ---
+
+Given songwriter (a chain is one word):
+  e|--5h7--9--|
+  B|----------|
+
+Execute (3.2 w skips the rest of the word):
+  call cursor(1, 5)
+  normal w
+  AssertEqual 10, col('.')
+
+Execute (3.2 b goes to the first note of the previous word):
+  call cursor(1, 10)
+  normal b
+  AssertEqual 5, col('.')
+
+Execute (3.2 b inside a word goes to its first note):
+  call cursor(1, 7)
+  normal b
+  AssertEqual 5, col('.')
+
+Execute (3.2 e goes to the last note of the word):
+  call cursor(1, 5)
+  normal e
+  AssertEqual 7, col('.')
+
+Execute (3.2 e on the last note of a word goes to the next word's):
+  call cursor(1, 7)
+  normal e
+  AssertEqual 10, col('.')
+
+Execute (3.2 ge goes to the last note of the previous word):
+  call cursor(1, 10)
+  normal ge
+  AssertEqual 7, col('.')
+
+Execute (3.2 ge with no previous word stays):
+  call cursor(1, 7)
+  normal ge
+  AssertEqual 7, col('.')
+
+Given songwriter (a word starting with a separator):
+  e|--3--/5--|
+
+Execute (3.2 w lands on the first note of the word, not its separator):
+  call cursor(1, 5)
+  normal w
+  AssertEqual 9, col('.')
+
+Given songwriter (a word ending on a two-digit fret):
+  e|--5h12--3--|
+
+Execute (3.2 e lands on the first digit of the word's last note):
+  call cursor(1, 5)
+  normal e
+  AssertEqual 7, col('.')
+
+Given songwriter (words across a bar line):
+  e|--5h7--|--9--|
+
+Execute (3.2 e crosses the bar line):
+  call cursor(1, 7)
+  normal e
+  AssertEqual 13, col('.')
+
+Given songwriter (3.2 e in the insert state closes the slot and opens none):
+  e|--3--5--|
+
+Execute (3.2 e in the insert state closes the slot and opens none):
+  call cursor(1, 5)
+  normal ae
+  AssertEqual 8, col('.')
+Expect songwriter:
+  e|--3--5--|
+
+" --- 6.1.5 word objects ---
+
+Given songwriter (6.1.5 daw erases every note of the word, as x would):
+  e|--3--5h7--9--|
+  B|-------------|
+
+Execute (6.1.5 daw erases every note of the word, as x would):
+  call cursor(1, 8)
+  normal daw
+  AssertEqual ['5h7--', '-----'], getreg('"', 1, 1)
+Expect songwriter:
+  e|--3--9--|
+  B|--------|
+
+Given songwriter (6.1.5 yiw yanks the word without its gap):
+  e|--3--5h7--9--|
+  B|-------------|
+
+Execute (6.1.5 yiw yanks the word without its gap):
+  call cursor(1, 10)
+  normal yiw
+  AssertEqual ['5h7', '---'], getreg('"', 1, 1)
+Expect songwriter:
+  e|--3--5h7--9--|
+  B|-------------|
+
+Given songwriter (6.1.5 daw keeps a column another string plays):
+  e|--3--5--|
+  B|-----5--|
+
+Execute (6.1.5 daw keeps a column another string plays):
+  call cursor(1, 8)
+  normal daw
+Expect songwriter:
+  e|--3-----|
+  B|-----5--|
+
+Given songwriter (6.1.5 iw on a dash takes the word to its left):
+  e|--3--5h7--9--|
+
+Execute (6.1.5 iw on a dash takes the word to its left):
+  call cursor(1, 11)
+  normal yiw
+  AssertEqual ['5h7'], getreg('"', 1, 1)
+
+Given songwriter (6.9.6 vawd erases the word):
+  e|--3--5h7--9--|
+
+Execute (6.9.6 vawd erases the word):
+  call cursor(1, 8)
+  normal vawd
+Expect songwriter:
+  e|--3--9--|
+
+" --- 6.1.6 iW / aW ---
+
+Given songwriter (6.1.6 daW is da|):
+  e|--3--|--5--|
+  B|-----|--1--|
+
+Execute (6.1.6 daW is da|):
+  call cursor(2, 4)
+  normal daW
+Expect songwriter:
+  e|--5--|
+  B|--1--|
+
+Given songwriter (6.1.6 diW is di|):
+  e|--3--5--|--7--|
+
+Execute (6.1.6 diW is di|):
+  call cursor(1, 8)
+  normal diW
+Expect songwriter:
+  e|-----|--7--|
+
+" --- 6.2.2 string motions after an operator ---
+
+Given songwriter (6.2.2 dl is x: a shared column is kept):
+  e|--3--5--|
+  B|-----5--|
+
+Execute (6.2.2 dl is x: a shared column is kept):
+  call cursor(1, 8)
+  normal dl
+  AssertEqual ['5--', '---'], getreg('"', 1, 1)
+Expect songwriter:
+  e|--3-----|
+  B|-----5--|
+
+Given songwriter (6.2.2 dl on a dash does nothing):
+  e|--3--5--|
+
+Execute (6.2.2 dl on a dash does nothing):
+  call cursor(1, 6)
+  normal dl
+Expect songwriter:
+  e|--3--5--|
+
+Given songwriter (6.2.2 d2l erases two notes of the string, as x twice):
+  e|--3--5--7--|
+  B|-----------|
+
+Execute (6.2.2 d2l erases two notes of the string, as x twice):
+  call cursor(1, 5)
+  normal d2l
+  AssertEqual ['3--5--', '------'], getreg('"', 1, 1)
+Expect songwriter:
+  e|--7--|
+  B|-----|
+
+Given songwriter (6.2.2 d2l counts notes of the string, not columns):
+  e|--3-----7--9--|
+  B|-----5--------|
+
+Execute (6.2.2 d2l counts notes of the string, not columns):
+  call cursor(1, 5)
+  normal d2l
+Expect songwriter:
+  e|-----9--|
+  B|--5-----|
+
+Given songwriter (6.2.2 dh erases the note before the cursor):
+  e|--3--5--7--|
+
+Execute (6.2.2 dh erases the note before the cursor):
+  call cursor(1, 11)
+  normal dh
+Expect songwriter:
+  e|--3--7--|
+
+Given songwriter (6.2.2 dw erases on the cursor's string only):
+  e|--3--5--7--|
+  B|-----5-----|
+
+Execute (6.2.2 dw erases on the cursor's string only):
+  call cursor(1, 8)
+  normal dw
+Expect songwriter:
+  e|--3-----7--|
+  B|-----5-----|
+
+Given songwriter (6.2.2 dw does not reach other strings' notes up to the next word):
+  e|--3--------7--|
+  B|-----5--5-----|
+
+Execute (6.2.2 dw does not reach other strings' notes up to the next word):
+  call cursor(1, 5)
+  normal dw
+Expect songwriter:
+  e|--------7--|
+  B|--5--5-----|
+
+Given songwriter (6.2.2 dw erases the whole word):
+  e|--5h7--9--|
+
+Execute (6.2.2 dw erases the whole word):
+  call cursor(1, 5)
+  normal dw
+Expect songwriter:
+  e|--9--|
+
+Given songwriter (6.2.2 de erases the rest of the word):
+  e|--5h7--9--|
+
+Execute (6.2.2 de erases the rest of the word):
+  call cursor(1, 5)
+  normal de
+Expect songwriter:
+  e|--9--|
+
+Given songwriter (6.2.2 db inside a word erases its part before the cursor):
+  e|--5h7--|
+
+Execute (6.2.2 db inside a word erases its part before the cursor):
+  call cursor(1, 7)
+  normal db
+Expect songwriter:
+  e|--7--|
+
+Given songwriter (6.2.2 yw yanks what dw would delete, buffer unchanged):
+  e|--5h7--9--|
+
+Execute (6.2.2 yw yanks what dw would delete, buffer unchanged):
+  call cursor(1, 5)
+  normal yw
+  AssertEqual ['5h7--'], getreg('"', 1, 1)
+Expect songwriter:
+  e|--5h7--9--|
+
+Given songwriter (6.2.2 cl on a lone note opens a slot in its place, as can):
+  e|--3--5--7--|
+
+Execute (6.2.2 cl on a lone note opens a slot in its place, as can):
+  call cursor(1, 8)
+  normal cl9
+Expect songwriter:
+  e|--3-9-7--|
+
+Given songwriter (6.2.2 dw is one undo step and . repeats it):
+  e|--3--5--7--|
+
+Execute (6.2.2 dw is one undo step and . repeats it):
+  call cursor(1, 5)
+  normal dw
+  AssertEqual 'e|--5--7--|', getline(1)
+  let &undolevels = &undolevels
+  normal .
+  AssertEqual 'e|--7--|', getline(1)
+  normal u
+Expect songwriter:
+  e|--5--7--|
+
+" --- 6.9.5 visual word motions ---
+
+Given songwriter (6.9.5 e and ge work in visual mode without leaving it):
+  e|--5h7--9--|
+
+Execute (6.9.5 e and ge work in visual mode without leaving it):
+  call cursor(1, 5)
+  execute "normal ve\<Esc>"
+  AssertEqual [5, 7], [col("'<"), col("'>")]
+  call cursor(1, 10)
+  execute "normal vge\<Esc>"
+  AssertEqual [7, 10], [col("'<"), col("'>")]

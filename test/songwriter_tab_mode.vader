@@ -273,6 +273,6 @@ Given songwriter (w stays put on a prose line even in tablature mode (function n
 Execute (w stays put on a prose line even in tablature mode (function no-op)):
   let b:songwriter_tabmode = 1
   call cursor(1, 1)
-  call songwriter#tab#MoveNote(1)
+  call songwriter#tab#MoveWord('w')
 Then:
   AssertEqual 1, col('.')

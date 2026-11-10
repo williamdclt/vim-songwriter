@@ -16,7 +16,7 @@ Execute (Dispatch: tablature mode wins over the plain tab-line action):
   let b:songwriter_tabmode = 0
   AssertEqual "\<Cmd>call songwriter#keys#TabWord(1)\<CR>", songwriter#keys#Dispatch('w')
   let b:songwriter_tabmode = 1
-  AssertEqual "\<Cmd>call songwriter#tab#MoveNote(1)\<CR>", songwriter#keys#Dispatch('w')
+  AssertEqual "\<Cmd>call songwriter#tab#MoveWord(\"w\")\<CR>", songwriter#keys#Dispatch('w')
 
 Execute (Opening a songwriter buffer turns tablature mode on (spec [Tablature][[Editing]] 3)):
   setfiletype songwriter

@@ -22,10 +22,10 @@ Execute (l stops on the 7 of 5h7):
   normal l
   AssertEqual 7, col('.')
 
-Execute (w stops on the 7 of 5h7):
+Execute (3.2 w skips the 7 of 5h7, a word of its own):
   call cursor(1, 5)
   normal w
-  AssertEqual 7, col('.')
+  AssertEqual 10, col('.')
 
 Given songwriter (x is a note for motions):
   e|--x--3--x--|
