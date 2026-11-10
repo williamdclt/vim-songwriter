@@ -118,12 +118,110 @@ function! songwriter#tab#columns#NoteObject(lines, lin, col, around) abort
   return [l:n.col, max([l:column[1], l:n.col + l:n.len - 1])]
 endfunction
 
-" Where a tablature-mode motion can stop, sorted: `w`/`b` the notes of
-" `line`, `l`/`h` the time columns of the block.
+" Spec 6.1.5: `iw`/`aw`, the word (3.2) at `col` on line `lin`, or on a dash
+" the nearest word of the string to the left in the bar; `aw` also takes the
+" gap after it, as `an`. [s, e] or [].
+function! songwriter#tab#columns#WordObject(lines, lin, col, around) abort
+  let l:line = a:lines[a:lin]
+  let l:bar = songwriter#tab#model#BarAt(l:line, a:col)
+  let l:words = filter(songwriter#tab#model#Words(l:line),
+        \ 'v:val.start <= a:col && songwriter#tab#model#InBar(v:val.start, l:bar)')
+  if empty(l:words)
+    return []
+  endif
+  let l:w = l:words[-1]
+  if !a:around
+    return [l:w.start, l:w.end]
+  endif
+  let l:column = songwriter#tab#columns#ColumnObject(a:lines, a:lin, l:w.last, 1, 1)
+  return [l:w.start, max([l:column[1], l:w.end])]
+endfunction
+
+" `in`/`an` (kind 'n') or `iw`/`aw` (kind 'w').
+function! songwriter#tab#columns#StringObject(kind, lines, lin, col, around) abort
+  return a:kind ==# 'w'
+        \ ? songwriter#tab#columns#WordObject(a:lines, a:lin, a:col, a:around)
+        \ : songwriter#tab#columns#NoteObject(a:lines, a:lin, a:col, a:around)
+endfunction
+
+" Where a tablature-mode motion can stop, sorted: `w`/`b` the first notes of
+" the words of `line`, `e`/`ge` their last notes (3.2), `l`/`h` the time
+" columns of the block.
 function! songwriter#tab#columns#Stops(lines, line, key) abort
-  return a:key =~# '[wb]'
-        \ ? map(songwriter#tab#model#Notes(a:line), 'v:val.col')
-        \ : songwriter#tab#columns#Columns(a:lines)
+  if a:key =~# '^[wb]$'
+    return map(songwriter#tab#model#Words(a:line), 'v:val.first')
+  elseif a:key =~# '^g\=e$'
+    return map(songwriter#tab#model#Words(a:line), 'v:val.last')
+  endif
+  return songwriter#tab#columns#Columns(a:lines)
+endfunction
+
+" Spec 6.2.2: the range [s, e] on `line` that the string motion `key` covers
+" from column `col`, `count` times, trimmed to the notes it covers: from the
+" start of the first to the end of the last. `l`/`h` count notes of the
+" string (`l` from the note under the cursor), `w`/`b`/`e`/`ge` words. []
+" when it covers no note.
+function! songwriter#tab#columns#StringMotion(lines, line, col, key, count) abort
+  let l:notes = songwriter#tab#model#Notes(a:line)
+  let l:count = max([a:count, 1])
+  if a:key ==# 'l'
+    let l:i = index(map(copy(l:notes), 'v:val.col <= a:col && a:col < v:val.col + v:val.len'), 1)
+    if l:i < 0
+      return []
+    endif
+    let l:range = [l:notes[l:i].col, l:notes[min([l:i + l:count, len(l:notes)]) - 1].col]
+  elseif a:key ==# 'h'
+    let l:at = a:col
+    for l:n in l:notes
+      if l:n.col <= a:col && a:col < l:n.col + l:n.len
+        let l:at = l:n.col
+      endif
+    endfor
+    let l:before = filter(copy(l:notes), 'v:val.col < l:at')
+    if empty(l:before)
+      return []
+    endif
+    let l:range = [l:before[max([len(l:before) - l:count, 0])].col, l:at - 1]
+  else
+    let l:stops = songwriter#tab#columns#Stops(a:lines, a:line, a:key)
+    let l:fwd = a:key =~# '^[we]$'
+    let l:to = songwriter#tab#model#Advance(l:stops, a:col, l:fwd ? 1 : -1, l:count)
+    if l:to == a:col && a:key !=# 'w'
+      return []
+    endif
+    let l:range = a:key ==# 'w' ? [a:col, l:to == a:col ? len(a:line) : l:to - 1]
+          \ : a:key ==# 'b' ? [l:to, a:col - 1]
+          \ : a:key ==# 'e' ? [a:col, l:to]
+          \ : [l:to, a:col]
+  endif
+  let l:covered = filter(l:notes, 'v:val.col <= l:range[1] && l:range[0] < v:val.col + v:val.len')
+  if empty(l:covered)
+    return []
+  endif
+  return [l:covered[0].col, l:covered[-1].col + l:covered[-1].len - 1]
+endfunction
+
+" Spec 6.2.2 / 6.1.4: erase every note of line `lin` that lies in [s, e], each
+" as `x` does (EraseNote), right to left so that a removed column does not
+" shift the next ones. {'lines', 'rows' (what `x` writes for each note, left to
+" right), 'col' (the first erased note), 'removed' (a column went)}, or {}
+" when there is no note there.
+function! songwriter#tab#columns#EraseNotes(lines, lin, s, e) abort
+  let l:notes = filter(songwriter#tab#model#Notes(a:lines[a:lin]),
+        \ 'v:val.col <= a:e && a:s < v:val.col + v:val.len')
+  if empty(l:notes)
+    return {}
+  endif
+  let l:first = l:notes[0].col
+  let l:lines = a:lines
+  let l:rows = map(copy(a:lines), '""')
+  for l:n in reverse(l:notes)
+    let l:res = songwriter#tab#columns#EraseNote(l:lines, a:lin, l:n.col)
+    let l:rows = map(l:rows, 'l:res.rows[v:key] . v:val')
+    let l:lines = l:res.lines
+  endfor
+  return {'lines': l:lines, 'rows': l:rows, 'col': l:first,
+        \ 'removed': len(l:lines[a:lin]) < len(a:lines[a:lin])}
 endfunction
 
 " Spec [Tablature][[Editing]] 3.5: where the bar motion `key` goes from column
@@ -175,7 +273,7 @@ function! s:bar_stops(lines, line) abort
   return l:bars
 endfunction
 
-" Spec 6.2: snap a motion's range [s, e] outward so it never cuts a note: s
+" Spec 6.2.3: snap a motion's range [s, e] outward so it never cuts a note: s
 " goes to the start of the note it is in, or, in a gap, to the previous column
 " of its bar; e goes to the end of the note it is in, and a range ending on a
 " note takes that note's gap too.

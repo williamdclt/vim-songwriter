@@ -387,7 +387,7 @@ The spec items carry the behaviour; this records why, and how it is built.
   "exact" flag so the operator does not snap them (`ic` would otherwise grow
   into `ac`). Column counts stop at the bar's end, so a column object never
   contains a pipe.
-- **Ranges that cross a bar line** (`d$`, `d2w`): the columns are removed and
+- **Ranges that cross a bar line** (`d$`, `d2W`): the columns are removed and
   a pipe is put back where the range started, so the bar it started in is
   closed there and nothing is left after the final pipe (which lint drops).
 - **Registers are plain blockwise registers**, so they interoperate with

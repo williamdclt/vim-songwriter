@@ -5,9 +5,10 @@
 " text objects".
 "
 " d/y/c run through 'operatorfunc' and g@, so counts, motions and `.` work as
-" for native operators. The operator, register and whether the target was one
-" of our text objects (exact: no snapping) are kept in s:pending, since
-" v:register is not reliable inside 'operatorfunc'.
+" for native operators. The operator, register, whether the target was one of
+" our text objects or string motions (exact: no snapping) and its reach
+" (`note`, see ApplyRange) are kept in s:pending, since v:register is not
+" reliable inside 'operatorfunc'.
 
 let s:pending = {'op': 'd', 'reg': '"', 'exact': 0, 'note': 0, 'cancel': 0, 'tick': -1}
 
@@ -86,11 +87,13 @@ function! songwriter#tab#operator#Opfunc(type) abort
   endif
 endfunction
 
-" Apply `op` to columns [s, e] of `block`, cursor on its line: the time columns,
-" or with `note` only the note on the cursor's string (6.1.4).
+" Apply `op` to columns [s, e] of `block`, cursor on its line. `note` is the
+" reach: 0 the time columns (6.2.3), 1 the notes of the cursor's string, a
+" string object (6.1.4, 6.1.5), 2 the notes of the cursor's string, a string
+" motion (6.2.2).
 function! songwriter#tab#operator#ApplyRange(op, reg, block, s, e, note) abort
   if a:note
-    call s:noteop(a:op, a:reg, a:block, a:s, a:e)
+    call s:noteop(a:op, a:reg, a:block, a:s, a:e, a:note == 1)
   else
     call s:columnwise(a:op, a:reg, a:block, a:s, a:e)
   endif
@@ -123,23 +126,30 @@ function! s:write_deleted(op, block, lines, s) abort
   endif
 endfunction
 
-" Spec 6.1.4: `op` on the note at columns [s, e] of the cursor's string: the
-" register holds those columns with the other strings as dashes; `d`/`c`
-" erase the note as `x` does (6.7), and `c` opens a slot if its column went.
-function! s:noteop(op, reg, block, s, e) abort
+" Spec 6.1.4, 6.1.5, 6.2.2: `op` on the notes in columns [s, e] of the
+" cursor's string. The register holds, with the other strings as dashes,
+" those columns (`exact`, an object) or what `x` writes for each note (a
+" motion, so `dl` fills it as `x`). `d`/`c` erase the notes as `x` does
+" (6.7), and `c` opens a slot if a column went.
+function! s:noteop(op, reg, block, s, e, exact) abort
   let l:lin = songwriter#tab#model#CursorLin(a:block)
-  let l:rows = songwriter#tab#columns#Extract(a:block.lines, a:s, a:e)
-  call map(l:rows, 'v:key == l:lin ? v:val : repeat("-", len(v:val))')
+  let l:res = songwriter#tab#columns#EraseNotes(a:block.lines, l:lin, a:s, a:e)
+  if empty(l:res)
+    return
+  endif
+  if a:exact
+    let l:rows = songwriter#tab#columns#Extract(a:block.lines, a:s, a:e)
+    call map(l:rows, 'v:key == l:lin ? v:val : repeat("-", len(v:val))')
+  else
+    let l:rows = l:res.rows
+  endif
   call songwriter#tab#register#Set(a:reg, l:rows, 'b', songwriter#tab#model#Names(a:block.lines))
   if a:op ==# 'y'
     return
   endif
-  let l:res = songwriter#tab#columns#EraseNote(a:block.lines, l:lin, a:s)
-  if empty(l:res)
-    return
-  endif
-  if len(l:res.lines[l:lin]) < len(a:block.lines[l:lin])
-    call s:write_deleted(a:op, a:block, l:res.lines, a:s)
+  call cursor(line('.'), l:res.col)
+  if l:res.removed
+    call s:write_deleted(a:op, a:block, l:res.lines, l:res.col)
   else
     call songwriter#tab#edit#Commit(a:block, {'lines': l:res.lines})
   endif
@@ -214,22 +224,14 @@ endfunction
 
 " === Operator-pending targets ===
 
-" Spec 6.2.1: tablature-mode motions after an operator. Pure: no slot, no lint.
-" `w`/`b`: note starts on this string; `l`/`h`: note columns of the block.
-" Forward motions also stop at pipes, backward ones at a bar's first column, so
-" a count-less motion never crosses a bar line.
+" Spec 6.2.1 / 6.2.2: the string motions after an operator (`l`, `h`, `w`,
+" `b`, `e`, `ge`). Pure: no slot, no lint. They select the notes they cover on
+" the cursor's string, which the operator erases as `x` does; covering no
+" note cancels the operator.
 function! songwriter#tab#operator#Motion(key) abort
-  let l:block = songwriter#tab#model#Read()
-  if empty(l:block)
-    return
-  endif
-  let l:line = getline('.')
-  let l:stops = songwriter#tab#columns#Stops(l:block.lines, l:line, a:key)
-  let l:pipes = songwriter#tab#model#Pipes(l:line)
-  let l:fwd = a:key =~# '[wl]'
-  let l:stops += l:fwd ? l:pipes : map(copy(l:pipes), 'v:val + 1')
-  let l:stops = uniq(sort(l:stops, 'n'))
-  call cursor(line('.'), songwriter#tab#model#Advance(l:stops, col('.'), l:fwd ? 1 : -1, v:count1))
+  let l:c = songwriter#tab#model#Cursor()
+  call s:select_exact(empty(l:c) ? [] : songwriter#tab#columns#StringMotion(l:c.block.lines,
+        \ l:c.line, l:c.col, a:key, v:count1), 2)
 endfunction
 
 " Spec 6.1: `ic`/`ac` (kind 'c') and `i|`/`a|` (kind '|'), with a count.
@@ -241,15 +243,16 @@ function! songwriter#tab#operator#Object(kind, around) abort
         \ l:c.lin, l:c.col, v:count1, a:around), 0)
 endfunction
 
-" Spec 6.1.4: `in`/`an`, the note under the cursor on its string.
-function! songwriter#tab#operator#NoteObject(around) abort
+" Spec 6.1.4 / 6.1.5: `in`/`an` (kind 'n') and `iw`/`aw` (kind 'w'), the note
+" or word under the cursor on its string.
+function! songwriter#tab#operator#StringObject(kind, around) abort
   let l:c = songwriter#tab#model#Cursor()
-  call s:select_exact(empty(l:c) ? [] : songwriter#tab#columns#NoteObject(l:c.block.lines,
-        \ l:c.lin, l:c.col, a:around), 1)
+  call s:select_exact(empty(l:c) ? [] : songwriter#tab#columns#StringObject(a:kind,
+        \ l:c.block.lines, l:c.lin, l:c.col, a:around), 1)
 endfunction
 
-" Select `range` on the cursor line as the operator's exact target (`note`: one
-" string only); no range cancels the operator.
+" Select `range` on the cursor line as the operator's exact target, with the
+" reach `note` (see ApplyRange); no range cancels the operator.
 function! s:select_exact(range, note) abort
   if empty(a:range)
     let s:pending.cancel = 1

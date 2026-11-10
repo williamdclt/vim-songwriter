@@ -43,6 +43,23 @@ function! songwriter#tab#model#Chains(line) abort
   return s:matches(a:line, songwriter#grammar#Chain(), songwriter#tab#model#BodyOffset())
 endfunction
 
+" Words of a tab line (spec [Tablature][[Editing]] 3.2): its chains holding at
+" least one note, left to right, as {'start', 'end' (the chain's first and last
+" columns), 'first', 'last' (the start columns of its first and last notes)}.
+function! songwriter#tab#model#Words(line) abort
+  let l:notes = songwriter#tab#model#Notes(a:line)
+  let l:words = []
+  for l:ch in songwriter#tab#model#Chains(a:line)
+    let l:end = l:ch.col + l:ch.len - 1
+    let l:in = filter(copy(l:notes), 'v:val.col >= l:ch.col && v:val.col <= l:end')
+    if !empty(l:in)
+      call add(l:words, {'start': l:ch.col, 'end': l:end,
+            \ 'first': l:in[0].col, 'last': l:in[-1].col})
+    endif
+  endfor
+  return l:words
+endfunction
+
 " Notes of a row: a bar region or a register row, with no string name.
 function! songwriter#tab#model#RowNotes(row) abort
   return s:matches(a:row, songwriter#grammar#Note(), 0)

@@ -22,13 +22,14 @@ function! s:is_vobj() abort
   return !empty(s:vobj) && mode() ==# get(s:vobj, 'mode', "\<C-V>") && s:selection() ==# s:vobj.sel
 endfunction
 
-" Spec 6.9.6: `in`/`an` in visual mode select the note on its string.
-function! songwriter#tab#visual#NoteObject(around) abort
+" Spec 6.9.6: `in`/`an` (kind 'n') and `iw`/`aw` (kind 'w') in visual mode
+" select the note or word on its string.
+function! songwriter#tab#visual#StringObject(kind, around) abort
   let l:c = songwriter#tab#model#Cursor()
   if empty(l:c)
     return
   endif
-  let l:range = songwriter#tab#columns#NoteObject(l:c.block.lines, l:c.lin, l:c.col, a:around)
+  let l:range = songwriter#tab#columns#StringObject(a:kind, l:c.block.lines, l:c.lin, l:c.col, a:around)
   if empty(l:range)
     return
   endif
@@ -106,7 +107,7 @@ function! songwriter#tab#visual#Motion(key) abort
     return
   endif
   let l:stops = songwriter#tab#columns#Stops(l:block.lines, getline('.'), a:key)
-  let l:col = songwriter#tab#model#Advance(l:stops, col('.'), a:key =~# '[wl]' ? 1 : -1, v:count1)
+  let l:col = songwriter#tab#model#Advance(l:stops, col('.'), a:key =~# '^[wle]$' ? 1 : -1, v:count1)
   call cursor(line('.'), l:col)
 endfunction
 

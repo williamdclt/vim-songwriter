@@ -223,18 +223,19 @@ endfunction
 
 " === Motions ===
 
-" Spec [Tablature][[Editing]] 3.2: move to the next (dir +1) / previous (-1)
-" note on the current line. No-op off a tab line or with no note that way.
+" Spec [Tablature][[Editing]] 3.2: the word motion `key` (`w`, `b`, `e`, `ge`)
+" on the current line (see columns#Stops). No-op off a tab line or with no
+" word that way.
 " An open slot is closed first (4.3), and the move goes on from the slot's
 " side (see s:from_slot).
-function! songwriter#tab#MoveNote(dir) abort
+function! songwriter#tab#MoveWord(key) abort
   let l:slot = songwriter#tab#slots#Abandon()
   let l:line = getline('.')
   if !songwriter#grammar#IsTabLine(l:line)
     return
   endif
-  let l:cols = map(songwriter#tab#model#Notes(l:line), 'v:val.col')
-  let l:target = s:from_slot(l:slot, l:cols, col('.'), a:dir)
+  let l:cols = songwriter#tab#columns#Stops([], l:line, a:key)
+  let l:target = s:from_slot(l:slot, l:cols, col('.'), a:key =~# '^[we]$' ? 1 : -1)
   if l:target != col('.')
     call cursor(line('.'), l:target)
   endif
