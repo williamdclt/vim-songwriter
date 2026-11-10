@@ -23,6 +23,8 @@ let s:tabmode.n = {
       \ 'b': 'call songwriter#tab#MoveNote(-1)',
       \ 'l': 'call songwriter#tab#MoveColumn(1)',
       \ 'h': 'call songwriter#tab#MoveColumn(-1)',
+      \ 'L': 'call songwriter#tab#MoveBar(1, v:count1)',
+      \ 'H': 'call songwriter#tab#MoveBar(-1, v:count1)',
       \ 'a': 'call songwriter#tab#AddNote(1)',
       \ 'i': 'call songwriter#tab#AddNote(-1)',
       \ '<Esc>': 'call songwriter#tab#slots#Abandon()',
@@ -80,6 +82,8 @@ let s:tabmode.x = {
       \ 'b': 'call songwriter#tab#visual#Motion("b")',
       \ 'l': 'call songwriter#tab#visual#Motion("l")',
       \ 'h': 'call songwriter#tab#visual#Motion("h")',
+      \ 'L': 'call songwriter#tab#visual#Motion("L")',
+      \ 'H': 'call songwriter#tab#visual#Motion("H")',
       \ 'ic': 'call songwriter#tab#visual#Object("c", 0)',
       \ 'ac': 'call songwriter#tab#visual#Object("c", 1)',
       \ 'i|': 'call songwriter#tab#visual#Object("|", 0)',
@@ -135,7 +139,8 @@ function! s:action(action) abort
   return a:action[0] ==# '=' ? eval(a:action[1:]) : "\<Cmd>" . a:action . "\<CR>"
 endfunction
 
-" Tablature mode: a buffer-local flag, off by default.
+" Tablature mode: a buffer-local flag, set on by the ftplugin and off when
+" unset.
 function! songwriter#keys#InTabMode() abort
   return get(b:, 'songwriter_tabmode', 0)
 endfunction

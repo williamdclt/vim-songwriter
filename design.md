@@ -174,7 +174,8 @@ after the final pipe is dropped.
 
 ### Tablature mode (`<leader>t`, spec [Tablature][[Editing]] 3)
 
-A buffer-local flag, `b:songwriter_tabmode`, off by default; no teardown needed.
+A buffer-local flag, `b:songwriter_tabmode`, set on by the ftplugin when a
+buffer is opened (and unset by `b:undo_ftplugin`); unset means off.
 
 - **`w`/`b` (3.2)**: next/previous note start on the current line, skipping
   dashes and pipes; a two-digit fret is landed on at its first digit.
@@ -197,6 +198,12 @@ A buffer-local flag, `b:songwriter_tabmode`, off by default; no teardown needed.
   - `h` never opens a slot (no mirror of 3.3.2) and is a no-op before the first
     note.
   - Moving does not lint, except to abandon an open slot (4.3, below).
+- **`L`/`H` (3.5)**: first time column of the next bar / last of the previous
+  bar (`columns#BarStop`, pure), so a bar jump lands where a note can be
+  edited rather than on a pipe. Bars are read from the cursor line's pipes
+  (aligned in a linted tab), time columns from the whole block. Normal and
+  visual mode only: after an operator `L` keeps the pipe motion, so `dL`
+  stays "to the end of the bar" (`D`, 6.8.1).
 - **`a`/`i` (3.1)**: open a slot for a new note on every string and land on it.
   `a` anchors on the rightmost note end, on any string, among the notes of the
   cursor's bar that start at or before the cursor: the note column under (or

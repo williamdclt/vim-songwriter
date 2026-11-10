@@ -95,6 +95,107 @@ Execute (h in tablature mode moves to the previous note column on another string
 Then:
   AssertEqual 7, col('.')
 
+" --- 3.5 L/H: first time column of the next bar, last of the previous ---
+
+Given songwriter (3.5 L moves to the first note of the next bar):
+  e|--4-----|--1--5--|
+
+Execute (3.5 L moves to the first note of the next bar):
+  let b:songwriter_tabmode = 1
+  call cursor(1, 5)
+  normal L
+Then:
+  AssertEqual 14, col('.')
+
+Given songwriter (3.5 L lands on the first time column of any string):
+  e|--4--|-----1--|
+  B|--5--|--3-----|
+
+Execute (3.5 L lands on the first time column of any string):
+  let b:songwriter_tabmode = 1
+  call cursor(1, 5)
+  normal L
+Then:
+  AssertEqual [1, 11], [line('.'), col('.')]
+
+Given songwriter (3.5 H moves to the last time column of the previous bar):
+  e|--4--5--|--1--|
+
+Execute (3.5 H moves to the last time column of the previous bar):
+  let b:songwriter_tabmode = 1
+  call cursor(1, 14)
+  normal H
+Then:
+  AssertEqual 8, col('.')
+
+Given songwriter (3.5 L from the string name or the opening pipe enters the first bar):
+  e|--4--|--1--|
+
+Execute (3.5 L from the string name or the opening pipe enters the first bar):
+  let b:songwriter_tabmode = 1
+  call cursor(1, 1)
+  normal L
+  AssertEqual 5, col('.')
+  call cursor(1, 2)
+  normal L
+  AssertEqual 5, col('.')
+
+Given songwriter (3.5 L on a pipe enters the bar after it, H the bar before it):
+  e|--4--|--1--|
+
+Execute (3.5 L on a pipe enters the bar after it, H the bar before it):
+  let b:songwriter_tabmode = 1
+  call cursor(1, 8)
+  normal L
+  AssertEqual 11, col('.')
+  call cursor(1, 8)
+  normal H
+  AssertEqual 5, col('.')
+
+Given songwriter (3.5 L in the last bar and H in the first bar stay put):
+  e|--4--|--1--|
+
+Execute (3.5 L in the last bar and H in the first bar stay put):
+  let b:songwriter_tabmode = 1
+  call cursor(1, 11)
+  normal L
+  AssertEqual 11, col('.')
+  call cursor(1, 5)
+  normal H
+  AssertEqual 5, col('.')
+
+Given songwriter (3.5 L/H into an empty bar land next to the pipe they cross):
+  e|--4--|--|--1--|
+
+Execute (3.5 L/H into an empty bar land next to the pipe they cross):
+  let b:songwriter_tabmode = 1
+  call cursor(1, 5)
+  normal L
+  AssertEqual 9, col('.')
+  call cursor(1, 14)
+  normal H
+  AssertEqual 10, col('.')
+
+Given songwriter (3.5 L abandons an open slot, linting it away):
+  e|--4--|--1--|
+
+Execute (3.5 L abandons an open slot, linting it away):
+  let b:songwriter_tabmode = 1
+  call cursor(1, 5)
+  normal aL
+  AssertEqual 11, col('.')
+Expect songwriter:
+  e|--4--|--1--|
+
+Given songwriter (3.5 L/H keep the pipe motion outside tablature mode):
+  e|--4--|--1--|
+
+Execute (3.5 L/H keep the pipe motion outside tablature mode):
+  let b:songwriter_tabmode = 0
+  call cursor(1, 5)
+  normal L
+  AssertEqual 8, col('.')
+
 " --- Mode toggle and no-op guards ---
 
 Given songwriter (<leader>t toggle turns tablature mode on and off):

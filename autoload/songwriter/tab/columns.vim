@@ -126,6 +126,48 @@ function! songwriter#tab#columns#Stops(lines, line, key) abort
         \ : songwriter#tab#columns#Columns(a:lines)
 endfunction
 
+" Spec [Tablature][[Editing]] 3.5: where `L` (dir > 0) / `H` (dir < 0) go from
+" column `col` of `line`, a line of the block `lines`, `count` bars away: the
+" first time column of the next bar / the last of the previous bar, stopping at
+" the last bar reached.
+function! songwriter#tab#columns#BarStop(lines, line, col, dir, count) abort
+  let l:col = a:col
+  for l:_ in range(a:count)
+    let l:next = s:bar_stop(a:lines, a:line, l:col, a:dir)
+    if l:next == l:col
+      break
+    endif
+    let l:col = l:next
+  endfor
+  return l:col
+endfunction
+
+" One bar of BarStop. The next bar starts at the first pipe at or after `col`,
+" the previous one ends at the last pipe at or before it, so on a pipe they are
+" the bars on either side. A bar with no note gives the column next to the pipe
+" crossed. `col` when there is no such bar.
+function! s:bar_stop(lines, line, col, dir) abort
+  let l:pipes = songwriter#tab#model#Pipes(a:line)
+  let l:bar = []
+  for l:i in range(len(l:pipes) - 1)
+    if a:dir > 0 && l:pipes[l:i] >= a:col
+      let l:bar = l:pipes[l:i : l:i + 1]
+      break
+    elseif a:dir < 0 && l:pipes[l:i + 1] <= a:col
+      let l:bar = l:pipes[l:i : l:i + 1]
+    endif
+  endfor
+  if empty(l:bar)
+    return a:col
+  endif
+  let l:cols = filter(songwriter#tab#columns#Columns(a:lines),
+        \ 'l:bar[0] < v:val && v:val < l:bar[1]')
+  if empty(l:cols)
+    return a:dir > 0 ? l:bar[0] + 1 : l:bar[1] - 1
+  endif
+  return a:dir > 0 ? l:cols[0] : l:cols[-1]
+endfunction
+
 " Spec 6.2: snap a motion's range [s, e] outward so it never cuts a note: s
 " goes to the start of the note it is in, or, in a gap, to the previous column
 " of its bar; e goes to the end of the note it is in, and a range ending on a

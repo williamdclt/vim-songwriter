@@ -173,6 +173,8 @@ Given songwriter (visual <C-A> on a tab line increments frets, not as negative n
   B|--10----|
 
 Execute (visual <C-A> on a tab line increments frets, not as negative numbers):
+  " Outside tablature mode, where V is line-wise.
+  let b:songwriter_tabmode = 0
   execute "normal ggVj\<C-A>"
 Expect songwriter:
   e|--4--5--|

@@ -12,6 +12,10 @@ setlocal foldmarker=[,]
 " Note: no space before each `|` below: :unmap would take it as part of the key.
 let b:undo_ftplugin = 'setlocal wrap< iskeyword< foldmethod< foldmarker< '
 
+" Tablature mode is on when a buffer is opened (spec [Tablature][[Editing]] 3).
+let b:songwriter_tabmode = 1
+let b:undo_ftplugin .= '| unlet! b:songwriter_tabmode'
+
 " Plain keys -> <Plug> maps (plugin/songwriter.vim).
 let s:plug_keys = {
       \ '<C-A>': 'songwriter-transpose-up',
