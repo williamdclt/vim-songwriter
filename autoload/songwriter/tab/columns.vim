@@ -126,46 +126,53 @@ function! songwriter#tab#columns#Stops(lines, line, key) abort
         \ : songwriter#tab#columns#Columns(a:lines)
 endfunction
 
-" Spec [Tablature][[Editing]] 3.5: where `L` (dir > 0) / `H` (dir < 0) go from
-" column `col` of `line`, a line of the block `lines`, `count` bars away: the
-" first time column of the next bar / the last of the previous bar, stopping at
-" the last bar reached.
-function! songwriter#tab#columns#BarStop(lines, line, col, dir, count) abort
+" Spec [Tablature][[Editing]] 3.5: where the bar motion `key` goes from column
+" `col` of `line`, a line of the block `lines`, `count` times, stopping at the
+" last bar reached:
+"   W: the first time column of the next bar (the first bar starting at or
+"      after `col`, so on a pipe, the bar after it);
+"   B: the first time column of the cursor's bar, or of the previous bar when
+"      the cursor is on it or before it;
+"   E: the last time column of the cursor's bar, or of the next bar when the
+"      cursor is on it or after it.
+" Bars are read from `line`'s pipes, time columns from the whole block; a bar
+" with no note stands for its middle dash.
+function! songwriter#tab#columns#BarStop(lines, line, col, key, count) abort
+  let l:bars = s:bar_stops(a:lines, a:line)
   let l:col = a:col
   for l:_ in range(a:count)
-    let l:next = s:bar_stop(a:lines, a:line, l:col, a:dir)
-    if l:next == l:col
-      break
+    if a:key ==# 'W'
+      let l:next = filter(copy(l:bars), 'v:val.start >= l:col')
+      let l:col = empty(l:next) ? l:col : l:next[0].first
+    elseif a:key ==# 'B'
+      let l:prev = filter(copy(l:bars), 'v:val.first < l:col')
+      let l:col = empty(l:prev) ? l:col : l:prev[-1].first
+    else
+      let l:next = filter(copy(l:bars), 'v:val.last > l:col')
+      let l:col = empty(l:next) ? l:col : l:next[0].last
     endif
-    let l:col = l:next
   endfor
   return l:col
 endfunction
 
-" One bar of BarStop. The next bar starts at the first pipe at or after `col`,
-" the previous one ends at the last pipe at or before it, so on a pipe they are
-" the bars on either side. A bar with no note gives the column next to the pipe
-" crossed. `col` when there is no such bar.
-function! s:bar_stop(lines, line, col, dir) abort
+" The bars of `line`, left to right: {start (its opening pipe), first, last
+" (its first and last time column of the block `lines`, or both its middle
+" dash when it has no note)}. A bar with nothing between its pipes is left out.
+function! s:bar_stops(lines, line) abort
   let l:pipes = songwriter#tab#model#Pipes(a:line)
-  let l:bar = []
+  let l:cols = songwriter#tab#columns#Columns(a:lines)
+  let l:bars = []
   for l:i in range(len(l:pipes) - 1)
-    if a:dir > 0 && l:pipes[l:i] >= a:col
-      let l:bar = l:pipes[l:i : l:i + 1]
-      break
-    elseif a:dir < 0 && l:pipes[l:i + 1] <= a:col
-      let l:bar = l:pipes[l:i : l:i + 1]
+    let [l:s, l:e] = l:pipes[l:i : l:i + 1]
+    if l:e == l:s + 1
+      continue
     endif
+    let l:in = filter(copy(l:cols), 'l:s < v:val && v:val < l:e')
+    let l:mid = l:s + (l:e - l:s) / 2
+    call add(l:bars, {'start': l:s,
+          \ 'first': empty(l:in) ? l:mid : l:in[0], 'last': empty(l:in) ? l:mid : l:in[-1]})
   endfor
-  if empty(l:bar)
-    return a:col
-  endif
-  let l:cols = filter(songwriter#tab#columns#Columns(a:lines),
-        \ 'l:bar[0] < v:val && v:val < l:bar[1]')
-  if empty(l:cols)
-    return a:dir > 0 ? l:bar[0] + 1 : l:bar[1] - 1
-  endif
-  return a:dir > 0 ? l:cols[0] : l:cols[-1]
+  return l:bars
 endfunction
 
 " Spec 6.2: snap a motion's range [s, e] outward so it never cuts a note: s

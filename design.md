@@ -18,8 +18,9 @@ never relies on concealing or rendering.
 | `autoload/songwriter/grammar.vim` | The format's patterns (tab line, note, fret, separator, chain, chord, highlighting). The only place regexes for the format are written. |
 | `autoload/songwriter/tab/model.vim` | Tab block model: parse, queries, the column-insertion primitive, and `Read`/`Write` (the buffer edges). |
 | `autoload/songwriter/tab/edit.vim` | The buffer side of a tablature edit: `Commit` a pure function's result (write, cursor, lint and follow, message or refusal), `Run` a whole edit at the cursor. |
-| `autoload/songwriter/tab/slots.vim` | Slots: where a new note's room goes (pure) and the buffer's one open slot. |
-| `autoload/songwriter/tab/state.vim` | Buffer state valid only while `b:changedtick` is unchanged (slot, digit being typed, `.`). |
+| `autoload/songwriter/tab/slots.vim` | Slots: where a new note's room goes (pure) and the buffer's one open slot, with how to close it. |
+| `autoload/songwriter/tab/insert.vim` | The insert state of tablature mode: entering, keeping, leaving it, and `<Esc>`. |
+| `autoload/songwriter/tab/state.vim` | Buffer state valid only while `b:changedtick` is unchanged (slot, insert state, digit being typed, `.`). |
 | `autoload/songwriter/tab/lint.vim` | The linter, as a pure function over a block's lines. |
 | `autoload/songwriter/tab.vim` | Tab operations and motions: buffer entry points around the model. |
 | `autoload/songwriter/tab/columns.vim` | The column model behind tablature-mode operators, pure: text object ranges, snapping, delete, extract, paste with row matching, erase. |
@@ -30,7 +31,7 @@ never relies on concealing or rendering.
 | `autoload/songwriter/tab/strings.vim` | Moving notes and time columns to another string, keeping the fret or the pitch: pure `Move()` and its entry point. |
 | `autoload/songwriter/chord.vim` | Chord model and chord editing. |
 | `autoload/songwriter/pitch.vim` | Pitch classes: note names to semitones and back (sharp spelling). Shared by chords and tab string intervals. |
-| `autoload/songwriter/keys.vim` | Context-dependent keys: tables and `Dispatch()`, tablature-mode flag, tab-line `w`/`b`/`L`/`H`. |
+| `autoload/songwriter/keys.vim` | Context-dependent keys: tables and `Dispatch()`, tablature-mode flag and state (`Mode()`), tab-line `w`/`b`/`W`/`B`. |
 | `plugin/songwriter.vim` | `:Songwriter*` commands and `<Plug>(songwriter-*)` maps. |
 | `ftplugin/songwriter.vim` | Buffer options and key bindings, with a complete `b:undo_ftplugin`. |
 | `syntax/songwriter.vim` | Highlighting, with patterns taken from the grammar. |
@@ -61,7 +62,7 @@ set per mode (normal, operator-pending, visual), and mapped as `<expr>` maps
 calling `songwriter#keys#Dispatch(key, mode)`, which picks, in order: the
 tablature-mode action (mode on and cursor on a tab line), the tab-line action,
 or the key's default. Actions run through `<Cmd>…<CR>` (Vim 8.2.1978+ / Neovim
-0.5+): no mode change (visual `L`/`H` stay in visual mode), no command-line
+0.5+): no mode change (visual `W`/`B`/`E` stay in visual mode), no command-line
 echo, and valid as an operator-pending motion or text object. An action written
 `=expr` returns keys instead; operators use it to return `g@`. Plain keys
 (`||`, `_`, `<C-A>`, `<leader>m`…) map to `<Plug>(songwriter-*)` so users can
@@ -144,14 +145,15 @@ leaves its separator behind (`5h--7`). They count for the bar's edges but not
 for overlaps between strings, since they occupy no time. Everything else in a
 bar (dashes, whitespace) is re-rendered as dashes.
 
-**Empty bar** (no note on any string) becomes `|--|`.
+**Empty bar** (no note on any string) becomes `|-----|`: five dashes rather
+than the two of a bar edge, so that a slot opened in it is its middle dash and
+a note typed there (`|--7--|`) needs no reflow.
 
 **Empty bars at the end are deleted** (spec 1.4): a trailing empty bar is
 leftover space, not music. All of them go, not just the very last one, so that
 lint stays idempotent (linting twice changes nothing); empty bars between
 notes are rests and are kept. A tab keeps at least one bar, so an all-empty tab
-lints to `|--|`. This applies to every lint, so an abandoned new-bar slot (spec
-5) disappears, and `cap` leaves a single bar. A cursor that was in a deleted
+lints to `|-----|`. This applies to every lint, so `cap` leaves a single bar. A cursor that was in a deleted
 bar lands on the tab's last pipe.
 
 **Overlapping notes** (spec 1.3, two-digit notes). Each note gets a natural output
@@ -177,41 +179,54 @@ after the final pipe is dropped.
 A buffer-local flag, `b:songwriter_tabmode`, set on by the ftplugin when a
 buffer is opened (and unset by `b:undo_ftplugin`); unset means off.
 
+**Two states, as in Vim.** In the normal state moving never changes the file:
+Vim's contract is that motions only move, and a motion that edits puts cursor
+moves in the undo history, marks a file modified just by reading it, and fills
+the change list. The insert state is for writing: there, moving across notes
+opens slots for new ones. It is a state of tablature mode rather than Vim's
+own insert mode so that `h`/`l` keep moving (in Vim's insert mode they would be
+text, and arrow keys would be needed).
+
+- **The state** (`tab/insert.vim`) is kept in `tab/state.vim`, valid only while
+  `b:changedtick` is unchanged: the edits made in it (opening, filling, closing
+  a slot) record it again (`insert#Keep`), and any other change (`u`, `x`, an
+  operator) ends it without the other code having to know about it. Opening a
+  slot enters it (`slots#Open`), so `a`/`i`, `c`, `o`/`O` and
+  `:SongwriterNewTab` all do; `<Esc>` closes the slot and leaves it.
+  Entering shows `-- TAB INSERT --`, after a `redraw` so that repeated state
+  changes replace each other instead of piling up into a hit-enter prompt;
+  `songwriter#keys#Mode()` is there for status lines.
 - **`w`/`b` (3.2)**: next/previous note start on the current line, skipping
   dashes and pipes; a two-digit fret is landed on at its first digit.
-- **`l`/`h` (3.3)**: next/previous column where any string of the block has a
-  note. A pipe is not an obstacle: the move may land in a neighbouring bar.
-  - *3.3.2, the special case*: on the last note column of the cursor's
-    bar, `l` does not skip ahead; it opens a slot as `a` does, so a note can be
-    appended to that bar. Pressing `l` again (now on the slot, not on a note)
-    moves on to the next note, possibly in the next bar. This is the balance
-    sought: easy to append within a bar, easy to keep moving.
-  - *End of the tab (5)*: `l` with no note further right, in the last bar of a
-    tab whose lines end with a pipe (cursor anywhere after the last note, or on
-    the closing pipe), appends a new bar `-----|` to every string and lands on
-    its middle dash, a slot like any other: a digit gives `|--7--|`. It lints
-    first (4.2) and is remembered as a slot (4.3), so abandoning it leaves an
-    empty bar `|--|`. So from the last note, `l` opens a slot in the bar (3.3.2)
-    and a second `l` starts the next bar. Elsewhere, `l` with no note further
-    right opens a slot as `a` does; a line with no closing pipe has no bar to
-    close, so it never gets a new bar.
-  - *Empty bars (3.3.4)*: an empty bar with a note column after it is a stop
-    of its own, next to its opening pipe, for both `l` and `h`: landing there
-    opens a slot in its middle (`slots#EmptyBar`, as `c` does in an empty bar),
-    since a bar with no time column could otherwise never be reached to write
-    in. Abandoned, the slot lints back to `|--|`, which is not deleted since it
-    is not the last bar. Trailing empty bars are not stops: lint deletes them
-    (1.4), and `l` there keeps the end-of-tab behaviour. The bar under the
-    cursor is not a stop, so `l`/`h` from its slot move on.
-  - Apart from empty bars, `h` never opens a slot (no mirror of 3.3.2) and is
-    a no-op before the first note.
-  - Moving does not lint, except to abandon an open slot (4.3, below).
-- **`L`/`H` (3.5)**: first time column of the next bar / last of the previous
-  bar (`columns#BarStop`, pure), so a bar jump lands where a note can be
-  edited rather than on a pipe. Bars are read from the cursor line's pipes
-  (aligned in a linted tab), time columns from the whole block. Normal and
-  visual mode only: after an operator `L` keeps the pipe motion, so `dL`
-  stays "to the end of the bar" (`D`, 6.8.1).
+- **`l`/`h` in the normal state (3.3.1, 3.3.2)**: next/previous stop: a column
+  where any string of the block has a note, or the middle dash of an empty bar
+  (3.3.4), since a bar with no time column could otherwise never be reached.
+  Pipes are not obstacles. With no stop that way, the cursor stays.
+- **`l`/`h` in the insert state (3.3.3)**: the gaps between notes are stops
+  too. On a note column, `l` is `a` and `h` is `i`. On the open slot, they close
+  it and move on. The slot remembers which side of its note it was opened on
+  (`side`), and the move goes on from where the cursor was before it opened
+  (`from`): towards that note it lands back on it, away from it it goes to the
+  next stop. So from `3` in `3-5`, `l` `l` `l` gives slot, `5`, slot; each gap
+  is visited once per direction, and a bar line needs no special case: from a
+  bar's last note `l` opens a slot in that bar, then reaches the next bar's
+  first note. Landing in an empty bar opens a slot in its middle
+  (`slots#EmptyBar`). Elsewhere (the cursor moved off the stops with native
+  keys), `l`/`h` move as in the normal state.
+  - *End of the tab (5)*: `l` with no stop further right, from a slot in a bar
+    with notes or from anywhere past the stops, in the last bar of a tab whose
+    lines end with a pipe, appends a new bar `-----|` and lands on its middle
+    dash, a slot like any other. On the new bar's slot (a bar with no note)
+    `l` does nothing, so holding `l` never piles up bars.
+- **`W`/`B`/`E` (3.5)**: by bar, as Vim's WORD motions are a bigger
+  `w`/`b`/`e` (`columns#BarStop`, pure). `W` goes to the first time column of
+  the next bar, `B` to the first of the cursor's bar or the previous one, `E`
+  to the last of the cursor's bar or the next one, so they land where a note
+  can be edited rather than on a pipe. Bars are read from the cursor line's
+  pipes (aligned in a linted tab), time columns from the whole block; a bar
+  with no note stands for its middle dash. Normal and visual mode only: after
+  an operator `W` keeps the pipe motion, so `dW` stays "to the end of the
+  bar" (`D`, 6.8.1).
 - **`a`/`i` (3.1)**: open a slot for a new note on every string and land on it.
   `a` anchors on the rightmost note end, on any string, among the notes of the
   cursor's bar that start at or before the cursor: the note column under (or
@@ -232,23 +247,41 @@ buffer is opened (and unset by `b:undo_ftplugin`); unset means off.
   or edit ends the run, so coming back to a note replaces it. The block is then
   linted (4.1, below), which fixes the spacing. `x` on a dash enters a muted
   note the same way (3.4.3); on a note it stays the erase of spec 6.7. Off tablature mode or a tab
-  line, digits keep their count meaning.
+  line, digits keep their count meaning. Digits work in both states and keep
+  the state they are typed in.
 
 ### Linting after edits (spec [Tablature][[Editing]] 4)
 
 Tablature-mode edits lint the block:
 
 - **4.1**: a digit enters the note, then the block is linted.
-- **4.2**: `a`/`i` lint, then open the slot. `l` opening a slot (3.3.2) is the
-  same operation as `a` (`MoveColumn` calls `AddNote(1)`), so it lints too, as
-  does `l` adding a bar at the end of the tab (5, `AddBarSlot`).
-- **4.3**: an opened slot is remembered in `b:songwriter_slot` as
-  `{line, tick}`. The next `h`/`l`/`w`/`b`/`a`/`i`/`<Esc>` lints the slot's
-  block before doing its own job (`slots#Abandon`). A digit fills the slot
-  and clears it. `j`/`k` are not mapped, so the slot survives them and a later
-  abandon still lints. The slot counts only while `b:changedtick` is unchanged:
-  any other buffer change (undo, `x`…) drops it, since the block it pointed to
-  may no longer be there.
+- **4.2**: `a`/`i` lint, then open the slot. `l`/`h` opening a slot in the
+  insert state are the same operation (`AddNote`), so they lint too, as does
+  `l` adding a bar at the end of the tab (5, `AddBarSlot`).
+- **4.3, closing a slot**: an open slot is remembered in `b:songwriter_slot`
+  (`tab/state.vim`), so it counts only while `b:changedtick` is unchanged: any
+  other buffer change (undo, `x`…) drops it, since the block it pointed to may
+  no longer be there. The next `h`/`l`/`w`/`b`/`W`/`B`/`E`/`a`/`i`/`<Esc>`
+  closes it first (`slots#Abandon`); `j`/`k` are not mapped, so the slot
+  survives them. A digit fills the slot and forgets it.
+  - *A slot opened by moving, `a`/`i` or a new bar is undone*: closing it gives
+    the tab back exactly as it was before, including the lint of 4.2, so that
+    wandering in the insert state leaves no trace. `slots#Mark`, taken before
+    anything changes, records the block's lines, the cursor column and the undo
+    sequence number. Closing runs `:undo` when the slot's change is the last
+    undo step and that step holds nothing else (its sequence number differs
+    from the one before it). Then no undo step is left behind and a file saved
+    before `a` is unmodified again. Inside `:normal`, a macro or a mapping,
+    several keys share one undo step, and `:undo` would take earlier changes
+    with it: then (or if undoing did not give the lines back) the recorded
+    lines are written instead.
+  - *A slot that is part of a bigger edit is linted*: `c` (6.6), `o`/`O` (8)
+    and `:SongwriterNewTab` (9) open a slot in what they made; `<Esc>` there
+    must keep the deletion or the new tab, so closing lints, leaving an empty
+    bar as `|-----|`.
+- **4.3.1**: a digit typed into a slot, or appended to a fret being typed, is
+  joined to the previous undo step (`:undojoin`), so `a7` or `a12` is one undo
+  step and `u` gives back the tab as it was before `a`.
 
 **The cursor follows the music** (`lint#FollowColumn`): on a note it stays on
 the same digit of that note; elsewhere in a bar it keeps its distance from the
@@ -257,7 +290,7 @@ note and inside the bar. Notes before/after the cursor stay before/after it, so
 `a`/`i` find the same anchor after the lint as before. `||` lints without
 moving the cursor.
 
-`<Esc>` is a context key like the others. Outside tablature mode `Dispatch`
+`<Esc>` is a context key like the others (`insert#Escape`). Outside tablature mode `Dispatch`
 returns the key itself. Special keys are written in `<>` notation in the
 tables, and the ftplugin passes them to `Dispatch` as `<lt>Esc>`, since
 `<Esc>` would otherwise be translated in the map's right side.
@@ -383,8 +416,9 @@ before and after like the other tablature-mode edits.
 `o`/`O` open a tab the way they open a line in text: under / over the whole
 current tab, never between its strings. The new tab copies the string names, so
 a bass or drop-D tab gets a matching one, and starts as the new bar of spec 5
-does (`|-----|`, slot in the middle, `b:songwriter_slot`), so the same rules
-fill or abandon it. The blank line keeps the two tabs separate blocks (as a
+does (`|-----|`, slot in the middle, `b:songwriter_slot`), in the insert
+state. A digit fills it; closed without one, it is linted rather than undone
+(4.3), so the new tab stays. The blank line keeps the two tabs separate blocks (as a
 line-wise paste does, 6.3.2). The cursor keeps its string, so typing goes on
 on the string being worked on. Outside tablature mode `o`/`O` stay native.
 
@@ -398,8 +432,11 @@ native key away, and the command takes the tuning as its argument.
 ### Outside tablature mode
 
 On a tab line, `w`/`b` stop on notes, string names and pipes but never on dashes
-(spec [Tablature][[Motions]] 1-2), and `L`/`H` jump to the next/previous pipe
-(3-4) using `search()`, which ignores `iskeyword`. Off a tab line every key keeps
+(spec [Tablature][[Motions]] 1-2), and `W`/`B` jump to the next/previous pipe
+(3-4) using `search()`, which ignores `iskeyword`. `L`/`H` keep their native
+meaning (5): on a tab line, Vim's `W`/`B` see the whole line as one WORD and
+are useless, while `L`/`H` (bottom/top of the window) are useful in a long
+song. Off a tab line every key keeps
 its default behaviour.
 
 ## Chords

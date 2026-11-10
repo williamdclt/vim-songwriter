@@ -31,9 +31,10 @@ function! songwriter#tab#lint#Lint(lines) abort
 
     call add(l:empty, empty(l:atoms))
     if empty(l:atoms)
-      " Empty bar -> exactly two dashes on every string.
+      " Empty bar -> exactly five dashes on every string (spec 1.2), so a
+      " note typed on the middle one needs no reflow.
       for l:lin in range(l:nl)
-        call add(l:lineparts[l:lin], '--')
+        call add(l:lineparts[l:lin], '-----')
       endfor
       continue
     endif

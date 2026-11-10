@@ -14,14 +14,14 @@ Expect:
   some prose
   another line
 
-Given (an empty bar (no notes) becomes exactly two dashes):
+Given (an empty bar (no notes) becomes exactly five dashes):
   e|---------|
 
-Execute (an empty bar (no notes) becomes exactly two dashes):
+Execute (an empty bar (no notes) becomes exactly five dashes):
   call cursor(1, 1)
   call songwriter#tab#Lint()
 Expect:
-  e|--|
+  e|-----|
 
 Given (a line without a closing pipe keeps its notes, its bar is closed):
   e|--3--5--
@@ -89,7 +89,7 @@ Execute (empty bars before the last one are kept (1.4)):
   call cursor(1, 1)
   call songwriter#tab#Lint()
 Expect:
-  e|--3--|--|--5--|
+  e|--3--|-----|--5--|
 
 Given (a bar with a note on any string is not empty (1.4)):
   e|--3--|-----|
@@ -110,8 +110,8 @@ Execute (a tab with only empty bars keeps one (1.4)):
   call cursor(1, 1)
   call songwriter#tab#Lint()
 Expect:
-  e|--|
-  B|--|
+  e|-----|
+  B|-----|
 
 Given songwriter (a cursor in a deleted last bar lands on the tab's last pipe (1.4)):
   e|--3--|-----|

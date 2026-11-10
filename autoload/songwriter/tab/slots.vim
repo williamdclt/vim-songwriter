@@ -1,7 +1,7 @@
 " autoload/songwriter/tab/slots.vim - slots: room opened for a note that is not
 " typed yet (spec [Tablature][[Editing]] 3.1, 4.3, 5, 6.6, 8). The pure functions
-" compute where a slot goes; Open, OpenHere, Forget and Abandon handle the one
-" open slot of a buffer, kept in tab/state.vim as {'line'}.
+" compute where a slot goes; Mark, Open, OpenHere, Forget and Abandon handle the
+" one open slot of a buffer, kept in tab/state.vim (see Open).
 
 " A new, empty bar: five dashes with the slot on the middle one.
 let s:new_bar = '-----'
@@ -146,25 +146,78 @@ function! songwriter#tab#slots#EmptyBar(lines, lin, col) abort
   return {'lines': l:out, 'col': l:bar.start + s:new_bar_slot}
 endfunction
 
-" Remember the slot under the cursor.
-function! songwriter#tab#slots#Open() abort
-  call songwriter#tab#state#Set('slot', {'line': line('.')})
+" What closing a slot about to be opened by `a`/`i`, `l`/`h` or a new bar must
+" restore (spec 4.3): the block's lines, the cursor column (`from`), and the
+" buffer and undo versions, taken before anything (even the lint of 4.2) is
+" changed. `side`: +1 for a slot after a note, -1 before one, 0 in an empty
+" bar.
+function! songwriter#tab#slots#Mark(side) abort
+  let l:block = songwriter#tab#model#Read()
+  return {'side': a:side, 'from': col('.'), 'tick': b:changedtick,
+        \ 'seq': undotree().seq_cur,
+        \ 'start': empty(l:block) ? line('.') : l:block.start,
+        \ 'before': empty(l:block) ? [] : copy(l:block.lines)}
+endfunction
+
+" Remember the slot under the cursor and enter the insert state (spec 3.1).
+" With a `mark` (from Mark), closing it restores the tab; without one, the slot
+" is part of a bigger edit (`c`, `o`, :SongwriterNewTab) and closing lints.
+function! songwriter#tab#slots#Open(...) abort
+  let l:slot = {'line': line('.'), 'col': col('.')}
+  if a:0
+    call extend(l:slot, a:1)
+    let l:slot.changed = a:1.tick != b:changedtick
+    let l:slot.seq_after = undotree().seq_cur
+  endif
+  call songwriter#tab#state#Set('slot', l:slot)
+  call songwriter#tab#insert#Enter()
 endfunction
 
 function! songwriter#tab#slots#Forget() abort
   call songwriter#tab#state#Clear('slot')
 endfunction
 
-" Spec 4.3: if the slot opened by `a`/`i` (or `l`, 3.3.2 and 5) is still open and
-" empty (the buffer has not changed since, e.g. only `j`/`k` were pressed),
-" lint its block. Called by the tablature-mode keys that abandon a slot.
+" Spec 4.3: close the open slot if it is still open and empty (the buffer has
+" not changed since, e.g. only `j`/`k` were pressed). A slot with a mark puts
+" the tab back as it was before it opened, leaving no undo step, and the cursor
+" back on its column (on the cursor's line); any other is linted. The insert
+" state is kept. Returns the closed slot, or {} when none was open.
 function! songwriter#tab#slots#Abandon() abort
   let l:slot = songwriter#tab#state#Get('slot')
   call songwriter#tab#slots#Forget()
   if empty(l:slot)
-    return
+    return {}
   endif
-  call songwriter#tab#edit#LintAndFollow(songwriter#tab#model#Read(l:slot.line))
+  let l:insert = songwriter#tab#insert#Active()
+  if has_key(l:slot, 'from')
+    let l:lnum = line('.')
+    if l:slot.changed
+      call s:revert(l:slot)
+    endif
+    call cursor(l:lnum, l:slot.from)
+  else
+    call songwriter#tab#edit#LintAndFollow(songwriter#tab#model#Read(l:slot.line))
+  endif
+  if l:insert
+    call songwriter#tab#insert#Keep()
+  endif
+  return l:slot
+endfunction
+
+" Put back the lines a slot replaced. Undo, when the slot's change is the last
+" undo step and that step holds nothing else (a slot opened in a macro or
+" `:normal` shares its step with earlier changes): then no undo step is left.
+" Otherwise, or if undoing did not give the lines back, write them.
+function! s:revert(slot) abort
+  let l:last = a:slot.start + len(a:slot.before) - 1
+  if a:slot.seq_after != a:slot.seq && undotree().seq_cur == a:slot.seq_after
+    silent undo
+    if getline(a:slot.start, l:last) ==# a:slot.before
+      return
+    endif
+    silent redo
+  endif
+  call setline(a:slot.start, a:slot.before)
 endfunction
 
 " Spec 6.6: open a slot at the cursor: before its note (side -1, as `i`),

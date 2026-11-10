@@ -95,182 +95,165 @@ Execute (h in tablature mode moves to the previous note column on another string
 Then:
   AssertEqual 7, col('.')
 
-" 3.3.4: an empty bar is a stop for l/h, where a slot opens (not a trailing
-" one: see 5 in songwriter_tab_move.vader).
+" 3.3.2-3.3.4 and the insert state: see songwriter_tab_move.vader.
 
-Given songwriter (3.3.4 l past the slot of a bar enters the empty bar after it, opening a slot):
-  e|--4--|--|--1--|
-  B|-----|--|--3--|
+" --- 3.5 W/B/E: bar motions, as WORD motions are a bigger w/b/e ---
 
-Execute (3.3.4 l past the slot of a bar enters the empty bar after it, opening a slot):
-  let b:songwriter_tabmode = 1
-  call cursor(1, 5)
-  normal ll
-Then:
-  AssertEqual 1, line('.')
-  AssertEqual 11, col('.')
-Expect songwriter:
-  e|--4--|-----|--1--|
-  B|-----|-----|--3--|
-
-Given songwriter (3.3.4 a digit fills the slot of the empty bar):
-  e|--4--|--|--1--|
-
-Execute (3.3.4 a digit fills the slot of the empty bar):
-  let b:songwriter_tabmode = 1
-  call cursor(1, 5)
-  normal ll7
-Expect songwriter:
-  e|--4--|--7--|--1--|
-
-Given songwriter (3.3.4 l on the slot of the empty bar lints it back and moves on):
-  e|--4--|--|--1--|
-
-Execute (3.3.4 l on the slot of the empty bar lints it back and moves on):
-  let b:songwriter_tabmode = 1
-  call cursor(1, 5)
-  normal lll
-Then:
-  AssertEqual 14, col('.')
-Expect songwriter:
-  e|--4--|--|--1--|
-
-Given songwriter (3.3.4 h enters the empty bar before the cursor, opening a slot):
-  e|--4--|--|--1--|
-
-Execute (3.3.4 h enters the empty bar before the cursor, opening a slot):
-  let b:songwriter_tabmode = 1
-  call cursor(1, 14)
-  normal h
-Then:
-  AssertEqual 11, col('.')
-Expect songwriter:
-  e|--4--|-----|--1--|
-
-Given songwriter (3.3.4 h on the slot of the empty bar lints it back and moves on):
-  e|--4--|--|--1--|
-
-Execute (3.3.4 h on the slot of the empty bar lints it back and moves on):
-  let b:songwriter_tabmode = 1
-  call cursor(1, 14)
-  normal hh
-Then:
-  AssertEqual 5, col('.')
-Expect songwriter:
-  e|--4--|--|--1--|
-
-Given songwriter (3.3.4 h crosses several empty bars one at a time):
-  e|--4--|--|--|--1--|
-
-Execute (3.3.4 h crosses several empty bars one at a time):
-  let b:songwriter_tabmode = 1
-  call cursor(1, 17)
-  normal hh
-Then:
-  AssertEqual 11, col('.')
-Expect songwriter:
-  e|--4--|-----|--|--1--|
-
-" --- 3.5 L/H: first time column of the next bar, last of the previous ---
-
-Given songwriter (3.5 L moves to the first note of the next bar):
+Given songwriter (3.5 W moves to the first time column of the next bar):
   e|--4-----|--1--5--|
 
-Execute (3.5 L moves to the first note of the next bar):
+Execute (3.5 W moves to the first time column of the next bar):
   let b:songwriter_tabmode = 1
   call cursor(1, 5)
-  normal L
+  normal W
 Then:
   AssertEqual 14, col('.')
 
-Given songwriter (3.5 L lands on the first time column of any string):
+Given songwriter (3.5 W lands on the first time column of any string):
   e|--4--|-----1--|
   B|--5--|--3-----|
 
-Execute (3.5 L lands on the first time column of any string):
+Execute (3.5 W lands on the first time column of any string):
   let b:songwriter_tabmode = 1
   call cursor(1, 5)
-  normal L
+  normal W
 Then:
   AssertEqual [1, 11], [line('.'), col('.')]
 
-Given songwriter (3.5 H moves to the last time column of the previous bar):
+Given songwriter (3.5 E moves to the last time column of the bar, then of the next one):
+  e|--4--6--|--1--5--|
+
+Execute (3.5 E moves to the last time column of the bar, then of the next one):
+  let b:songwriter_tabmode = 1
+  call cursor(1, 5)
+  normal E
+  AssertEqual 8, col('.')
+  normal E
+  AssertEqual 17, col('.')
+  normal E
+  AssertEqual 17, col('.')
+
+Given songwriter (3.5 B moves to the first time column of the bar, then of the previous one):
+  e|--4--6--|--1--5--|
+
+Execute (3.5 B moves to the first time column of the bar, then of the previous one):
+  let b:songwriter_tabmode = 1
+  call cursor(1, 17)
+  normal B
+  AssertEqual 14, col('.')
+  normal B
+  AssertEqual 5, col('.')
+  normal B
+  AssertEqual 5, col('.')
+
+Given songwriter (3.5 B before the first note of a bar goes to the previous bar):
+  e|--4--|--1--|
+
+Execute (3.5 B before the first note of a bar goes to the previous bar):
+  let b:songwriter_tabmode = 1
+  call cursor(1, 10)
+  normal B
+Then:
+  AssertEqual 5, col('.')
+
+Given songwriter (3.5 W/E from the string name enter the first bar, B stays):
   e|--4--5--|--1--|
 
-Execute (3.5 H moves to the last time column of the previous bar):
-  let b:songwriter_tabmode = 1
-  call cursor(1, 14)
-  normal H
-Then:
-  AssertEqual 8, col('.')
-
-Given songwriter (3.5 L from the string name or the opening pipe enters the first bar):
-  e|--4--|--1--|
-
-Execute (3.5 L from the string name or the opening pipe enters the first bar):
+Execute (3.5 W/E from the string name enter the first bar, B stays):
   let b:songwriter_tabmode = 1
   call cursor(1, 1)
-  normal L
+  normal W
   AssertEqual 5, col('.')
-  call cursor(1, 2)
-  normal L
-  AssertEqual 5, col('.')
+  call cursor(1, 1)
+  normal E
+  AssertEqual 8, col('.')
+  call cursor(1, 1)
+  normal B
+  AssertEqual 1, col('.')
 
-Given songwriter (3.5 L on a pipe enters the bar after it, H the bar before it):
-  e|--4--|--1--|
+Given songwriter (3.5 on a pipe, W/E take the bar after it and B the bar before it):
+  e|--4--6--|--1--5--|
 
-Execute (3.5 L on a pipe enters the bar after it, H the bar before it):
-  let b:songwriter_tabmode = 1
-  call cursor(1, 8)
-  normal L
-  AssertEqual 11, col('.')
-  call cursor(1, 8)
-  normal H
-  AssertEqual 5, col('.')
-
-Given songwriter (3.5 L in the last bar and H in the first bar stay put):
-  e|--4--|--1--|
-
-Execute (3.5 L in the last bar and H in the first bar stay put):
+Execute (3.5 on a pipe, W/E take the bar after it and B the bar before it):
   let b:songwriter_tabmode = 1
   call cursor(1, 11)
-  normal L
-  AssertEqual 11, col('.')
-  call cursor(1, 5)
-  normal H
+  normal W
+  AssertEqual 14, col('.')
+  call cursor(1, 11)
+  normal E
+  AssertEqual 17, col('.')
+  call cursor(1, 11)
+  normal B
   AssertEqual 5, col('.')
 
-Given songwriter (3.5 L/H into an empty bar land next to the pipe they cross):
-  e|--4--|--|--1--|
-
-Execute (3.5 L/H into an empty bar land next to the pipe they cross):
-  let b:songwriter_tabmode = 1
-  call cursor(1, 5)
-  normal L
-  AssertEqual 9, col('.')
-  call cursor(1, 14)
-  normal H
-  AssertEqual 10, col('.')
-
-Given songwriter (3.5 L abandons an open slot, linting it away):
+Given songwriter (3.5 W in the last bar stays):
   e|--4--|--1--|
 
-Execute (3.5 L abandons an open slot, linting it away):
+Execute (3.5 W in the last bar stays):
+  let b:songwriter_tabmode = 1
+  call cursor(1, 11)
+  normal W
+Then:
+  AssertEqual 11, col('.')
+
+Given songwriter (3.5 a bar with no note: its middle dash):
+  e|--4--|-----|--1--|
+
+Execute (3.5 a bar with no note: its middle dash):
   let b:songwriter_tabmode = 1
   call cursor(1, 5)
-  normal aL
+  normal W
+  AssertEqual 11, col('.')
+  call cursor(1, 5)
+  normal E
+  AssertEqual 11, col('.')
+  call cursor(1, 17)
+  normal B
+  AssertEqual 11, col('.')
+
+Given songwriter (3.5 a count moves that many bars):
+  e|--4--|--1--|--2--|
+
+Execute (3.5 a count moves that many bars):
+  let b:songwriter_tabmode = 1
+  call cursor(1, 5)
+  call songwriter#tab#MoveBar('W', 2)
+Then:
+  AssertEqual 17, col('.')
+
+Given songwriter (3.5 W closes an open slot):
+  e|--4--|--1--|
+
+Execute (3.5 W closes an open slot):
+  let b:songwriter_tabmode = 1
+  call cursor(1, 5)
+  normal aW
   AssertEqual 11, col('.')
 Expect songwriter:
   e|--4--|--1--|
 
-Given songwriter (3.5 L/H keep the pipe motion outside tablature mode):
+Given songwriter (3.5 L/H keep their native meaning in tablature mode):
   e|--4--|--1--|
+  B|--4--|--1--|
 
-Execute (3.5 L/H keep the pipe motion outside tablature mode):
-  let b:songwriter_tabmode = 0
+Execute (3.5 L/H keep their native meaning in tablature mode):
+  let b:songwriter_tabmode = 1
   call cursor(1, 5)
   normal L
+  AssertEqual 2, line('.')
+  normal H
+  AssertEqual 1, line('.')
+
+Given songwriter (3.5 W/B keep the pipe motion outside tablature mode):
+  e|--4--|--1--|
+
+Execute (3.5 W/B keep the pipe motion outside tablature mode):
+  let b:songwriter_tabmode = 0
+  call cursor(1, 5)
+  normal W
   AssertEqual 8, col('.')
+  normal B
+  AssertEqual 2, col('.')
 
 " --- Mode toggle and no-op guards ---
 
@@ -291,15 +274,5 @@ Execute (w stays put on a prose line even in tablature mode (function no-op)):
   let b:songwriter_tabmode = 1
   call cursor(1, 1)
   call songwriter#tab#MoveNote(1)
-Then:
-  AssertEqual 1, col('.')
-
-Given songwriter (l stays put on a prose line even in tablature mode (function no-op)):
-  I walk a
-
-Execute (l stays put on a prose line even in tablature mode (function no-op)):
-  let b:songwriter_tabmode = 1
-  call cursor(1, 1)
-  call songwriter#tab#MoveColumn(1)
 Then:
   AssertEqual 1, col('.')
