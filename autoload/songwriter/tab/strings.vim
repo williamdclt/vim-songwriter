@@ -47,7 +47,7 @@ function! songwriter#tab#strings#Move(lines, lin, col, dir, keep_pitch, column) 
           \ . strpart(l:lines[l:m.lin], l:c - 1 + l:m.len)
   endfor
   for l:m in l:movers
-    let l:room = s:make_room(l:lines, l:m.to, l:c, len(l:m.text))
+    let l:room = songwriter#tab#columns#MakeRoom(l:lines, l:m.to, l:c, len(l:m.text))
     if has_key(l:room, 'error')
       return l:room
     endif
@@ -99,63 +99,6 @@ function! s:column_at(lines, lin, col, column) abort
     endfor
   endfor
   return empty(l:covering) ? 0 : min(l:covering)
-endfunction
-
-" Make room on line `to` for a note of width `len` at column `c` (spec 7.5):
-" a dash before the column when a note ends right before it, dashes after it
-" when the note would touch the next note (a 1-dash gap is kept) or the pipe.
-" Dashes are inserted on every line. Returns {'lines', 'col'} (the column may
-" move right by one), or {'error'}.
-function! s:make_room(lines, to, c, len) abort
-  let l:lines = a:lines
-  let l:c = a:c
-  let l:t = l:lines[a:to]
-  if s:in_chain(l:t, l:c)
-    return {'error': printf('string %s already has a note there', songwriter#tab#model#Name(l:lines[a:to]))}
-  endif
-  if l:c > 1 && s:in_chain(l:t, l:c - 1)
-    if s:splits(l:lines, l:c - 1)
-      return {'error': printf('no room on string %s', songwriter#tab#model#Name(l:lines[a:to]))}
-    endif
-    let l:lines = songwriter#tab#model#InsertColumns(l:lines, l:c - 1, 1, '-')
-    let l:c += 1
-    let l:t = l:lines[a:to]
-  endif
-  let l:free = len(matchstr(l:t, songwriter#grammar#DashRun(), l:c - 1))
-  let l:next = l:t[l:c - 1 + l:free : l:c - 1 + l:free]
-  if l:next ==# ''
-    let l:lines[a:to] = l:t . repeat('-', l:c - 1 + a:len - len(l:t))
-    return {'lines': l:lines, 'col': l:c}
-  endif
-  let l:k = a:len + (l:next ==# '|' ? 0 : 1) - l:free
-  if l:k <= 0
-    return {'lines': l:lines, 'col': l:c}
-  endif
-  " Insert after the latest offset in the dash run that splits no note.
-  let l:o = l:c - 1 + l:free
-  while l:o >= l:c && s:splits(l:lines, l:o)
-    let l:o -= 1
-  endwhile
-  if l:o < l:c
-    return {'error': printf('no room on string %s', songwriter#tab#model#Name(l:lines[a:to]))}
-  endif
-  return {'lines': songwriter#tab#model#InsertColumns(l:lines, l:o, l:k, '-'), 'col': l:c}
-endfunction
-
-" True when inserting after byte offset `o` would cut a note in two on a line.
-function! s:splits(lines, o) abort
-  for l:l in a:lines
-    if s:in_chain(l:l, a:o) && s:in_chain(l:l, a:o + 1)
-      return 1
-    endif
-  endfor
-  return 0
-endfunction
-
-" True when column `col` of `line` is part of a chain.
-function! s:in_chain(line, col) abort
-  return a:col > songwriter#tab#model#BodyOffset() && a:col <= len(a:line)
-        \ && songwriter#grammar#IsChainChar(a:line[a:col - 1])
 endfunction
 
 " Spec 7.3: `text` (a chain on line `from`) with every fret shifted by the

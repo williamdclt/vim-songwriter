@@ -60,7 +60,8 @@ endfunction
 " digit is appended instead, so two-digit frets are typed one key at a time
 " (3.4.1). In the insert state it is appended only when that makes a fret
 " (see s:extends); otherwise, and after a muted note, it opens a slot after the
-" note (as `l`) and is entered there (3.4.1.1). Straight after a separator was
+" note (as `l`) and is entered there (3.4.1.1), as it does straight after a
+" chord (spec 10.5). Straight after a separator was
 " typed (EnterSeparator), the digit goes right after it (3.4.1.3). Then lint
 " the block, keeping the cursor on the digit (4.1); this fills any open slot,
 " in the same undo step as the slot, as is a digit appended to a fret or
@@ -86,8 +87,8 @@ function! songwriter#tab#EnterNote(digit) abort
     let l:lines[l:lin] = l:lines[l:lin][0 : l:col - 1] . l:digit . l:lines[l:lin][l:col + 1 :]
     call songwriter#tab#model#Write(l:block, l:lines)
     call cursor(line('.'), l:col + 1)
-  elseif l:here && l:insert && !empty(l:note)
-        \ && !s:extends(strpart(l:line, l:note.col - 1, l:note.len), l:digit)
+  elseif l:here && l:insert && (get(l:typing, 'chord', 0) || !empty(l:note)
+        \ && !s:extends(strpart(l:line, l:note.col - 1, l:note.len), l:digit))
     call songwriter#tab#AddNote(1)
     call songwriter#tab#EnterNote(a:digit)
     return
@@ -126,12 +127,12 @@ function! s:extends(text, digit) abort
 endfunction
 
 " Spec 3.4.1.3: true in the insert state straight after a note was typed
-" (cursor still on it, buffer unchanged since), when a separator key writes a
-" separator.
+" (cursor still on it, buffer unchanged since; not a chord, spec 10), when a
+" separator key writes a separator.
 function! songwriter#tab#JustTyped() abort
   let l:typing = songwriter#tab#state#Get('typing')
   return songwriter#tab#insert#Active() && !empty(l:typing)
-        \ && !get(l:typing, 'separator', 0)
+        \ && !get(l:typing, 'separator', 0) && !get(l:typing, 'chord', 0)
         \ && l:typing.line == line('.') && l:typing.col == col('.')
 endfunction
 
