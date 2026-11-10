@@ -61,6 +61,7 @@ A note is a fret (digits: `12` is one note) or `x` (a muted note). Anything else
         3.3.1 `l` should move to the column where _any_ line has a note. ✓
         3.3.2 If the cursor is at the last note of the bar, `l` should behave as `a` so that new notes can easily be appended to the tablature. ✓
         3.3.3 `h` does the opposite (moving left), except it does not behave as `i` (no mirroring requirement 3.3.2). ✓
+        3.3.4 An empty bar (no note on any string) between two bars with notes is a stop of its own for `l` and `h`: they enter it and open a slot in its middle (`e|--4--|--|--1--|` -> `e|--4--|-----|--1--|`), ready for a digit. Left without a note, the slot is linted back to `|--|` (4.3). ✓
     3.4 numbers should enter the note: replace the character under cursor with the number. On a note, the whole note is replaced. ✓
         3.4.1 A digit typed straight after another one (without moving or editing in between) is appended to it, so two-digit frets can be typed (`1` then `2` gives `12`). ✓
         3.4.2 A digit on a separator does nothing. Separators are edited with Vim's own `f` and `r`, which tablature mode leaves alone (`fhr/` turns a hammer-on into a slide, `f-rh` adds one). ✓

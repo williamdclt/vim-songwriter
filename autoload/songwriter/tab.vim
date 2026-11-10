@@ -246,9 +246,11 @@ endfunction
 " pipes. Exception (3.3.2): `l` on the last note column of the cursor's bar
 " opens a slot as `a` does (linting first, 4.2). `l` with no note further
 " right appends a new bar when the cursor is in the tab's last bar (5, see
-" AddBarSlot), and otherwise opens a slot as `a` does. `h` never opens a slot
-" and is a no-op before the first note (3.3.3). An open slot is abandoned
-" first (4.3).
+" AddBarSlot), and otherwise opens a slot as `a` does. `h` is a no-op before
+" the first note (3.3.3). An empty bar (no note on any string) between the
+" cursor and the next/previous column is a stop of its own, where a slot opens
+" in its middle (3.3.4, see s:empty_bar_stops). An open slot is abandoned first
+" (4.3).
 function! songwriter#tab#MoveColumn(dir) abort
   call songwriter#tab#slots#Abandon()
   let l:block = songwriter#tab#model#Read()
@@ -258,10 +260,14 @@ function! songwriter#tab#MoveColumn(dir) abort
   let l:line = getline('.')
   let l:col = col('.')
   let l:cols = songwriter#tab#model#NoteColumns(l:block)
+  let l:empty_bars = s:empty_bar_stops(l:line, l:col, l:cols)
+  let l:stops = sort(l:cols + l:empty_bars, 'n')
 
   if a:dir < 0
-    let l:target = songwriter#tab#model#Advance(l:cols, l:col, -1, 1)
-    if l:target != l:col
+    let l:target = songwriter#tab#model#Advance(l:stops, l:col, -1, 1)
+    if index(l:empty_bars, l:target) >= 0
+      call s:open_empty_bar(l:block, l:target)
+    elseif l:target != l:col
       call cursor(line('.'), l:target)
     endif
     return
@@ -270,9 +276,11 @@ function! songwriter#tab#MoveColumn(dir) abort
   let l:bar = songwriter#tab#model#BarAt(l:line, l:col)
   let l:in_bar = filter(copy(l:cols), 'songwriter#tab#model#InBar(v:val, l:bar)')
   let l:last_in_bar = empty(l:in_bar) ? 0 : max(l:in_bar)
-  let l:target = songwriter#tab#model#Advance(l:cols, l:col, 1, 1)
+  let l:target = songwriter#tab#model#Advance(l:stops, l:col, 1, 1)
   if l:col == l:last_in_bar
     call songwriter#tab#AddNote(1)
+  elseif index(l:empty_bars, l:target) >= 0
+    call s:open_empty_bar(l:block, l:target)
   elseif l:target == l:col
     if s:in_last_bar(l:line, l:col)
       call songwriter#tab#AddBarSlot()
@@ -282,6 +290,35 @@ function! songwriter#tab#MoveColumn(dir) abort
   else
     call cursor(line('.'), min([l:target, len(l:line)]))
   endif
+endfunction
+
+" Spec 3.3.4: the stops of the empty bars of `line` (no column of `cols`, the
+" block's note columns, inside them) that have a note column after them: the
+" column after their opening pipe. Trailing empty bars are leftover space
+" (1.4), and the bar around `col` is left out, so a cursor in an empty bar
+" moves out of it. A bar with nothing between its pipes (`||`) has no stop.
+function! s:empty_bar_stops(line, col, cols) abort
+  let l:pipes = songwriter#tab#model#Pipes(a:line)
+  let l:here = songwriter#tab#model#BarAt(a:line, a:col)
+  let l:stops = []
+  for l:i in range(len(l:pipes) - 1)
+    let l:bar = {'start': l:pipes[l:i], 'end': l:pipes[l:i + 1]}
+    if l:bar.end > l:bar.start + 1 && l:bar !=# l:here
+          \ && !empty(a:cols) && a:cols[-1] > l:bar.end
+          \ && empty(filter(copy(a:cols), 'songwriter#tab#model#InBar(v:val, l:bar)'))
+      call add(l:stops, l:bar.start + 1)
+    endif
+  endfor
+  return l:stops
+endfunction
+
+" Spec 3.3.4: open a slot in the middle of the empty bar around column `col`
+" of the cursor's line, as `c` in an empty bar does (6.6).
+function! s:open_empty_bar(block, col) abort
+  let l:lin = songwriter#tab#model#CursorLin(a:block)
+  call songwriter#tab#edit#Apply(a:block,
+        \ songwriter#tab#slots#EmptyBar(a:block.lines, l:lin, a:col))
+  call songwriter#tab#slots#Open()
 endfunction
 
 " True when `col` is in the last bar of a tab line that ends with a pipe:
