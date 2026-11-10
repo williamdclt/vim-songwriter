@@ -58,9 +58,13 @@ endfunction
 " a dash it replaces the dash; on a note it replaces the whole note. Straight
 " after a digit was typed (cursor still on it, buffer unchanged since), the next
 " digit is appended instead, so two-digit frets are typed one key at a time
-" (3.4.1). Then lint the block, keeping the cursor on the digit (4.1); this
-" fills any open slot, in the same undo step as the slot, as is a digit appended
-" to a fret (4.3.1). The insert state is kept. No-op off a tab line and on a
+" (3.4.1). In the insert state it is appended only when that makes a fret
+" (see s:extends); otherwise, and after a muted note, it opens a slot after the
+" note (as `l`) and is entered there (3.4.1.1). Straight after a separator was
+" typed (EnterSeparator), the digit goes right after it (3.4.1.3). Then lint
+" the block, keeping the cursor on the digit (4.1); this fills any open slot,
+" in the same undo step as the slot, as is a digit appended to a fret or
+" separator (4.3.1). The insert state is kept. No-op off a tab line and on a
 " separator (3.4.2).
 function! songwriter#tab#EnterNote(digit) abort
   let l:line = getline('.')
@@ -70,26 +74,40 @@ function! songwriter#tab#EnterNote(digit) abort
   let l:digit = a:digit . ''
   let l:col = col('.')
   let l:ch = (l:col <= len(l:line)) ? l:line[l:col - 1] : ''
-  if songwriter#grammar#IsSeparatorChar(l:ch)
-    return
-  endif
   let l:typing = songwriter#tab#state#Get('typing')
+  let l:here = !empty(l:typing) && l:typing.line == line('.') && l:typing.col == l:col
   let l:insert = songwriter#tab#insert#Active()
-  if !empty(l:typing) || !empty(songwriter#tab#state#Get('slot'))
-    silent! undojoin
-  endif
   let l:note = s:note_at(l:line, l:col)
-  if !empty(l:typing) && l:typing.line == line('.') && l:typing.col == l:col
-        \ && songwriter#grammar#IsFretChar(l:ch)
-    call setline('.', l:line[0 : l:col - 1] . l:digit . l:line[l:col :])
+  if l:here && l:insert && get(l:typing, 'separator', 0)
+    silent! undojoin
+    let l:block = songwriter#tab#model#Read()
+    let l:lines = songwriter#tab#model#InsertColumns(l:block.lines, l:col, 1, '-')
+    let l:lin = songwriter#tab#model#CursorLin(l:block)
+    let l:lines[l:lin] = l:lines[l:lin][0 : l:col - 1] . l:digit . l:lines[l:lin][l:col + 1 :]
+    call songwriter#tab#model#Write(l:block, l:lines)
     call cursor(line('.'), l:col + 1)
-  elseif !empty(l:note)
-    call setline('.', strpart(l:line, 0, l:note.col - 1) . l:digit
-          \ . strpart(l:line, l:note.col - 1 + l:note.len))
-    call cursor(line('.'), l:note.col)
+  elseif l:here && l:insert && !empty(l:note)
+        \ && !s:extends(strpart(l:line, l:note.col - 1, l:note.len), l:digit)
+    call songwriter#tab#AddNote(1)
+    call songwriter#tab#EnterNote(a:digit)
+    return
+  elseif songwriter#grammar#IsSeparatorChar(l:ch)
+    return
   else
-    call setline('.', l:line[0 : l:col - 2] . l:digit . l:line[l:col :])
-    call cursor(line('.'), l:col)
+    if !empty(l:typing) || !empty(songwriter#tab#state#Get('slot'))
+      silent! undojoin
+    endif
+    if l:here && songwriter#grammar#IsFretChar(l:ch)
+      call setline('.', l:line[0 : l:col - 1] . l:digit . l:line[l:col :])
+      call cursor(line('.'), l:col + 1)
+    elseif !empty(l:note)
+      call setline('.', strpart(l:line, 0, l:note.col - 1) . l:digit
+            \ . strpart(l:line, l:note.col - 1 + l:note.len))
+      call cursor(line('.'), l:note.col)
+    else
+      call setline('.', l:line[0 : l:col - 2] . l:digit . l:line[l:col :])
+      call cursor(line('.'), l:col)
+    endif
   endif
   call songwriter#tab#edit#LintAndFollow(songwriter#tab#model#Read())
   call songwriter#tab#slots#Forget()
@@ -97,6 +115,45 @@ function! songwriter#tab#EnterNote(digit) abort
   if l:insert
     call songwriter#tab#insert#Keep()
   endif
+endfunction
+
+" Spec 3.4.1.1: true when appending `digit` to the note `text` makes a fret:
+" `text` is a fret without a leading zero and the result is at most
+" g:songwriter_max_fret (24 by default).
+function! s:extends(text, digit) abort
+  return a:text =~# '^[1-9]' && songwriter#grammar#IsFretChar(a:digit)
+        \ && str2nr(a:text . a:digit) <= get(g:, 'songwriter_max_fret', 24)
+endfunction
+
+" Spec 3.4.1.3: true in the insert state straight after a note was typed
+" (cursor still on it, buffer unchanged since), when a separator key writes a
+" separator.
+function! songwriter#tab#JustTyped() abort
+  let l:typing = songwriter#tab#state#Get('typing')
+  return songwriter#tab#insert#Active() && !empty(l:typing)
+        \ && !get(l:typing, 'separator', 0)
+        \ && l:typing.line == line('.') && l:typing.col == col('.')
+endfunction
+
+" Spec 3.4.1.3: write the separator `char` right after the note under the
+" cursor, inserting a column on every string so that what follows keeps its
+" gap, in the same undo step as the note. The cursor lands on it, and the next
+" digit goes right after it (EnterNote).
+function! songwriter#tab#EnterSeparator(char) abort
+  let l:note = s:note_at(getline('.'), col('.'))
+  let l:block = songwriter#tab#model#Read()
+  if empty(l:note) || empty(l:block)
+    return
+  endif
+  let l:end = l:note.col + l:note.len - 1
+  silent! undojoin
+  let l:lines = songwriter#tab#model#InsertColumns(l:block.lines, l:end, 1, '-')
+  let l:lin = songwriter#tab#model#CursorLin(l:block)
+  let l:lines[l:lin] = l:lines[l:lin][0 : l:end - 1] . a:char . l:lines[l:lin][l:end + 1 :]
+  call songwriter#tab#model#Write(l:block, l:lines)
+  call cursor(line('.'), l:end + 1)
+  call songwriter#tab#state#Set('typing', {'line': line('.'), 'col': col('.'), 'separator': 1})
+  call songwriter#tab#insert#Keep()
 endfunction
 
 " The note of `line` covering column `col`, or {}.
