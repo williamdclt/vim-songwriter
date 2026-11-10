@@ -91,6 +91,10 @@ Am, on the low E string the barre at the 5th fret. `==` right after it cycles to
 the next voicing: lower strings first, then higher ones, then the 12th fret.
 In the insert state it fills the slot, and the next digit goes on after it.
 
+`=` then a quality alone changes the chord already on the column, keeping its
+root (the note on the lowest string): on an `Em`, `=M7<Enter>` gives `EM7`, and
+`=5<Enter>` turns a single note into a power chord.
+
 Shapes (E, A, D at any fret, open C and G) cover major, `m`, `7`, `m7`, `maj7`,
 `sus2`, `sus4` in standard tuning. Power chords (`=E5`) are root, fifth and
 octave, and follow any tuning (drop D gives the one-finger shape).

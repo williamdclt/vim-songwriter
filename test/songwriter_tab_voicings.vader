@@ -340,3 +340,88 @@ Expect songwriter (10.5 a digit after a chord opens the next slot):
   D|----3----|
   A|----3----|
   E|--0-1-2--|
+
+" --- 10.7 =<quality> ---
+
+Execute (10.7 a quality alone is not a chord):
+  for q in ['m', 'M', 'm7', 'M7', 'maj7', '7', '5', 'sus4', 'sus', 'add9', 'dim', 'aug', 'min']
+    Assert songwriter#tab#voicings#IsQuality(q), q
+  endfor
+  for c in ['Am', 'am', 'b', 'C', 'e5', 'H', '']
+    Assert !songwriter#tab#voicings#IsQuality(c), c
+  endfor
+
+Execute (10.7 the root is the lowest fretted note; its voicing at that fret):
+  let lines = ['e|--0--|', 'B|--0--|', 'G|--0--|', 'D|--2--|', 'A|--2--|', 'E|--0--|']
+  let r = songwriter#tab#voicings#Requality(lines, 0, 5, 'M7')
+  AssertEqual 'EM7', r.chord
+  AssertEqual [0, 0, 1, 1, 2, 0], r.voicings[r.index].frets
+
+Execute (10.7 a chord at the 12th fret stays there):
+  let lines = ['e|--12--|', 'B|--12--|', 'G|--12--|', 'D|--14--|', 'A|--14--|', 'E|--12--|']
+  let r = songwriter#tab#voicings#Requality(lines, 3, 5, '7')
+  AssertEqual [12, 12, 13, 12, 14, 12], r.voicings[r.index].frets
+
+Execute (10.7 a single note, muted strings below it are not the root):
+  let lines = ['e|-----|', 'B|-----|', 'G|-----|', 'D|-----|', 'A|--3--|', 'E|--x--|']
+  let r = songwriter#tab#voicings#Requality(lines, 4, 5, 'm')
+  AssertEqual 'Cm', r.chord
+  AssertEqual [3, 4, 5, 5, 3, -1], r.voicings[r.index].frets
+
+Execute (10.7 no voicing on the root's string at its fret: the first from it):
+  let lines = ['e|-----|', 'B|-----|', 'G|--4--|', 'D|-----|', 'A|-----|', 'E|-----|']
+  let r = songwriter#tab#voicings#Requality(lines, 2, 5, 'm')
+  AssertEqual 'Bm', r.chord
+  AssertEqual 0, r.index
+  AssertEqual [3, 'D'], [r.voicings[0].lin, r.voicings[0].shape]
+
+Execute (10.7 refusals):
+  let empty = ['e|-----|', 'B|-----|', 'G|-----|', 'D|-----|', 'A|-----|', 'E|--x--|']
+  Assert has_key(songwriter#tab#voicings#Requality(empty, 0, 5, 'm'), 'error')
+  let em = ['e|--0--|', 'B|--0--|', 'G|--0--|', 'D|--2--|', 'A|--2--|', 'E|--0--|']
+  Assert has_key(songwriter#tab#voicings#Requality(em, 0, 5, 'dim'), 'error')
+  let odd = ['e|--0--|', 'X|--0--|']
+  Assert has_key(songwriter#tab#voicings#Requality(odd, 1, 5, '5'), 'error')
+
+Given songwriter (10.7 =M7 on an open Em):
+  e|--0--|
+  B|--0--|
+  G|--0--|
+  D|--2--|
+  A|--2--|
+  E|--0--|
+
+Execute (10.7 =M7 on an open Em):
+  call cursor(2, 5)
+  execute "normal =M7\<CR>"
+  AssertEqual [2, 5], [line('.'), col('.')]
+
+Expect songwriter (10.7 =M7 on an open Em):
+  e|--0--|
+  B|--0--|
+  G|--1--|
+  D|--1--|
+  A|--2--|
+  E|--0--|
+
+Given songwriter (10.7 =5 on a single note, then ==):
+  e|--------|
+  B|--------|
+  G|--------|
+  D|--------|
+  A|--3--5--|
+  E|--------|
+
+Execute (10.7 =5 on a single note, then ==):
+  call cursor(5, 5)
+  execute "normal =5\<CR>"
+  AssertEqual 'C5', b:songwriter_voicing.chord
+  normal ==
+
+Expect songwriter (10.7 =5 on a single note, then ==):
+  e|--------|
+  B|--------|
+  G|--------|
+  D|--10----|
+  A|--10-5--|
+  E|--8-----|

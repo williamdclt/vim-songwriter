@@ -500,6 +500,12 @@ voicings in their cycle order out) and `Place()`, and the entry points.
   starting on it go, and a two-digit fret gets room as a moved note does
   (`columns#MakeRoom`, spec 7.5). Unplayed strings stay dashes: muting marks are
   the user's call (`x`).
+- **A quality alone changes the chord there** (10.7). The root is the note on
+  the lowest string of the column: no chord recognition, so it works on any
+  column, a single note included, and is right for every root-position
+  voicing this module writes. Keeping the root's fret when a voicing has it
+  keeps the chord where it was on the neck. A name is a quality when it is not
+  a chord but `C` + it is, which separates `b` (B) from `m7` without a list.
 - **Typing on.** In the insert state a chord counts as a typed note
   (`typing.chord`): a digit after it opens the next slot even when it would
   extend the root's fret (`1` then `2` is not `12`), and separators are not

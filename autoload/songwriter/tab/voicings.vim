@@ -87,6 +87,61 @@ function! songwriter#tab#voicings#Name(chord) abort
   return toupper(a:chord[0 : 0]) . a:chord[1 :]
 endfunction
 
+" Spec 10.7: true when `name` is a quality alone: not a chord itself, but a
+" chord's quality after a root (`m7`, `M7`, `add9`; `b` is the chord B).
+function! songwriter#tab#voicings#IsQuality(name) abort
+  return !empty(a:name) && empty(songwriter#grammar#ParseChord(songwriter#tab#voicings#Name(a:name)))
+        \ && !empty(songwriter#grammar#ParseChord('C' . a:name))
+endfunction
+
+" Spec 10.7: the chord on the time column at column `col` of line `lin` with
+" quality `quality`, its root on the lowest string with a fret on that column.
+" Returns {'chord', 'voicings', 'index'}: the voicing rooted on that string at
+" that fret, else the first from that string. {'error'} when there is none.
+function! songwriter#tab#voicings#Requality(lines, lin, col, quality) abort
+  let l:c = s:column(a:lines, a:lin, a:col)
+  let l:root = {}
+  for l:i in range(len(a:lines))
+    for l:n in songwriter#tab#model#Notes(a:lines[l:i])
+      if l:n.col == l:c && l:n.text =~# '^' . songwriter#grammar#Fret() . '$'
+        let l:root = {'lin': l:i, 'fret': str2nr(l:n.text, 10)}
+      endif
+    endfor
+  endfor
+  if empty(l:root)
+    return {'error': 'songwriter: no fretted note on this column to take the root from'}
+  endif
+  let l:names = songwriter#tab#model#Names(a:lines)
+  let l:open = songwriter#pitch#Class(l:names[l:root.lin])
+  if l:open < 0
+    return {'error': printf('songwriter: string name %s is not a note', l:names[l:root.lin])}
+  endif
+  let l:chord = songwriter#pitch#Name(l:open + l:root.fret) . a:quality
+  let l:voicings = songwriter#tab#voicings#Voicings(l:names, l:chord, l:root.lin)
+  if type(l:voicings) == v:t_dict
+    return l:voicings
+  endif
+  let l:index = 0
+  for l:k in range(len(l:voicings))
+    if l:voicings[l:k].lin == l:root.lin && l:voicings[l:k].fret == l:root.fret
+      let l:index = l:k
+      break
+    endif
+  endfor
+  return {'chord': l:chord, 'voicings': l:voicings, 'index': l:index}
+endfunction
+
+" The time column a chord goes on from column `col` of line `lin`: the start
+" of the note under it, else `col`.
+function! s:column(lines, lin, col) abort
+  for l:n in songwriter#tab#model#Notes(a:lines[a:lin])
+    if a:col >= l:n.col && a:col < l:n.col + l:n.len
+      return l:n.col
+    endif
+  endfor
+  return a:col
+endfunction
+
 " Spec 10.2: the shaped voicings of the chord with root pitch class `pc` and
 " quality `quality`, on a standard 6-string tuning `names`.
 function! s:shaped(names, pc, quality) abort
@@ -153,12 +208,7 @@ function! songwriter#tab#voicings#Place(lines, lin, col, voicing) abort
   if songwriter#tab#columns#OnPipeOrName(a:lines[a:lin], a:col)
     return {'error': 'songwriter: a chord goes on a time column, not on a pipe or a string name'}
   endif
-  let l:c = a:col
-  for l:n in songwriter#tab#model#Notes(a:lines[a:lin])
-    if a:col >= l:n.col && a:col < l:n.col + l:n.len
-      let l:c = l:n.col
-    endif
-  endfor
+  let l:c = s:column(a:lines, a:lin, a:col)
   let l:lines = copy(a:lines)
   for l:i in range(len(l:lines))
     for l:n in songwriter#tab#model#Notes(l:lines[l:i])
@@ -213,13 +263,23 @@ function! songwriter#tab#voicings#Prompt() abort
 endfunction
 
 " Spec 10.1, 10.5: enter the first voicing of `chord` rooted from the
-" cursor's string on the cursor's time column. A refusal is echoed (10.6).
+" cursor's string on the cursor's time column. A quality alone changes the
+" chord already there (10.7). A refusal is echoed (10.6).
 function! songwriter#tab#voicings#Enter(chord) abort
   let l:block = songwriter#tab#model#Read()
   if empty(l:block)
     return
   endif
   let l:lin = songwriter#tab#model#CursorLin(l:block)
+  if songwriter#tab#voicings#IsQuality(a:chord)
+    let l:r = songwriter#tab#voicings#Requality(l:block.lines, l:lin, col('.'), a:chord)
+    if has_key(l:r, 'error')
+      call songwriter#tab#edit#Error(l:r.error)
+    else
+      call s:put(l:block, l:lin, col('.'), l:r.chord, l:r.voicings, l:r.index, 0)
+    endif
+    return
+  endif
   let l:chord = songwriter#tab#voicings#Name(a:chord)
   let l:voicings = songwriter#tab#voicings#Voicings(
         \ songwriter#tab#model#Names(l:block.lines), l:chord, l:lin)
