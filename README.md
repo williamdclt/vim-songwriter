@@ -58,7 +58,7 @@ behaves as usual.
 Like Vim, it has a normal state (moving never changes the file) and an insert
 state (moving opens room for new notes). The insert state shows
 `-- TAB INSERT --`. The time column under the cursor is highlighted (group
-`songwriterTimeColumn`, a grey just off the background by default), so you can see
+`songwriterTimeColumn`, linked to `CursorColumn` by default), so you can see
 which notes column-wise operations act on.
 
 ### Writing notes

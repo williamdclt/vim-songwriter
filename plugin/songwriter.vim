@@ -6,26 +6,12 @@ if exists('g:loaded_songwriter_plugin')
 endif
 let g:loaded_songwriter_plugin = 1
 
-" Spec [Tablature][[Rendering]] 4: the time column under the cursor, in a grey
-" just off the background (light on a light one, dark on a dark one), so that
-" it marks the column without drawing the eye from the notes. A default: a
-" color scheme or the user can define songwriterTimeColumn instead. It is set
-" again when the background changes, as the grey depends on it.
-function! s:column_colors(force) abort
-  if a:force
-    highlight clear songwriterTimeColumn
-  endif
-  if &background ==# 'dark'
-    highlight default songwriterTimeColumn ctermbg=236 guibg=#303030
-  else
-    highlight default songwriterTimeColumn ctermbg=255 guibg=#eeeeee
-  endif
-endfunction
-call s:column_colors(0)
+" Spec [Tablature][[Rendering]] 4: the time column under the cursor (a
+" default that a color scheme or the user can override).
+highlight default link songwriterTimeColumn CursorColumn
 augroup songwriter_colors
   autocmd!
-  autocmd ColorScheme * call s:column_colors(0)
-  autocmd OptionSet background call s:column_colors(1)
+  autocmd ColorScheme * highlight default link songwriterTimeColumn CursorColumn
 augroup END
 
 " === Ex commands ===
