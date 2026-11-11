@@ -235,9 +235,10 @@ function! songwriter#tab#columns#PutNote(lines, to, c, text) abort
 endfunction
 
 " Rewrite the note starting at column `c` of line `lin` as `text` (another
-" note), keeping every note on its time column, this one included (spec 3.4,
-" 11.2). A narrower note leaves dashes after it, even before a separator
-" (`10h7` -> `9-h7`). A wider one takes the dashes after it, as long as one
+" note), keeping it on its time column (spec 3.4, 11.2). A narrower note closes
+" up its chain, the dashes going after the chain (`10-7` -> `9--7`, `10h7` ->
+" `9h7-`): the rest of its chain moves with it, every other note stays. A wider
+" one takes the dashes after it, as long as one
 " stays before the next chain on its string (none is needed before a pipe) and
 " it covers no other string's time column; the rest of the room is dashes
 " inserted on every string between the note and the next time column, so all
@@ -251,8 +252,10 @@ function! songwriter#tab#columns#SetNote(lines, lin, c, text) abort
   let l:w = len(a:text)
   let l:end = a:c + l:old.len - 1
   if l:w <= l:old.len
-    let l:lines[a:lin] = songwriter#tab#model#Splice(l:t, a:c, l:old.len,
-          \ a:text . repeat('-', l:old.len - l:w))
+    let l:chain = songwriter#tab#model#ChainAt(l:t, a:c)
+    let l:rest = strpart(l:t, l:end, songwriter#tab#model#NoteEnd(l:chain) - l:end)
+    let l:lines[a:lin] = songwriter#tab#model#Splice(l:t, a:c, l:old.len + len(l:rest),
+          \ a:text . l:rest . repeat('-', l:old.len - l:w))
     return {'lines': l:lines, 'col': a:c}
   endif
   let l:free = len(matchstr(l:t, songwriter#grammar#DashRun(), l:end))

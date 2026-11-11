@@ -130,16 +130,16 @@ Expect songwriter (11.2 a separator after a wider fret stays attached to it):
   e|--10h7--|
   B|--5--7--|
 
-Given songwriter (11.2 a narrower fret before a separator leaves the dash before it):
+Given songwriter (11.2 a narrower fret closes up its chain):
   e|--10h7--|
   B|--5--7--|
 
-Execute (11.2 a narrower fret before a separator leaves the dash before it):
+Execute (11.2 a narrower fret closes up its chain):
   call cursor(1, 5)
   execute "normal \<C-X>"
 
-Expect songwriter (11.2 a narrower fret before a separator leaves the dash before it):
-  e|--9-h7--|
+Expect songwriter (11.2 a narrower fret closes up its chain):
+  e|--9h7---|
   B|--5--7--|
 
 " === 11.3 Refusals ===
@@ -256,3 +256,37 @@ Execute (3.4 a digit typed over a two-digit fret keeps the next column):
 Expect songwriter (3.4 a digit typed over a two-digit fret keeps the next column):
   e|--5--7--|
   B|--9--7--|
+
+Given songwriter (11.5 visual <C-A> changes every fret the selection touches):
+  e|--5h7--9--|--3--|
+  B|--5----9--|--3--|
+
+Execute (11.5 visual <C-A> changes every fret the selection touches):
+  call cursor(1, 5)
+  execute "normal vE\<C-A>\<Esc>"
+
+Expect songwriter (11.5 visual <C-A> changes every fret the selection touches):
+  e|--6h8--10--|--3--|
+  B|--5----9---|--3--|
+
+Given songwriter (11.5 visual <C-A> on columns changes every note of them):
+  e|--9--7--|--3--|
+  B|--9--7--|--3--|
+
+Execute (11.5 visual <C-A> on columns changes every note of them):
+  call cursor(1, 5)
+  execute "normal Vl\<C-A>\<Esc>"
+
+Expect songwriter (11.5 visual <C-A> on columns changes every note of them):
+  e|--10-8--|--3--|
+  B|--10-8--|--3--|
+
+Given songwriter (11.5 visual <C-X> leaves a fret that would go below 0):
+  e|--0--5--|
+
+Execute (11.5 visual <C-X> leaves a fret that would go below 0):
+  call cursor(1, 5)
+  execute "normal v3l\<C-X>\<Esc>"
+
+Expect songwriter (11.5 visual <C-X> leaves a fret that would go below 0):
+  e|--0--4--|
