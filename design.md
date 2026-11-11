@@ -38,6 +38,7 @@ never relies on concealing or rendering.
 | `autoload/songwriter/tab/repeat.vim` | `.` for actions that are not operators. |
 | `autoload/songwriter/tab/voicings.vim` | Whole chords on a time column: voicings of a chord name in their cycle order, placing one (pure), and `=`/`==`. |
 | `autoload/songwriter/tab/strings.vim` | Moving notes and time columns to another string, keeping the fret or the pitch: pure `Move()` and its entry point. |
+| `autoload/songwriter/tab/frets.vim` | Moving a note up or down the frets (`]`/`[`): pure `Shift()` and its entry point. |
 | `autoload/songwriter/chord.vim` | Chord model and chord editing. |
 | `autoload/songwriter/pitch.vim` | Pitch classes: note names to semitones and back (sharp spelling). Shared by chords and tab string intervals. |
 | `autoload/songwriter/keys.vim` | Context-dependent keys: tables and `Dispatch()`, tablature-mode flag and state (`Mode()`), tab-line `w`/`b`/`W`/`B`. |
