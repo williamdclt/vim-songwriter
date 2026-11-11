@@ -180,7 +180,8 @@ a note typed there (`|--7--|`) needs no reflow.
 leftover space, not music. All of them go, not just the very last one, so that
 lint stays idempotent (linting twice changes nothing); empty bars between
 notes are rests and are kept. A tab keeps at least one bar, so an all-empty tab
-lints to `|-----|`. This applies to every lint, so `cap` leaves a single bar. A cursor that was in a deleted
+lints to `|-----|`, and so does a tab with no bar at all (`e||`, left by
+`da|` on the only bar). This applies to every lint, so `cap` leaves a single bar. A cursor that was in a deleted
 bar lands on the tab's last pipe.
 
 **Overlapping notes** (spec 1.3, two-digit notes). Each note gets a natural output
@@ -310,7 +311,8 @@ text, and arrow keys would be needed).
   the cursor, keeping the previous note 1 dash and the previous pipe 2 dashes
   away. Gaps are checked on every string, since a note on another string
   occupies the column just as much.
-  No anchor note: no-op. `a`/`i` lint first (4.2, below).
+  No anchor note: no-op, not even the lint: `a`/`i` lint first (4.2, below), but
+  that lint is part of opening the slot (`edit#Do`'s `open`).
 - **Digits (3.4)**: a digit on a dash replaces it; on a note it replaces the
   whole note (both digits of a `12`). To type a two-digit fret, a digit typed
   straight after another is appended to it instead (3.4.1): `EnterNote` records
@@ -353,7 +355,12 @@ text, and arrow keys would be needed).
   the carried one replaced and closes a gap it opened, with no bookkeeping of
   what was overwritten; the start position renders the original lines, so
   coming back leaves no trace. Moves after the first are joined to its undo
-  step. Off a note the arrows keep their meaning (`carry#Key` returns the
+  step. The base keeps as many bars as the tab had, even when the lifted note
+  leaves the last ones empty (which lint would drop): they stay stops for the
+  note to go back to (3.3.4). Back from a new bar, the note goes to the gap
+  after the last column, where it came from, rather than onto that column as
+  `h` does from the new bar's slot (5): `h` lands the cursor on a note, but a
+  carried note would replace it. Off a note the arrows keep their meaning (`carry#Key` returns the
   arrow itself), so they still move the cursor out of a slot.
 
 ### Linting after edits (spec [Tablature][[Editing]] 4)

@@ -293,3 +293,44 @@ Then:
 Expect songwriter (3.6 off a note the arrows only move):
   e|--3----|
   B|-------|
+
+" === Back from the end of the tab ===
+
+Given songwriter (3.6 Left from the new bar goes back to the gap the note came from):
+  e|--3--5--7--|
+
+Execute (3.6 Left from the new bar goes back to the gap the note came from):
+  call cursor(1, 11)
+  call songwriter#tab#insert#Enter()
+  execute "normal \<Right>\<Left>"
+Then:
+  AssertEqual 11, col('.')
+
+Expect songwriter (3.6 Left from the new bar goes back to the gap the note came from):
+  e|--3--5--7--|
+
+Given songwriter (3.6 Left from the last bar stops in an empty bar before it):
+  e|--4--|-----|--1--|
+
+Execute (3.6 Left from the last bar stops in an empty bar before it):
+  call cursor(1, 17)
+  call songwriter#tab#insert#Enter()
+  execute "normal \<Left>"
+Then:
+  AssertEqual 11, col('.')
+
+Expect songwriter (3.6 Left from the last bar stops in an empty bar before it):
+  e|--4--|--1--|
+
+Given songwriter (3.6 Right from that empty bar goes back to the last bar):
+  e|--4--|-----|--1--|
+
+Execute (3.6 Right from that empty bar goes back to the last bar):
+  call cursor(1, 17)
+  call songwriter#tab#insert#Enter()
+  execute "normal \<Left>\<Right>"
+Then:
+  AssertEqual 17, col('.')
+
+Expect songwriter (3.6 Right from that empty bar goes back to the last bar):
+  e|--4--|-----|--1--|

@@ -13,7 +13,8 @@ function! songwriter#tab#lint#Lint(lines) abort
   let l:lines = s:close_bars(a:lines)
   let l:nl = len(l:lines)
   let l:regions = s:bar_regions(l:lines)
-  let l:nbars = max(map(copy(l:regions), 'len(v:val)'))
+  " A tab keeps at least one bar (spec 1.4): with none (`e|`), one empty bar.
+  let l:nbars = max([1, max(map(copy(l:regions), 'len(v:val)'))])
 
   let l:lineparts = map(range(l:nl), '[]')
   let l:moves = []

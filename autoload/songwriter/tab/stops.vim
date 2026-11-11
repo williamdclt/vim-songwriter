@@ -170,7 +170,8 @@ endfunction
 " direction `dir`, through the stops of `l`/`h` in the insert state: from a
 " column into the gap on that side of it, from a gap onto the column it was
 " entered from or on to the next stop, an empty bar being one (3.3.4). Past the
-" last stop of the tab's last bar, a new bar (5); back from it, the last stop.
+" last stop of the tab's last bar, a new bar (5); back from it, the gap after
+" the last column (where the move into it came from), or the last empty bar.
 " `pos` itself when there is nowhere to go.
 function! songwriter#tab#stops#Step(base, lin, pos, dir) abort
   let l:block = songwriter#tab#model#Parse(0, a:base)
@@ -179,7 +180,11 @@ function! songwriter#tab#stops#Step(base, lin, pos, dir) abort
   if a:pos.kind ==# 'col'
     return {'kind': 'gap', 'side': a:dir, 'col': a:pos.col}
   elseif a:pos.kind ==# 'newbar'
-    return a:dir < 0 && !empty(l:stops) ? s:stop(l:block, l:line, l:stops[-1]) : a:pos
+    if a:dir > 0 || empty(l:stops)
+      return a:pos
+    endif
+    let l:last = s:stop(l:block, l:line, l:stops[-1])
+    return l:last.kind ==# 'col' ? {'kind': 'gap', 'side': 1, 'col': l:last.col} : l:last
   elseif a:pos.kind ==# 'gap' && a:pos.side == -a:dir
     return {'kind': 'col', 'col': a:pos.col}
   endif
