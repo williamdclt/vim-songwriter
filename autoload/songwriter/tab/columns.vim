@@ -70,8 +70,12 @@ endfunction
 
 " Spec 6.7: erase the note at column `col` of line `lin`. Shared column (6.7.1):
 " the note becomes dashes. Lone column (6.7.2): the column and its gap go on
-" every string. Returns {'lines', 'col', 'rows'} where rows is what `ac` would
-" yank with the other strings as dashes (6.7.3), or {} off a note.
+" every string, as far as another string's notes stay apart: the end of the
+" removed range comes back until no other string loses a note or separator
+" there, nor has two of its notes or chains joined. When not even the note's
+" own columns can go, the note becomes dashes, as on a shared column. Returns
+" {'lines', 'col', 'rows'} where rows is what `ac` would yank with the other
+" strings as dashes (6.7.3), or {} off a note.
 function! songwriter#tab#columns#EraseNote(lines, lin, col) abort
   let l:note = songwriter#tab#model#NoteAt(a:lines[a:lin], a:col)
   if empty(l:note)
@@ -87,13 +91,36 @@ function! songwriter#tab#columns#EraseNote(lines, lin, col) abort
       let l:rows[l:i] = repeat('-', len(l:rows[l:i]))
     endif
   endfor
-  if l:shared
+  if !l:shared
+    let l:end = l:e
+    while l:end >= songwriter#tab#model#NoteEnd(l:note) && !s:removable(a:lines, a:lin, l:c, l:end)
+      let l:end -= 1
+    endwhile
+  endif
+  if l:shared || l:end < songwriter#tab#model#NoteEnd(l:note)
     let l:out = copy(a:lines)
     let l:out[a:lin] = songwriter#tab#model#Blank(a:lines[a:lin], l:note)
   else
-    let l:out = songwriter#tab#columns#DeleteRange(a:lines, l:c, l:e).lines
+    let l:out = songwriter#tab#columns#DeleteRange(a:lines, l:c, l:end).lines
   endif
   return {'lines': l:out, 'col': l:c, 'rows': l:rows}
+endfunction
+
+" True when columns [s, e] can be removed from every line but `lin` without
+" changing its music: only dashes there (or nothing), and not a chain on both
+" sides, which removing them would join.
+function! s:removable(lines, lin, s, e) abort
+  for l:i in range(len(a:lines))
+    let l:l = a:lines[l:i]
+    if l:i == a:lin
+      continue
+    endif
+    if strpart(l:l, a:s - 1, a:e - a:s + 1) =~# '[^-]'
+          \ || s:in_chain(l:l, a:s - 1) && s:in_chain(l:l, a:e + 1)
+      return 0
+    endif
+  endfor
+  return 1
 endfunction
 
 " Spec 6.13: move the time column at `col` of line `lin` one dash later (dir

@@ -207,11 +207,7 @@ Execute (a or i where no slot can open change nothing):
 " === Carrying a note back leaves no trace (spec 3.6) ===
 
 Execute (an arrow then the opposite arrow gives the tab back as it was):
-  " Bug: lifting a note removes room other strings need (spec [[Bugs]]).
-  let g:inv_known = [
-        \ 'two-digit frets, 2:20, <Right><Left>',
-        \ 'separators, 2:8, <Right><Left>',
-        \ ]
+  let g:inv_known = []
   let g:inv_failures = []
   for g:inv_tab in g:inv_tabs
     for g:inv_pos in g:InvKeyPositions(g:inv_tab.lines)
@@ -259,13 +255,8 @@ Execute (a note carried away from the last bar comes back, and keeps the notes i
 " === Edits (spec 4, 6.7, 6.10, 6.11) ===
 
 Execute (each edit is one undo step, leaves the tab linted, and x keeps the other strings' notes):
-  " Bugs: x removing a lone column joins or cuts notes on other strings;
-  " da| on a tab's only bar leaves it unlinted (spec [[Bugs]]).
+  " Bug: da| on a tab's only bar leaves it unlinted (spec [[Bugs]]).
   let g:inv_known = [
-        \ 'others: two-digit frets, 1:9, x',
-        \ 'others: two-digit frets, 2:20, x',
-        \ 'others: separators, 2:8, x',
-        \ 'others: separators, 2:17, x',
         \ 'linted: single string, 1:5, da|',
         \ 'linted: single string, 1:8, da|',
         \ 'linted: single string, 1:11, da|',

@@ -31,6 +31,30 @@ Execute (6.7.2 x on a lone note removes it and its gap):
 Expect songwriter:
   e|--3----7--|
 
+Given songwriter (6.7.2 x keeps a dash between the notes of another string):
+  e|--5h7--7b--|
+  B|-----3-----|
+
+Execute (6.7.2 x keeps a dash between the notes of another string):
+  call cursor(2, 8)
+  normal x
+
+Expect songwriter (6.7.2 x keeps a dash between the notes of another string):
+  e|--5h7-7b--|
+  B|----------|
+
+Given songwriter (6.7.2 x keeps the column when removing it would join another string's notes):
+  e|--10-12--|
+  B|----5----|
+
+Execute (6.7.2 x keeps the column when removing it would join another string's notes):
+  call cursor(2, 7)
+  normal x
+
+Expect songwriter (6.7.2 x keeps the column when removing it would join another string's notes):
+  e|--10-12--|
+  B|---------|
+
 Given songwriter (6.7.3 xp swaps a note with the next one):
   e|--3--5--7--|
 
