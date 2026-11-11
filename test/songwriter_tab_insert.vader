@@ -1,6 +1,6 @@
-" Spec [Tablature][[Editing]] 3, 3.1.4-3.1.6: tablature mode has a normal
+" Spec [Tablature][[Editing]] 3, 3.1.4-3.1.7: tablature mode has a normal
 " state and an insert state. Opening a slot (`a`, `i`, `c`, `o`, ...) enters
-" the insert state, `<Esc>` or any other change leaves it, and
+" the insert state (`a`, `i` also in an empty bar), `<Esc>` or any other change leaves it, and
 " songwriter#keys#Mode() tells which state is on.
 
 Before:
@@ -176,3 +176,91 @@ Then:
 
 Expect songwriter (4.2 a where no slot can open changes nothing, not even the lint):
   e|-3-5--|
+
+Given songwriter (3.1.7 a in an empty bar opens a slot in its middle):
+  e|--4--|-----|--1--|
+  B|-----|-----|-----|
+
+Execute (3.1.7 a in an empty bar opens a slot in its middle):
+  call cursor(1, 9)
+  call feedkeys('a', 'xt')
+Then:
+  Assert songwriter#tab#insert#Active()
+  AssertEqual [1, 11], [line('.'), col('.')]
+
+Given songwriter (3.1.7 a run of notes typed after a in an empty bar):
+  e|--4--|-----|--1--|
+  B|-----|-----|-----|
+
+Execute (3.1.7 a run of notes typed after a in an empty bar):
+  call cursor(1, 9)
+  call feedkeys('a357', 'xt')
+
+Expect songwriter (3.1.7 a run of notes typed after a in an empty bar):
+  e|--4--|--3-5-7--|--1--|
+  B|-----|---------|-----|
+
+Given songwriter (3.1.7 i in an empty bar, closed with Esc, leaves the tab as it was):
+  e|--4--|---|--1--|
+
+Execute (3.1.7 i in an empty bar, closed with Esc, leaves the tab as it was):
+  call cursor(1, 9)
+  call feedkeys("i\<Esc>", 'xt')
+Then:
+  Assert !songwriter#tab#insert#Active()
+  AssertEqual {}, songwriter#tab#state#Get('slot')
+
+Expect songwriter (3.1.7 i in an empty bar, closed with Esc, leaves the tab as it was):
+  e|--4--|---|--1--|
+
+Given songwriter (3.1.7 after :SongwriterNewTab and Esc, a types a run of notes):
+
+Execute (3.1.7 after :SongwriterNewTab and Esc, a types a run of notes):
+  SongwriterNewTab
+  call feedkeys("\<Esc>a357", 'xt')
+
+Expect songwriter (3.1.7 after :SongwriterNewTab and Esc, a types a run of notes):
+  e|--3-5-7--|
+  B|---------|
+  G|---------|
+  D|---------|
+  A|---------|
+  E|---------|
+
+Given songwriter (3.1.7 after :SongwriterNewTab and Esc, i types a run of notes):
+
+Execute (3.1.7 after :SongwriterNewTab and Esc, i types a run of notes):
+  SongwriterNewTab
+  call feedkeys("\<Esc>i357", 'xt')
+
+Expect songwriter (3.1.7 after :SongwriterNewTab and Esc, i types a run of notes):
+  e|--3-5-7--|
+  B|---------|
+  G|---------|
+  D|---------|
+  A|---------|
+  E|---------|
+
+Given songwriter (3.1.7 l from the slot of a in an empty bar closes it and goes to the next note):
+  e|--4--|-----|--1--|
+
+Execute (3.1.7 l from the slot of a in an empty bar closes it and goes to the next note):
+  call cursor(1, 9)
+  call feedkeys('al', 'xt')
+Then:
+  AssertEqual 17, col('.')
+
+Expect songwriter (3.1.7 l from the slot of a in an empty bar closes it and goes to the next note):
+  e|--4--|-----|--1--|
+
+Given songwriter (3.1.7 h from the slot of i in an unlinted empty bar goes to the previous note):
+  e|--4--|---|--1--|
+
+Execute (3.1.7 h from the slot of i in an unlinted empty bar goes to the previous note):
+  call cursor(1, 9)
+  call feedkeys('ih', 'xt')
+Then:
+  AssertEqual 5, col('.')
+
+Expect songwriter (3.1.7 h from the slot of i in an unlinted empty bar goes to the previous note):
+  e|--4--|-----|--1--|
