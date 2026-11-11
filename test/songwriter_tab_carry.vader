@@ -98,6 +98,19 @@ Then:
 Expect songwriter (3.6 Left again opens a gap before that column):
   e|--5-3--7--|
 
+Given songwriter (3.6 Left into a gap opens it as i does, next to the column it leaves):
+  e|--3----5--7--|
+
+Execute (3.6 Left into a gap opens it as i does, next to the column it leaves):
+  call cursor(1, 13)
+  call songwriter#tab#insert#Enter()
+  execute "normal \<Left>\<Left>"
+Then:
+  AssertEqual 8, col('.')
+
+Expect songwriter (3.6 Left into a gap opens it as i does, next to the column it leaves):
+  e|--3--7-5--|
+
 Given songwriter (3.6 a note just typed is carried, its slot closed behind it):
   e|--3--5--|
 

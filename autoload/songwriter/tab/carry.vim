@@ -8,7 +8,8 @@
 "   {'kind': 'col', 'col': c}             on the note column c, replacing the
 "                                         note of its string there
 "   {'kind': 'gap', 'side': s, 'col': c}  in a slot opened after (s 1, as `a`)
-"                                         or before (s -1, as `i`) column c
+"                                         or before (s -1, as `i`) column c,
+"                                         the column it was entered from
 "   {'kind': 'bar', 'col': m}             in the empty bar whose middle is m
 "   {'kind': 'newbar'}                    in a bar added after the last one
 " Each arrow moves the position (or the string) and renders the base with the
@@ -47,7 +48,6 @@ function! songwriter#tab#carry#Lift(lines, lin, col) abort
       let l:pos = s:emptied_bar(a:lines[a:lin], l:base[a:lin], l:c)
     endif
   endif
-  let l:pos = s:canonical(l:base, a:lin, l:pos)
   return {'base': l:base, 'origin': copy(a:lines), 'text': l:note.text,
         \ 'lin': a:lin, 'pos': l:pos, 'lin0': a:lin, 'col0': l:c, 'pos0': l:pos}
 endfunction
@@ -64,8 +64,9 @@ function! s:emptied_bar(line, base, col) abort
   return {'kind': 'bar', 'col': l:pipes[l:k] + (l:pipes[l:k + 1] - l:pipes[l:k]) / 2}
 endfunction
 
-" A gap between two columns of a bar is the same whichever side it was opened
-" from: it is named after the column before it.
+" A gap between two columns of a bar is the same place whichever side it was
+" entered from: named after the column before it, two positions compare equal
+" when they are the same place.
 function! s:canonical(base, lin, pos) abort
   if a:pos.kind !=# 'gap' || a:pos.side > 0
     return a:pos
@@ -77,8 +78,9 @@ endfunction
 
 " Spec 3.6: the position after `pos` (over `base`, on line `lin`) in direction
 " `dir`, through the stops of `l`/`h` in the insert state (3.3.3): from a
-" column into the gap on that side of it, from a gap onto the column it was
-" opened from or on to the next stop, an empty bar being one (3.3.4). Past the
+" column into the gap on that side of it, opened from that column as `a` / `i`
+" open it, from a gap onto the column it was entered from or on to the next
+" stop, an empty bar being one (3.3.4). Past the
 " last stop of the tab's last bar, a new bar (5); back from it, the last stop.
 " `pos` itself when there is nowhere to go.
 function! songwriter#tab#carry#Step(base, lin, pos, dir) abort
@@ -86,7 +88,7 @@ function! songwriter#tab#carry#Step(base, lin, pos, dir) abort
   let l:line = a:base[a:lin]
   let l:stops = songwriter#tab#stops#Stops(l:block, l:line)
   if a:pos.kind ==# 'col'
-    return s:canonical(a:base, a:lin, {'kind': 'gap', 'side': a:dir, 'col': a:pos.col})
+    return {'kind': 'gap', 'side': a:dir, 'col': a:pos.col}
   elseif a:pos.kind ==# 'newbar'
     return a:dir < 0 && !empty(l:stops) ? s:stop(l:block, l:line, l:stops[-1]) : a:pos
   elseif a:pos.kind ==# 'gap' && a:pos.side == -a:dir
@@ -113,7 +115,8 @@ endfunction
 " (7.5). Where the carry started, its origin, untouched. Returns {'lines',
 " 'col': the note's column}, or {} when the note cannot go there (a separator).
 function! songwriter#tab#carry#Render(carry, pos, lin) abort
-  if a:pos ==# a:carry.pos0 && a:lin == a:carry.lin0
+  if a:lin == a:carry.lin0 && s:canonical(a:carry.base, a:lin, a:pos)
+        \ ==# s:canonical(a:carry.base, a:lin, a:carry.pos0)
     return {'lines': copy(a:carry.origin), 'col': a:carry.col0}
   endif
   let l:block = songwriter#tab#model#Parse(0, a:carry.base)
