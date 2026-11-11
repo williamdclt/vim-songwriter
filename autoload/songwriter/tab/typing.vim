@@ -7,14 +7,14 @@
 " keeping its time column (columns#SetNote). Straight
 " after a digit was typed (cursor still on it, buffer unchanged since), the next
 " digit is appended instead, so two-digit frets are typed one key at a time
-" (3.4.1). In the insert state it is appended only when that makes a fret
-" (see s:extends); otherwise, and after a muted note, it opens a slot after the
-" note (as `l`) and is entered there (3.4.1.1), as it does straight after a
-" chord (spec 10.5). Straight after a separator was typed (EnterSeparator), the
-" digit goes right after it (3.4.1.3). Then lint the block, keeping the cursor
-" on the digit (4.1); this fills any open slot, in the same undo step as the
-" slot, as is a digit appended to a fret or separator (4.3.1). The insert state
-" is kept. No-op off a tab line and on a separator (3.4.2).
+" (3.4.1), but only when that makes a fret (see s:extends); otherwise, and
+" after a muted note, it opens a slot after the note (as `l`) and is entered
+" there (3.4.1.1), as it does straight after a chord (spec 10.5). Straight
+" after a separator was typed (EnterSeparator), the digit goes right after it
+" (3.4.1.3). Then lint the block, keeping the cursor on the digit (4.1); this
+" fills any open slot, in the same undo step as the slot, as is a digit
+" appended to a fret or separator (4.3.1). The state (normal or insert) is
+" kept. No-op off a tab line and on a separator (3.4.2).
 function! songwriter#tab#typing#EnterNote(digit) abort
   let l:line = getline('.')
   if !songwriter#grammar#IsTabLine(l:line)
@@ -28,10 +28,13 @@ function! songwriter#tab#typing#EnterNote(digit) abort
   let l:insert = songwriter#tab#insert#Active()
   let l:note = songwriter#tab#model#NoteAt(l:line, l:col)
   let l:after_separator = l:here && l:insert && get(l:typing, 'separator', 0)
-  if !l:after_separator && l:here && l:insert && (get(l:typing, 'chord', 0) || !empty(l:note)
+  if !l:after_separator && l:here && (get(l:typing, 'chord', 0) || !empty(l:note)
         \ && !s:extends(strpart(l:line, l:note.col - 1, l:note.len), l:digit))
     call songwriter#tab#slots#AddNote(1)
     call songwriter#tab#typing#EnterNote(a:digit)
+    if !l:insert
+      call songwriter#tab#insert#Leave()
+    endif
     return
   elseif !l:after_separator && songwriter#grammar#IsSeparatorChar(l:ch)
     return
