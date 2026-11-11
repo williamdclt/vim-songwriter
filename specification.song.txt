@@ -151,6 +151,10 @@ A note is a fret (digits: `12` is one note) or `x` (a muted note). Anything else
 
 [[Bugs]]
 These are known bugs that need fixing
+1. `x` on a note alone on its time column ([[Editing]] 6.7.2) removes the column's gap on every string, even where it is the only room between two notes of another string, which joins or cuts them: with a `5` on B under the `2` of `--10-12--` on e, `x` on the 5 gives `--1012--`; with a `3` on B between the two 7s of `5h7--7b`, it gives `5h77b`. Carrying such a note with an arrow (3.6) lifts it the same way.
+2. Carrying a note back from the end of a tab loses a note (3.6): in `e|--3--5--7--|`, `<Right>` then `<Left>` on the 7 gives `e|--3--7--|`, the 7 replacing the 5 instead of going back to the gap after it. In `e|--4--|-----|--1--|`, `<Left>` on the 1 lands on the 4 and the empty bar goes, instead of stopping in the empty bar (3.3.4).
+3. `da|` on a tab's only bar leaves `e||`, which is not linted ([[Editing]] 6.11 expects `e|-----|`).
+4. `a` / `i` where no slot can open (on the string name or a pipe, before a bar's first note for `a`, after its last for `i`) still lint the tab and leave an undo step, although they do nothing else.
 
 [Chords]
 
