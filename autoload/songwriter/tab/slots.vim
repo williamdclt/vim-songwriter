@@ -162,6 +162,17 @@ function! songwriter#tab#slots#Linted(mark, lines, col) abort
   let a:mark.linted_col = a:col
 endfunction
 
+" Make `mark` (from Mark, with Linted) that of a slot in the middle of an empty
+" bar, at column `col` of the lines as linted: closed by a motion, it goes on
+" from that bar's stop (3.3.4), as a slot landed in does.
+function! songwriter#tab#slots#InBar(mark, col) abort
+  let a:mark.side = 0
+  let a:mark.linted_col = a:col
+  if a:mark.linted ==# a:mark.before
+    let a:mark.from = a:col
+  endif
+endfunction
+
 " Remember the slot under the cursor and enter the insert state (spec 3.1).
 " With a `mark` (from Mark), closing it restores the tab; without one, the slot
 " is part of a bigger edit (`c`, `o`, :SongwriterNewTab) and closing lints.
@@ -256,8 +267,9 @@ endfunction
 
 " Spec [Tablature][[Editing]] 3.1: open room for a new note on every string,
 " to the right of the current note (side +1, `a`) or to its left (side -1,
-" `i`), land the cursor on the new slot and enter the insert state. An open
-" slot is closed first (4.3). The block is linted (4.2), and the slot is
+" `i`), land the cursor on the new slot and enter the insert state. In a bar
+" with no note, the slot is its middle dash, as on landing there (3.1.7). An
+" open slot is closed first (4.3). The block is linted (4.2), and the slot is
 " remembered until a note fills it or it is closed, which restores the tab as it
 " was before the lint (4.3).
 function! songwriter#tab#slots#AddNote(side) abort
@@ -266,6 +278,11 @@ function! songwriter#tab#slots#AddNote(side) abort
 endfunction
 
 function! s:add_note(side, ctx) abort
+  let l:bar = songwriter#tab#model#BarAt(a:ctx.line, a:ctx.col)
+  if empty(songwriter#tab#model#BarNotes(a:ctx.block, l:bar))
+    let l:res = songwriter#tab#slots#EmptyBar(a:ctx.block.lines, a:ctx.lin, a:ctx.col)
+    return empty(l:res) ? {} : extend(l:res, {'side': 0})
+  endif
   return a:side > 0
         \ ? songwriter#tab#slots#Append(a:ctx.block, a:ctx.lin, a:ctx.col)
         \ : songwriter#tab#slots#Prepend(a:ctx.block, a:ctx.lin, a:ctx.col)

@@ -12,7 +12,9 @@
 "   'state': {name: value} to record in tab/state.vim once written, each value
 "            completed with the cursor's 'line' and 'col' (Do only),
 "   'register': {'name', 'rows', 'type', 'names'} to set once written
-"            (register#Set; Do only).
+"            (register#Set; Do only),
+"   'side':  0 for an edit that opens a slot in an empty bar whatever
+"            opts.open says (slots#InBar; Do only).
 " {} means nothing to do.
 "
 " Do() is the whole edit: what it does with an open slot, the undo step it
@@ -188,6 +190,9 @@ function! songwriter#tab#edit#Do(Fn, ...) abort
       call songwriter#tab#register#Set(l:r.name, l:r.rows, l:r.type, l:r.names)
     endif
     if has_key(l:opts, 'open')
+      if get(l:result, 'side', l:mark.side) == 0
+        call songwriter#tab#slots#InBar(l:mark, col('.'))
+      endif
       call songwriter#tab#slots#Open(l:mark)
     endif
     if has_key(l:opts, 'repeat')
