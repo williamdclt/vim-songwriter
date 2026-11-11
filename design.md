@@ -524,7 +524,7 @@ it on that string by the difference, so the string drifts out of the time
 columns it shared with the others (a different rhythm), and lint cannot tell:
 it aligns pipes and splits overlaps, but has no memory of which notes were
 together. So every edit that rewrites a note goes through one primitive,
-`columns#SetNote`, and `test/songwriter_invariants.vader` checks over the
+`columns#SetNote`, and `test/songwriter_invariants_frets.vader` checks over the
 corpus that the notes of each time column still start together afterwards.
 
 - **Narrower: the chain closes up, dashes after it.** The note keeps its
@@ -713,15 +713,18 @@ Highlighting stays permissive and accepts false positives such as the word "A"
 
 ## Testing
 
-- Vader, `make test`; the pre-commit hook enforces a green suite.
+- Vader, `make test`; the pre-commit hook enforces a green suite. Each test
+  file runs in its own Vim, in parallel (`JOBS`, one per CPU by default), so
+  a slow file holds the whole run: keep files under a second or so, and
+  split one that grows past that.
 - Buffer transformations use `Given songwriter` / `Execute` or `Do` / `Expect`,
   so the before/after tab is visible; cursor positions and pure functions use
   `Assert*`.
-- Vader reuses one buffer across cases and files, so buffer state (the
+- Vader reuses one buffer across the cases of a file, so buffer state (the
   tablature-mode flag) is reset in a `Before:` block wherever keys are typed.
 - Key mappings are exercised end-to-end with `normal` where the result is
   observable; `Dispatch` and `b:undo_ftplugin` have their own tests.
-- **Invariants** (`test/songwriter_invariants.vader`) are checked over a corpus
+- **Invariants** (`test/songwriter_invariants_*.vader`) are checked over a corpus
   of tabs and every relevant cursor position rather than one example: lint is
   idempotent and keeps each string's notes, the normal state never edits, an
   abandoned slot and a carried-back note leave no trace, each edit is one
@@ -735,4 +738,7 @@ Highlighting stays permissive and accepts false positives such as the word "A"
   because of a bug in the spec's [[Bugs]] is listed as a known exception,
   which must keep failing: fixing the bug means removing it from the list.
   Positions are limited to note starts and the dash after each note, and
-  the corpus kept small, so the file stays a few seconds.
+  the corpus kept small. The corpus and helpers are in
+  `test/invariants/setup.vader`, which each invariant file includes; the
+  edit invariant is one body (`test/invariants/edits.vader`) included by
+  files that each check a share of the keys, so that they run in parallel.

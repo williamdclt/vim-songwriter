@@ -1,0 +1,10 @@
+" Invariants of the edits that act on a dash as well as on a note: a digit and
+" `=` (see invariants/setup.vader and invariants/edits.vader).
+
+Include: invariants/setup.vader
+
+Execute (the edits checked here):
+  let g:inv_note_keys = []
+  let g:inv_dash_keys = ['7', "a7\<Esc>", "=Am\<CR>"]
+
+Include: invariants/edits.vader

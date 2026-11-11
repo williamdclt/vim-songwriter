@@ -1,0 +1,20 @@
+" Invariants of edits that only move time (see invariants/setup.vader).
+
+Include: invariants/setup.vader
+
+" === Edits (spec 4, 6.7, 6.10, 6.11) ===
+
+Execute (edits that only move time keep every string's music):
+  let g:inv_failures = []
+  for g:inv_tab in g:inv_tabs
+    for g:inv_pos in g:InvNotePositions(g:inv_tab.lines)
+      for g:inv_keys in ['>>', '<<', "all\<Esc>", "ahh\<Esc>", "ihhh\<Esc>"]
+        call g:InvLoad(g:inv_tab.lines, g:inv_pos)
+        silent! call feedkeys(g:inv_keys, 'xt')
+        if g:InvMusic(g:InvTab()) !=# g:InvMusic(g:inv_tab.lines)
+          call add(g:inv_failures, g:InvCase(g:inv_tab, g:inv_pos, g:inv_keys))
+        endif
+      endfor
+    endfor
+  endfor
+  AssertEqual [], g:inv_failures
