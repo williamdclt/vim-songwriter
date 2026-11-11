@@ -163,42 +163,42 @@ endfunction
 " linted with the cursor on the note, and the insert state is kept. With
 " nowhere to go, nothing changes.
 function! songwriter#tab#carry#Move(key) abort
-  let [l:dlin, l:dir] = s:moves[a:key]
   let l:block = songwriter#tab#model#Read()
   if empty(l:block)
     return
   endif
   let l:carry = songwriter#tab#state#Get('carry')
   let l:going = !empty(l:carry) && l:carry.start == l:block.start
-        \ && l:carry.line == line('.') && l:carry.cursor == col('.')
-  if !l:going
-    let l:carry = songwriter#tab#carry#Lift(l:block.lines,
-          \ songwriter#tab#model#CursorLin(l:block), col('.'))
+        \ && l:carry.line == line('.') && l:carry.col == col('.')
+  call songwriter#tab#edit#Do(function('s:move', [s:moves[a:key], l:going ? l:carry : {}]),
+        \ {'join': l:going, 'prelint': 0, 'insert': 1})
+endfunction
+
+" Pure. The move [string step, column direction] of the carry `carry` (or of
+" the note under the cursor of `ctx`, lifted, when it is {}).
+function! s:move(move, carry, ctx) abort
+  let [l:dlin, l:dir] = a:move
+  let l:carry = a:carry
+  if empty(l:carry)
+    let l:carry = songwriter#tab#carry#Lift(a:ctx.block.lines, a:ctx.lin, a:ctx.col)
     if empty(l:carry)
-      return
+      return {}
     endif
-    let l:carry.start = l:block.start
+    let l:carry.start = a:ctx.block.start
   endif
   let l:lin = l:carry.lin + l:dlin
-  if l:lin < 0 || l:lin >= len(l:block.lines)
-    return
+  if l:lin < 0 || l:lin >= len(a:ctx.block.lines)
+    return {}
   endif
   let l:pos = l:dir == 0 ? l:carry.pos
         \ : songwriter#tab#carry#Step(l:carry.base, l:lin, l:carry.pos, l:dir)
   if l:pos ==# l:carry.pos && l:lin == l:carry.lin
-    return
+    return {}
   endif
   let l:res = songwriter#tab#carry#Render(l:carry, l:pos, l:lin)
   if empty(l:res)
-    return
+    return {}
   endif
-  if l:going
-    silent! undojoin
-  endif
-  call songwriter#tab#model#Write(l:block, l:res.lines)
-  call cursor(l:block.start + l:lin, l:res.col)
-  call songwriter#tab#edit#LintAndFollow(songwriter#tab#model#Read())
-  call songwriter#tab#state#Set('carry', extend(l:carry,
-        \ {'pos': l:pos, 'lin': l:lin, 'line': line('.'), 'cursor': col('.')}))
-  call songwriter#tab#insert#Keep()
+  return {'lines': l:res.lines, 'lin': l:lin, 'col': l:res.col,
+        \ 'state': {'carry': extend(copy(l:carry), {'pos': l:pos, 'lin': l:lin})}}
 endfunction
