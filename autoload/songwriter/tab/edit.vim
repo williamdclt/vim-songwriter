@@ -10,7 +10,9 @@
 "   'msg':   a message to echo,
 "   'error': a refusal to show; nothing else is applied,
 "   'state': {name: value} to record in tab/state.vim once written, each value
-"            completed with the cursor's 'line' and 'col' (Do only).
+"            completed with the cursor's 'line' and 'col' (Do only),
+"   'register': {'name', 'rows', 'type', 'names'} to set once written
+"            (register#Set; Do only).
 " {} means nothing to do.
 "
 " Do() is the whole edit: what it does with an open slot, the undo step it
@@ -159,6 +161,10 @@ function! songwriter#tab#edit#Do(Fn, ...) abort
       call songwriter#tab#state#Set(l:name, extend(copy(l:value),
             \ {'line': line('.'), 'col': col('.')}, 'keep'))
     endfor
+    if has_key(l:result, 'register')
+      let l:r = l:result.register
+      call songwriter#tab#register#Set(l:r.name, l:r.rows, l:r.type, l:r.names)
+    endif
     if has_key(l:opts, 'open')
       call songwriter#tab#slots#Open(l:mark)
     endif
