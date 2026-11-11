@@ -84,7 +84,7 @@ function! songwriter#tab#EnterNote(digit) abort
     let l:block = songwriter#tab#model#Read()
     let l:lines = songwriter#tab#model#InsertColumns(l:block.lines, l:col, 1, '-')
     let l:lin = songwriter#tab#model#CursorLin(l:block)
-    let l:lines[l:lin] = l:lines[l:lin][0 : l:col - 1] . l:digit . l:lines[l:lin][l:col + 1 :]
+    let l:lines[l:lin] = songwriter#tab#model#Splice(l:lines[l:lin], l:col + 1, 1, l:digit)
     call songwriter#tab#model#Write(l:block, l:lines)
     call cursor(line('.'), l:col + 1)
   elseif l:here && l:insert && (get(l:typing, 'chord', 0) || !empty(l:note)
@@ -99,11 +99,10 @@ function! songwriter#tab#EnterNote(digit) abort
       silent! undojoin
     endif
     if l:here && songwriter#grammar#IsFretChar(l:ch)
-      call setline('.', l:line[0 : l:col - 1] . l:digit . l:line[l:col :])
+      call setline('.', songwriter#tab#model#Splice(l:line, l:col + 1, 0, l:digit))
       call cursor(line('.'), l:col + 1)
     elseif !empty(l:note)
-      call setline('.', strpart(l:line, 0, l:note.col - 1) . l:digit
-            \ . strpart(l:line, l:note.col - 1 + l:note.len))
+      call setline('.', songwriter#tab#model#Splice(l:line, l:note.col, l:note.len, l:digit))
       call cursor(line('.'), l:note.col)
     else
       call setline('.', l:line[0 : l:col - 2] . l:digit . l:line[l:col :])
@@ -150,7 +149,7 @@ function! songwriter#tab#EnterSeparator(char) abort
   silent! undojoin
   let l:lines = songwriter#tab#model#InsertColumns(l:block.lines, l:end, 1, '-')
   let l:lin = songwriter#tab#model#CursorLin(l:block)
-  let l:lines[l:lin] = l:lines[l:lin][0 : l:end - 1] . a:char . l:lines[l:lin][l:end + 1 :]
+  let l:lines[l:lin] = songwriter#tab#model#Splice(l:lines[l:lin], l:end + 1, 1, a:char)
   call songwriter#tab#model#Write(l:block, l:lines)
   call cursor(line('.'), l:end + 1)
   call songwriter#tab#state#Set('typing', {'line': line('.'), 'col': col('.'), 'separator': 1})

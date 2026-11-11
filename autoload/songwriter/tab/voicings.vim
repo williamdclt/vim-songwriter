@@ -305,13 +305,11 @@ function! songwriter#tab#voicings#Place(lines, lin, col, voicing) abort
       continue
     endif
     let l:text = string(a:voicing.frets[l:i])
-    let l:room = songwriter#tab#columns#MakeRoom(l:lines, l:i, l:c, len(l:text))
+    let l:room = songwriter#tab#columns#PutNote(l:lines, l:i, l:c, l:text)
     if has_key(l:room, 'error')
       return {'error': 'songwriter: ' . l:room.error}
     endif
     let [l:lines, l:c] = [l:room.lines, l:room.col]
-    let l:t = l:lines[l:i]
-    let l:lines[l:i] = strpart(l:t, 0, l:c - 1) . l:text . strpart(l:t, l:c - 1 + len(l:text))
   endfor
   return {'lines': l:lines, 'col': l:c}
 endfunction

@@ -43,17 +43,14 @@ function! songwriter#tab#strings#Move(lines, lin, col, dir, keep_pitch, column) 
   " Clear every source first, so that the notes of a column never collide.
   let l:lines = copy(a:lines)
   for l:m in l:movers
-    let l:lines[l:m.lin] = strpart(l:lines[l:m.lin], 0, l:c - 1) . repeat('-', l:m.len)
-          \ . strpart(l:lines[l:m.lin], l:c - 1 + l:m.len)
+    let l:lines[l:m.lin] = songwriter#tab#model#Blank(l:lines[l:m.lin], {'col': l:c, 'len': l:m.len})
   endfor
   for l:m in l:movers
-    let l:room = songwriter#tab#columns#MakeRoom(l:lines, l:m.to, l:c, len(l:m.text))
+    let l:room = songwriter#tab#columns#PutNote(l:lines, l:m.to, l:c, l:m.text)
     if has_key(l:room, 'error')
       return l:room
     endif
     let [l:lines, l:c] = [l:room.lines, l:room.col]
-    let l:t = l:lines[l:m.to]
-    let l:lines[l:m.to] = strpart(l:t, 0, l:c - 1) . l:m.text . strpart(l:t, l:c - 1 + len(l:m.text))
   endfor
 
   " 7.6: the cursor moves one string with the notes, on the same character of

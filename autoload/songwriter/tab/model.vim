@@ -240,6 +240,17 @@ function! songwriter#tab#model#Advance(stops, col, dir, count) abort
   return l:col
 endfunction
 
+" `line` with the `len` bytes from column `col` replaced by `text` (with `len`
+" 0, `text` is inserted before column `col`).
+function! songwriter#tab#model#Splice(line, col, len, text) abort
+  return strpart(a:line, 0, a:col - 1) . a:text . strpart(a:line, a:col - 1 + a:len)
+endfunction
+
+" `line` with `note` (as Notes() gives it) turned into dashes of its width.
+function! songwriter#tab#model#Blank(line, note) abort
+  return songwriter#tab#model#Splice(a:line, a:note.col, a:note.len, repeat('-', a:note.len))
+endfunction
+
 " The column-insertion primitive: insert `n` copies of `char` after byte offset
 " `offset` (0 = line start) on every line, padding shorter lines with dashes up
 " to `offset` first. Returns the new lines; padding happens even when n is 0.

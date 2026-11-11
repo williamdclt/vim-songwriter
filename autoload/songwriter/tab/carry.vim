@@ -139,17 +139,11 @@ function! s:put(lines, lin, col, text) abort
   let l:c = a:col
   let l:note = songwriter#tab#model#NoteAt(l:lines[a:lin], l:c)
   if !empty(l:note)
-    let l:t = l:lines[a:lin]
     let l:c = l:note.col
-    let l:lines[a:lin] = strpart(l:t, 0, l:c - 1) . repeat('-', l:note.len) . strpart(l:t, l:c - 1 + l:note.len)
+    let l:lines[a:lin] = songwriter#tab#model#Blank(l:lines[a:lin], l:note)
   endif
-  let l:room = songwriter#tab#columns#MakeRoom(l:lines, a:lin, l:c, len(a:text))
-  if has_key(l:room, 'error')
-    return {}
-  endif
-  let l:t = l:room.lines[a:lin]
-  let l:room.lines[a:lin] = strpart(l:t, 0, l:room.col - 1) . a:text . strpart(l:t, l:room.col - 1 + len(a:text))
-  return l:room
+  let l:room = songwriter#tab#columns#PutNote(l:lines, a:lin, l:c, a:text)
+  return has_key(l:room, 'error') ? {} : l:room
 endfunction
 
 " Arrow key -> [string step, column direction].

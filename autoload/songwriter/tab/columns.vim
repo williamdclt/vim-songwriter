@@ -489,8 +489,7 @@ function! songwriter#tab#columns#EraseNote(lines, lin, col) abort
   endfor
   if l:shared
     let l:out = copy(a:lines)
-    let l:l = a:lines[a:lin]
-    let l:out[a:lin] = strpart(l:l, 0, l:c - 1) . repeat('-', l:note.len) . strpart(l:l, l:c - 1 + l:note.len)
+    let l:out[a:lin] = songwriter#tab#model#Blank(a:lines[a:lin], l:note)
   else
     let l:out = songwriter#tab#columns#DeleteRange(a:lines, l:c, l:e).lines
   endif
@@ -578,7 +577,7 @@ function! songwriter#tab#columns#Overlay(lines, lin, col, rows, regnames) abort
       if strpart(l:line, l:s - 1, l:a.len) !~# songwriter#grammar#OnlyDashes()
         return {'error': printf('songwriter: gp would replace a note on string %s', songwriter#tab#model#Name(a:lines[l:i]))}
       endif
-      let l:out[l:i] = strpart(l:line, 0, l:s - 1) . l:a.text . strpart(l:line, l:s - 1 + l:a.len)
+      let l:out[l:i] = songwriter#tab#model#Splice(l:line, l:s, l:a.len, l:a.text)
     endfor
   endfor
   return {'lines': l:out, 'col': l:c, 'msg': l:m.msg}
@@ -623,6 +622,17 @@ function! songwriter#tab#columns#MakeRoom(lines, to, c, len) abort
     return {'error': printf('no room on string %s', songwriter#tab#model#Name(l:lines[a:to]))}
   endif
   return {'lines': songwriter#tab#model#InsertColumns(l:lines, l:o, l:k, '-'), 'col': l:c}
+endfunction
+
+" Write `text`, a note, at column `c` of line `to`, room made for it as
+" MakeRoom does. Returns {'lines', 'col'} (where it went), or {'error'}.
+function! songwriter#tab#columns#PutNote(lines, to, c, text) abort
+  let l:room = songwriter#tab#columns#MakeRoom(a:lines, a:to, a:c, len(a:text))
+  if has_key(l:room, 'error')
+    return l:room
+  endif
+  let l:room.lines[a:to] = songwriter#tab#model#Splice(l:room.lines[a:to], l:room.col, len(a:text), a:text)
+  return l:room
 endfunction
 
 " True when inserting after byte offset `o` would cut a note in two on a line.
