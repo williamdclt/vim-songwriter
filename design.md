@@ -617,9 +617,10 @@ native key away, and the command takes the tuning as its argument.
 
 Column-wise operations act on the notes starting on the cursor's column, on
 every string, which the cursor alone does not show. `tab/highlight.vim` keeps
-a window match (`matchaddpos`, group `songwriterTimeColumn`, linked by default
-to `CursorColumn`) on that column, on every string of the tab, notes and
-dashes alike, as wide as its widest note: a full-height band shows the column
+a window match (`matchaddpos`, group `songwriterTimeColumn`: by default a grey
+just off the background, set again when 'background' changes, since it marks
+a column rather than a cursor and should be quieter than `CursorColumn`) on
+that column, on every string of the tab, notes and dashes alike, as wide as its widest note: a full-height band shows the column
 as one thing, and which strings are silent on it, where highlighting only its
 notes would leave scattered cells. The note under the cursor decides the
 column, so a cursor on the `2` of `12` still shows that note's column. On a
