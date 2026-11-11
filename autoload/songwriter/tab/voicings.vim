@@ -358,7 +358,7 @@ function! songwriter#tab#voicings#Enter(chord) abort
     if has_key(l:r, 'error')
       call songwriter#tab#edit#Error(l:r.error)
     else
-      call s:put(l:block, l:lin, col('.'), l:r.chord, l:r.voicings, l:r.index, 0)
+      call s:put(l:r.chord, l:r.voicings, l:r.index, 0)
     endif
     return
   endif
@@ -369,7 +369,7 @@ function! songwriter#tab#voicings#Enter(chord) abort
     call songwriter#tab#edit#Error(l:voicings.error)
     return
   endif
-  call s:put(l:block, l:lin, col('.'), l:chord, l:voicings, 0, 0)
+  call s:put(l:chord, l:voicings, 0, 0)
 endfunction
 
 " Spec 10.8: `+`, a power chord on the note under the cursor, then the major
@@ -384,7 +384,7 @@ function! songwriter#tab#voicings#Plus() abort
   if has_key(l:r, 'error')
     call songwriter#tab#edit#Error(l:r.error)
   elseif !empty(l:r)
-    call s:put(l:block, l:lin, col('.'), l:r.chord, l:r.voicings, l:r.index, 0)
+    call s:put(l:r.chord, l:r.voicings, l:r.index, 0)
   endif
 endfunction
 
@@ -396,32 +396,28 @@ function! songwriter#tab#voicings#Next() abort
     call songwriter#tab#edit#Error('songwriter: == follows a chord entered with =')
     return
   endif
-  call s:put(songwriter#tab#model#Read(), l:last.lin, l:last.col, l:last.chord,
-        \ l:last.voicings, (l:last.index + 1) % len(l:last.voicings), 1)
+  call s:put(l:last.chord, l:last.voicings, (l:last.index + 1) % len(l:last.voicings), 1)
 endfunction
 
-" Place voicing `index` of `voicings` at column `col`, cursor line `lin`, then
-" lint (10.5). It fills an open slot, joined to its undo step, as is a cycle
-" (`join`). In the insert state, the next digit opens a slot after it
-" (EnterNote).
-function! s:put(block, lin, col, chord, voicings, index, join) abort
-  let l:result = songwriter#tab#voicings#Place(a:block.lines, a:lin, a:col, a:voicings[a:index])
+" Place voicing `index` of `voicings` on the cursor's column, then lint (10.5).
+" It fills an open slot, joined to its undo step, as is a cycle (`join`). In
+" the insert state, the next digit opens a slot after it (EnterNote).
+function! s:put(chord, voicings, index, join) abort
+  call songwriter#tab#edit#Do(function('s:place', [a:chord, a:voicings, a:index]),
+        \ {'slot': 'fill', 'join': a:join, 'prelint': 0, 'insert': 1})
+endfunction
+
+function! s:place(chord, voicings, index, ctx) abort
+  let l:result = songwriter#tab#voicings#Place(a:ctx.block.lines, a:ctx.lin, a:ctx.col, a:voicings[a:index])
   if has_key(l:result, 'error')
-    call songwriter#tab#edit#Error(l:result.error)
-    return
-  endif
-  if a:join || !empty(songwriter#tab#state#Get('slot'))
-    silent! undojoin
+    return l:result
   endif
   let l:result.msg = songwriter#tab#voicings#Describe(a:chord, a:voicings, a:index,
-        \ songwriter#tab#model#Names(a:block.lines))
-  let l:insert = songwriter#tab#insert#Active()
-  call songwriter#tab#edit#Commit(a:block, l:result)
-  call songwriter#tab#slots#Forget()
-  if l:insert
-    call songwriter#tab#state#Set('typing', {'line': line('.'), 'col': col('.'), 'chord': 1})
-    call songwriter#tab#insert#Keep()
+        \ songwriter#tab#model#Names(a:ctx.block.lines))
+  let l:result.state = {'voicing': {'chord': a:chord, 'voicings': a:voicings,
+        \ 'index': a:index, 'lin': a:ctx.lin}}
+  if a:ctx.insert
+    let l:result.state.typing = {'chord': 1}
   endif
-  call songwriter#tab#state#Set('voicing', {'chord': a:chord, 'voicings': a:voicings,
-        \ 'index': a:index, 'lin': a:lin, 'line': line('.'), 'col': col('.')})
+  return l:result
 endfunction
