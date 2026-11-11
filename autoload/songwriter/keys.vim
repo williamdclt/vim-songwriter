@@ -36,7 +36,7 @@ for s:arrow in ['<Up>', '<Down>', '<Left>', '<Right>']
 endfor
 unlet s:arrow
 
-" Spec [Tablature][[Editing]] 3, 6, 8, 10 and 11.
+" Spec [Tablature][[Editing]] 3, 6, 8 and 10.
 let s:tabmode.n = {
       \ 'w': 'call songwriter#tab#motion#MoveWord("w")',
       \ 'b': 'call songwriter#tab#motion#MoveWord("b")',
@@ -70,8 +70,6 @@ let s:tabmode.n = {
       \ 'V': 'call songwriter#tab#visual#Column()',
       \ '=': 'call songwriter#tab#voicings#Prompt()',
       \ '+': 'call songwriter#tab#voicings#Plus()',
-      \ ']': 'call songwriter#tab#frets#Change(1)',
-      \ '[': 'call songwriter#tab#frets#Change(-1)',
       \ }
 " Spec 7: `s` (keep the fret) / `S` (keep the pitch), then `k`/`j` (the note
 " under the cursor) or `K`/`J` (its whole time column), up/down a string.
