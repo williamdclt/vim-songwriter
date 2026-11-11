@@ -1,0 +1,330 @@
+" Invariants of tablature mode, checked over a corpus of tabs and the cursor
+" positions in them, rather than on one hand-picked case. Each block collects
+" the cases that break its invariant ("tab name, line:col, keys") and checks
+" them against its known exceptions (g:inv_known), so a failure lists every
+" counterexample. A known exception is a bug logged in specification.song.txt
+" [[Bugs]]; it must still fail, so that fixing the bug means removing it here.
+"
+" Undo steps matter here, so keys go through `feedkeys(…, 'xt')` (`normal`
+" makes one undo step of all its keys), under `silent!` so that no message
+" waits at a hit-enter prompt.
+
+Given songwriter (a buffer with the plugin's maps):
+  e|-----|
+
+Execute (corpus and helpers):
+  let g:inv_tabs = [
+        \ {'name': 'spec example', 'lines': [
+        \   'e|-----------4--|--1-----------|',
+        \   'B|--------1-----|-----2-----2--|',
+        \   'G|--3-----0--0--|-----1--0--0--|',
+        \   'D|--------1-----|-----1--------|',
+        \   'A|--4--3--------|--1-----1-----|',
+        \   'E|--3-----------|--1-----------|']},
+        \ {'name': 'two-digit frets', 'lines': [
+        \   'e|--12--3-----|--10-12--|',
+        \   'B|-----3--12--|----5----|',
+        \   'G|--------7---|--x------|']},
+        \ {'name': 'separators', 'lines': [
+        \   'e|--5h7--7b--|--/5--12p10--|',
+        \   'B|-----3-----|--3----------|']},
+        \ {'name': 'empty bar between', 'lines': [
+        \   'e|--4--|-----|--1--|',
+        \   'B|-----|-----|-----|']},
+        \ {'name': 'single string', 'lines': [
+        \   'e|--3--5--7--|']},
+        \ {'name': 'bass', 'lines': [
+        \   'G|--------|--5--7--|',
+        \   'D|--5--7--|--------|',
+        \   'A|--------|--------|',
+        \   'E|--0-----|--3-----|']},
+        \ ]
+  " Tabs that are not linted, for lint and for what must give a tab back as it
+  " was (spec 4.3).
+  let g:inv_unlinted = [
+        \ {'name': 'unlinted', 'lines': [
+        \   'e|-3-5-------|7|',
+        \   'B|---------x--|-|']},
+        \ {'name': 'overlapping frets', 'lines': [
+        \   'e|--12--3---|--10-12--|',
+        \   'B|---3--12--|----5----|',
+        \   'G|--------7-|--x------|']},
+        \ {'name': 'unclosed', 'lines': [
+        \   'e|--3--5--',
+        \   'B|-----7--']},
+        \ ]
+  " Every position of a tab: [lnum, col] for each column of each line.
+  let g:InvPositions = {lines -> flatten(map(range(len(lines)),
+        \ {i, _ -> map(range(1, len(lines[i])), {_, c -> [i + 1, c]})}), 1)}
+  " The positions of a tab where tablature-mode keys mean something: every
+  " note start and every dash after a note, on every string.
+  let g:InvKeyPositions = {lines -> filter(g:InvPositions(lines), {_, p ->
+        \ lines[p[0] - 1][p[1] - 1] =~# '[0-9x]' && (p[1] < 3 || lines[p[0] - 1][p[1] - 2] !~# '[0-9]')
+        \ || lines[p[0] - 1][p[1] - 1] ==# '-' && lines[p[0] - 1][p[1] - 2] =~# '[0-9x]'})}
+  " The note starts of a tab, on every string.
+  let g:InvNotePositions = {lines -> filter(g:InvKeyPositions(lines), {_, p -> lines[p[0] - 1][p[1] - 1] =~# '[0-9x]'})}
+  " Put `lines` in the buffer, in tablature mode's normal state, cursor at
+  " [lnum, col], as a fresh undo step.
+  let g:InvLoad = {lines, pos -> [
+        \ execute('silent %delete _'),
+        \ execute('unlet! b:songwriter_slot b:songwriter_typing b:songwriter_insert b:songwriter_carry b:songwriter_repeat b:songwriter_voicing'),
+        \ execute('let b:songwriter_tabmode = 1'),
+        \ setline(1, lines),
+        \ execute('let &undolevels = &undolevels'),
+        \ cursor(pos[0], pos[1])]}
+  let g:InvCase = {tab, pos, keys -> printf('%s, %d:%d, %s', tab.name, pos[0], pos[1], keytrans(keys))}
+  " The notes and separators of each line, in order, as a list of tokens (so
+  " that `10` `12` and `1012` differ): what lint must keep.
+  let g:InvMusic = {lines -> map(copy(lines), {_, l -> split(
+        \ substitute(l[1:], songwriter#grammar#Note(), ' & ', 'g'), '[-|[:space:]]\+')})}
+  " The tab around the cursor after an edit ([] when the cursor left it).
+  let g:InvTab = {-> get(songwriter#tab#model#Read(), 'lines', [])}
+  " The time columns of the bar around `pos`.
+  let g:InvBarColumns = {lines, pos -> filter(songwriter#tab#model#NoteColumns(songwriter#tab#model#Parse(1, lines)),
+        \ {_, c -> songwriter#tab#model#InBar(c, songwriter#tab#model#BarAt(lines[pos[0] - 1], pos[1]))})}
+  let g:InvBetween = {cols, c -> !empty(cols) && cols[0] < c && cols[-1] > c}
+  " True when the note at `pos` is neither the first nor the last time column
+  " of its bar: carrying it one stop and back stays inside the bar (at a bar
+  " line, the stops of spec 3.3.3 are not the same both ways).
+  let g:InvInside = {lines, pos -> g:InvBetween(g:InvBarColumns(lines, pos), pos[1])}
+  " The cases of g:inv_failures that are not known, and the known ones that no
+  " longer fail: both must be empty.
+  let g:InvUnexpected = {-> filter(copy(g:inv_failures), 'index(g:inv_known, v:val) < 0')}
+  let g:InvFixed = {-> filter(copy(g:inv_known), 'index(g:inv_failures, v:val) < 0')}
+  " The harness: keys reach the plugin's maps.
+  call g:InvLoad(g:inv_tabs[0].lines, [1, 13])
+  call feedkeys('a', 'xt')
+  Assert songwriter#tab#insert#Active()
+  AssertEqual 192, len(g:InvPositions(g:inv_tabs[0].lines))
+  " The main corpus is linted, so that an edit's own lint does not show as
+  " a difference.
+  for g:inv_tab in g:inv_tabs
+    AssertEqual g:inv_tab.lines, songwriter#tab#lint#Lint(g:inv_tab.lines).lines, g:inv_tab.name
+  endfor
+
+" === Lint (spec [Tablature][[Editing]] 1) ===
+
+Execute (lint is idempotent: linting a linted tab changes nothing):
+  let g:inv_failures = []
+  for g:inv_tab in g:inv_tabs + g:inv_unlinted
+    let g:inv_once = songwriter#tab#lint#Lint(g:inv_tab.lines).lines
+    if songwriter#tab#lint#Lint(g:inv_once).lines !=# g:inv_once
+      call add(g:inv_failures, g:inv_tab.name)
+    endif
+  endfor
+  AssertEqual [], g:inv_failures
+
+Execute (lint keeps every string's notes and separators, in order):
+  let g:inv_failures = []
+  for g:inv_tab in g:inv_tabs + g:inv_unlinted
+    if g:InvMusic(songwriter#tab#lint#Lint(g:inv_tab.lines).lines) !=# g:InvMusic(g:inv_tab.lines)
+      call add(g:inv_failures, g:inv_tab.name)
+    endif
+  endfor
+  AssertEqual [], g:inv_failures
+
+Execute (lint aligns every pipe across strings (1.1)):
+  let g:inv_failures = []
+  for g:inv_tab in g:inv_tabs + g:inv_unlinted
+    let g:inv_pipes = map(songwriter#tab#lint#Lint(g:inv_tab.lines).lines, 'songwriter#tab#model#Pipes(v:val)')
+    if len(uniq(copy(g:inv_pipes))) != 1
+      call add(g:inv_failures, g:inv_tab.name)
+    endif
+  endfor
+  AssertEqual [], g:inv_failures
+
+" === The normal state only moves (spec 3, 4.3.2) ===
+
+Execute (motions in the normal state never change the file):
+  let g:inv_failures = []
+  for g:inv_tab in g:inv_tabs + g:inv_unlinted
+    for g:inv_pos in g:InvKeyPositions(g:inv_tab.lines)
+      for g:inv_keys in ['l', 'h', 'w', 'b', 'e', 'ge', 'W', 'B', 'E', 'L', 'H']
+        call g:InvLoad(g:inv_tab.lines, g:inv_pos)
+        let g:inv_tick = b:changedtick
+        silent! call feedkeys(g:inv_keys, 'xt')
+        if b:changedtick != g:inv_tick
+          call add(g:inv_failures, g:InvCase(g:inv_tab, g:inv_pos, g:inv_keys))
+        endif
+      endfor
+    endfor
+  endfor
+  AssertEqual [], g:inv_failures
+
+" === An abandoned slot leaves no trace (spec 4.3) ===
+
+Execute (a or i then <Esc> gives the tab back as it was, with no undo step):
+  let g:inv_failures = []
+  for g:inv_tab in g:inv_tabs + g:inv_unlinted
+    for g:inv_pos in g:InvKeyPositions(g:inv_tab.lines)
+      for g:inv_keys in ['a', 'i']
+        call g:InvLoad(g:inv_tab.lines, g:inv_pos)
+        let g:inv_seq = undotree().seq_cur
+        silent! call feedkeys(g:inv_keys, 'xt')
+        if !songwriter#tab#insert#Active()
+          " No slot opened: see the next block.
+          continue
+        endif
+        silent! call feedkeys("\<Esc>", 'xt')
+        if getline(1, '$') !=# g:inv_tab.lines || undotree().seq_cur != g:inv_seq
+              \ || songwriter#tab#insert#Active()
+          call add(g:inv_failures, g:InvCase(g:inv_tab, g:inv_pos, g:inv_keys . "\<Esc>"))
+        endif
+      endfor
+    endfor
+  endfor
+  AssertEqual [], g:inv_failures
+
+Execute (a or i where no slot can open change nothing):
+  " Bug: a/i opening no slot leave an undo step and lint (spec [[Bugs]]).
+  let g:inv_known = [
+        \ 'single string, 1:1, a',
+        \ 'single string, 1:1, i',
+        \ 'single string, 1:2, a',
+        \ 'single string, 1:3, a',
+        \ 'single string, 1:4, a',
+        \ 'single string, 1:12, i',
+        \ 'single string, 1:13, i',
+        \ 'single string, 1:14, i',
+        \ 'unlinted, 1:1, a',
+        \ 'unlinted, 1:1, i',
+        \ 'unlinted, 1:2, a',
+        \ 'unlinted, 1:3, a',
+        \ 'unlinted, 1:7, i',
+        \ 'unlinted, 1:8, i',
+        \ 'unlinted, 1:11, i',
+        \ ]
+  let g:inv_failures = []
+  for g:inv_tab in [{'name': 'single string', 'lines': ['e|--3--5--7--|']},
+        \ {'name': 'unlinted', 'lines': ['e|-3-5--|7|']}]
+    for g:inv_pos in g:InvPositions(g:inv_tab.lines)
+      for g:inv_keys in ['a', 'i']
+        call g:InvLoad(g:inv_tab.lines, g:inv_pos)
+        let g:inv_seq = undotree().seq_cur
+        silent! call feedkeys(g:inv_keys, 'xt')
+        if !songwriter#tab#insert#Active()
+              \ && (getline(1, '$') !=# g:inv_tab.lines || undotree().seq_cur != g:inv_seq)
+          call add(g:inv_failures, g:InvCase(g:inv_tab, g:inv_pos, g:inv_keys))
+        endif
+      endfor
+    endfor
+  endfor
+  AssertEqual [], g:InvUnexpected()
+  AssertEqual [], g:InvFixed()
+
+" === Carrying a note back leaves no trace (spec 3.6) ===
+
+Execute (an arrow then the opposite arrow gives the tab back as it was):
+  " Bug: lifting a note removes room other strings need (spec [[Bugs]]).
+  let g:inv_known = [
+        \ 'two-digit frets, 2:20, <Right><Left>',
+        \ 'separators, 2:8, <Right><Left>',
+        \ ]
+  let g:inv_failures = []
+  for g:inv_tab in g:inv_tabs
+    for g:inv_pos in g:InvKeyPositions(g:inv_tab.lines)
+      for [g:inv_there, g:inv_back] in [["\<Right>", "\<Left>"], ["\<Left>", "\<Right>"], ["\<Down>", "\<Up>"], ["\<Up>", "\<Down>"]]
+        if index(["\<Right>", "\<Left>"], g:inv_there) >= 0 && !g:InvInside(g:inv_tab.lines, g:inv_pos)
+          continue
+        endif
+        call g:InvLoad(g:inv_tab.lines, g:inv_pos)
+        call songwriter#tab#insert#Enter()
+        let g:inv_tick = b:changedtick
+        silent! call feedkeys(g:inv_there, 'xt')
+        if b:changedtick == g:inv_tick
+          continue
+        endif
+        silent! call feedkeys(g:inv_back, 'xt')
+        if getline(1, '$') !=# g:inv_tab.lines
+          call add(g:inv_failures, g:InvCase(g:inv_tab, g:inv_pos, g:inv_there . g:inv_back))
+        endif
+      endfor
+    endfor
+  endfor
+  AssertEqual [], g:InvUnexpected()
+  AssertEqual [], g:InvFixed()
+
+Execute (a note carried away from the last bar comes back, and keeps the notes it passed):
+  " Bug: carrying back from the end of a tab loses a note (spec [[Bugs]]).
+  let g:inv_known = [
+        \ 'single string, 1:11, <Right><Left>',
+        \ 'empty bar between, 1:17, <Left>',
+        \ ]
+  let g:inv_failures = []
+  for [g:inv_tab, g:inv_pos, g:inv_keys] in [
+        \ [{'name': 'single string', 'lines': ['e|--3--5--7--|']}, [1, 11], "\<Right>\<Left>"],
+        \ [{'name': 'empty bar between', 'lines': ['e|--4--|-----|--1--|']}, [1, 17], "\<Left>"]]
+    call g:InvLoad(g:inv_tab.lines, g:inv_pos)
+    call songwriter#tab#insert#Enter()
+    silent! call feedkeys(g:inv_keys, 'xt')
+    if len(g:InvMusic(getline(1, '$'))[0]) < len(g:InvMusic(g:inv_tab.lines)[0])
+      call add(g:inv_failures, g:InvCase(g:inv_tab, g:inv_pos, g:inv_keys))
+    endif
+  endfor
+  AssertEqual [], g:InvUnexpected()
+  AssertEqual [], g:InvFixed()
+
+" === Edits (spec 4, 6.7, 6.10, 6.11) ===
+
+Execute (each edit is one undo step, leaves the tab linted, and x keeps the other strings' notes):
+  " Bugs: x removing a lone column joins or cuts notes on other strings;
+  " da| on a tab's only bar leaves it unlinted (spec [[Bugs]]).
+  let g:inv_known = [
+        \ 'others: two-digit frets, 1:9, x',
+        \ 'others: two-digit frets, 2:20, x',
+        \ 'others: separators, 2:8, x',
+        \ 'others: separators, 2:17, x',
+        \ 'linted: single string, 1:5, da|',
+        \ 'linted: single string, 1:8, da|',
+        \ 'linted: single string, 1:11, da|',
+        \ ]
+  let g:inv_failures = []
+  for g:inv_tab in g:inv_tabs
+    " Most edits act on a note; a digit and `=` also on a dash.
+    let g:inv_edits = map(g:InvNotePositions(g:inv_tab.lines), {_, p ->
+          \ [p, ['x', 'dd', 'yyp', '>>', '<<', 'D', 'daw', 'da|', 'sk', 'SJ', '+', "a12\<Esc>"]]})
+          \ + map(g:InvKeyPositions(g:inv_tab.lines), {_, p -> [p, ['7', "a7\<Esc>", "=Am\<CR>"]]})
+    for [g:inv_pos, g:inv_keyset] in g:inv_edits
+      for g:inv_keys in g:inv_keyset
+        call g:InvLoad(g:inv_tab.lines, g:inv_pos)
+        let g:inv_tick = b:changedtick
+        silent! call feedkeys(g:inv_keys, 'xt')
+        if b:changedtick == g:inv_tick
+          continue
+        endif
+        let g:inv_case = g:InvCase(g:inv_tab, g:inv_pos, g:inv_keys)
+        let g:inv_lines = g:InvTab()
+        if songwriter#tab#lint#Lint(g:inv_lines).lines !=# g:inv_lines
+          call add(g:inv_failures, 'linted: ' . g:inv_case)
+        endif
+        if g:inv_keys ==# 'x'
+          let g:inv_others = filter(range(len(g:inv_tab.lines)), 'v:val != g:inv_pos[0] - 1')
+          if map(copy(g:inv_others), 'g:InvMusic(g:inv_lines)[v:val]')
+                \ !=# map(copy(g:inv_others), 'g:InvMusic(g:inv_tab.lines)[v:val]')
+            call add(g:inv_failures, 'others: ' . g:inv_case)
+          endif
+        endif
+        silent! call feedkeys("\<Esc>u", 'xt')
+        if getline(1, '$') !=# g:inv_tab.lines
+          call add(g:inv_failures, 'undo: ' . g:inv_case)
+        endif
+      endfor
+    endfor
+  endfor
+  AssertEqual [], g:InvUnexpected()
+  AssertEqual [], g:InvFixed()
+
+Execute (edits that only move time keep every string's music):
+  let g:inv_failures = []
+  for g:inv_tab in g:inv_tabs
+    for g:inv_pos in g:InvNotePositions(g:inv_tab.lines)
+      for g:inv_keys in ['>>', '<<', "all\<Esc>", "ahh\<Esc>", "ihhh\<Esc>"]
+        call g:InvLoad(g:inv_tab.lines, g:inv_pos)
+        silent! call feedkeys(g:inv_keys, 'xt')
+        if g:InvMusic(g:InvTab()) !=# g:InvMusic(g:inv_tab.lines)
+          call add(g:inv_failures, g:InvCase(g:inv_tab, g:inv_pos, g:inv_keys))
+        endif
+      endfor
+    endfor
+  endfor
+  AssertEqual [], g:inv_failures

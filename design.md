@@ -615,3 +615,17 @@ Highlighting stays permissive and accepts false positives such as the word "A"
   tablature-mode flag) is reset in a `Before:` block wherever keys are typed.
 - Key mappings are exercised end-to-end with `normal` where the result is
   observable; `Dispatch` and `b:undo_ftplugin` have their own tests.
+- **Invariants** (`test/songwriter_invariants.vader`) are checked over a corpus
+  of tabs and every relevant cursor position rather than one example: lint is
+  idempotent and keeps each string's notes, the normal state never edits, an
+  abandoned slot and a carried-back note leave no trace, each edit is one
+  undo step and leaves the tab linted. They catch the interactions between
+  features that hand-written cases miss. The main corpus is linted, so an
+  edit's own lint shows no difference; unlinted tabs go only where the
+  invariant must hold for them too (lint, 4.3). Keys are typed with
+  `feedkeys(…, 'xt')` under `silent!` (one undo step per key sequence, and
+  no hit-enter prompt reading stdin). A case that breaks an invariant
+  because of a bug in the spec's [[Bugs]] is listed as a known exception,
+  which must keep failing: fixing the bug means removing it from the list.
+  Positions are limited to note starts and the dash after each note, and
+  the corpus kept small, so the file stays a few seconds.
