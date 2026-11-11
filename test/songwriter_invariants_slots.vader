@@ -1,0 +1,47 @@
+" Invariants of an abandoned slot (see invariants/setup.vader).
+
+Include: invariants/setup.vader
+
+" === An abandoned slot leaves no trace (spec 4.3) ===
+
+Execute (a or i then <Esc> gives the tab back as it was, with no undo step):
+  let g:inv_failures = []
+  for g:inv_tab in g:inv_tabs + g:inv_unlinted
+    for g:inv_pos in g:InvKeyPositions(g:inv_tab.lines)
+      for g:inv_keys in ['a', 'i']
+        call g:InvLoad(g:inv_tab.lines, g:inv_pos)
+        let g:inv_seq = undotree().seq_cur
+        silent! call feedkeys(g:inv_keys, 'xt')
+        if !songwriter#tab#insert#Active()
+          " No slot opened: see the next block.
+          continue
+        endif
+        silent! call feedkeys("\<Esc>", 'xt')
+        if getline(1, '$') !=# g:inv_tab.lines || undotree().seq_cur != g:inv_seq
+              \ || songwriter#tab#insert#Active()
+          call add(g:inv_failures, g:InvCase(g:inv_tab, g:inv_pos, g:inv_keys . "\<Esc>"))
+        endif
+      endfor
+    endfor
+  endfor
+  AssertEqual [], g:inv_failures
+
+Execute (a or i where no slot can open change nothing):
+  let g:inv_known = []
+  let g:inv_failures = []
+  for g:inv_tab in [{'name': 'single string', 'lines': ['e|--3--5--7--|']},
+        \ {'name': 'unlinted', 'lines': ['e|-3-5--|7|']}]
+    for g:inv_pos in g:InvPositions(g:inv_tab.lines)
+      for g:inv_keys in ['a', 'i']
+        call g:InvLoad(g:inv_tab.lines, g:inv_pos)
+        let g:inv_seq = undotree().seq_cur
+        silent! call feedkeys(g:inv_keys, 'xt')
+        if !songwriter#tab#insert#Active()
+              \ && (getline(1, '$') !=# g:inv_tab.lines || undotree().seq_cur != g:inv_seq)
+          call add(g:inv_failures, g:InvCase(g:inv_tab, g:inv_pos, g:inv_keys))
+        endif
+      endfor
+    endfor
+  endfor
+  AssertEqual [], g:InvUnexpected()
+  AssertEqual [], g:InvFixed()

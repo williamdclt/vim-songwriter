@@ -30,6 +30,6 @@
 - design.md records lasting design decisions and their rationale, organised by topic. Edit the relevant section in place rather than appending; remove what no longer applies.
 
 ## Testing
-- `make test` runs the full suite (fast; prefer it to running single files).
+- `make test` runs the full suite, one Vim per file in parallel (fast; prefer it to running single files, which is `make test/<file>.vader.run`).
 - Prefer `Given songwriter` / `Do` / `Expect songwriter` blocks for buffer transformations, so the before/after tab is visible in the test. Use `Execute` + `Assert*` for cursor positions and pure functions.
 - Shared setup goes in a `Before:` block, not repeated in every case.

@@ -1,0 +1,10 @@
+" Invariants of edits on a note, second half of the keys (see
+" invariants/setup.vader and invariants/edits.vader).
+
+Include: invariants/setup.vader
+
+Execute (the edits checked here):
+  let g:inv_note_keys = ['daw', 'da|', 'sk', 'SJ', '+', "a12\<Esc>"]
+  let g:inv_dash_keys = []
+
+Include: invariants/edits.vader

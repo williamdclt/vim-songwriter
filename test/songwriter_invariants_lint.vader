@@ -1,0 +1,52 @@
+" Invariants of lint and of the normal state (see invariants/setup.vader).
+
+Include: invariants/setup.vader
+
+" === Lint (spec [Tablature][[Editing]] 1) ===
+
+Execute (lint is idempotent: linting a linted tab changes nothing):
+  let g:inv_failures = []
+  for g:inv_tab in g:inv_tabs + g:inv_unlinted
+    let g:inv_once = songwriter#tab#lint#Lint(g:inv_tab.lines).lines
+    if songwriter#tab#lint#Lint(g:inv_once).lines !=# g:inv_once
+      call add(g:inv_failures, g:inv_tab.name)
+    endif
+  endfor
+  AssertEqual [], g:inv_failures
+
+Execute (lint keeps every string's notes and separators, in order):
+  let g:inv_failures = []
+  for g:inv_tab in g:inv_tabs + g:inv_unlinted
+    if g:InvMusic(songwriter#tab#lint#Lint(g:inv_tab.lines).lines) !=# g:InvMusic(g:inv_tab.lines)
+      call add(g:inv_failures, g:inv_tab.name)
+    endif
+  endfor
+  AssertEqual [], g:inv_failures
+
+Execute (lint aligns every pipe across strings (1.1)):
+  let g:inv_failures = []
+  for g:inv_tab in g:inv_tabs + g:inv_unlinted
+    let g:inv_pipes = map(songwriter#tab#lint#Lint(g:inv_tab.lines).lines, 'songwriter#tab#model#Pipes(v:val)')
+    if len(uniq(copy(g:inv_pipes))) != 1
+      call add(g:inv_failures, g:inv_tab.name)
+    endif
+  endfor
+  AssertEqual [], g:inv_failures
+
+" === The normal state only moves (spec 3, 4.3.2) ===
+
+Execute (motions in the normal state never change the file):
+  let g:inv_failures = []
+  for g:inv_tab in g:inv_tabs + g:inv_unlinted
+    for g:inv_pos in g:InvKeyPositions(g:inv_tab.lines)
+      for g:inv_keys in ['l', 'h', 'w', 'b', 'e', 'ge', 'W', 'B', 'E', 'L', 'H']
+        call g:InvLoad(g:inv_tab.lines, g:inv_pos)
+        let g:inv_tick = b:changedtick
+        silent! call feedkeys(g:inv_keys, 'xt')
+        if b:changedtick != g:inv_tick
+          call add(g:inv_failures, g:InvCase(g:inv_tab, g:inv_pos, g:inv_keys))
+        endif
+      endfor
+    endfor
+  endfor
+  AssertEqual [], g:inv_failures

@@ -1,0 +1,42 @@
+" Shared body of the edit invariants (test/songwriter_invariants_edits_*.vader),
+" split across files so that they run in parallel. Each file sets the edits it
+" checks before including this: g:inv_note_keys on every note, g:inv_dash_keys
+" on every note and every dash after a note.
+
+" === Edits (spec 4, 6.7, 6.10, 6.11) ===
+
+Execute (each edit is one undo step, leaves the tab linted, and x keeps the other strings' notes):
+  let g:inv_known = []
+  let g:inv_failures = []
+  for g:inv_tab in g:inv_tabs
+    let g:inv_edits = map(g:InvNotePositions(g:inv_tab.lines), {_, p -> [p, g:inv_note_keys]})
+          \ + map(g:InvKeyPositions(g:inv_tab.lines), {_, p -> [p, g:inv_dash_keys]})
+    for [g:inv_pos, g:inv_keyset] in g:inv_edits
+      for g:inv_keys in g:inv_keyset
+        call g:InvLoad(g:inv_tab.lines, g:inv_pos)
+        let g:inv_tick = b:changedtick
+        silent! call feedkeys(g:inv_keys, 'xt')
+        if b:changedtick == g:inv_tick
+          continue
+        endif
+        let g:inv_case = g:InvCase(g:inv_tab, g:inv_pos, g:inv_keys)
+        let g:inv_lines = g:InvTab()
+        if songwriter#tab#lint#Lint(g:inv_lines).lines !=# g:inv_lines
+          call add(g:inv_failures, 'linted: ' . g:inv_case)
+        endif
+        if g:inv_keys ==# 'x'
+          let g:inv_others = filter(range(len(g:inv_tab.lines)), 'v:val != g:inv_pos[0] - 1')
+          if map(copy(g:inv_others), 'g:InvMusic(g:inv_lines)[v:val]')
+                \ !=# map(copy(g:inv_others), 'g:InvMusic(g:inv_tab.lines)[v:val]')
+            call add(g:inv_failures, 'others: ' . g:inv_case)
+          endif
+        endif
+        silent! call feedkeys("\<Esc>u", 'xt')
+        if getline(1, '$') !=# g:inv_tab.lines
+          call add(g:inv_failures, 'undo: ' . g:inv_case)
+        endif
+      endfor
+    endfor
+  endfor
+  AssertEqual [], g:InvUnexpected()
+  AssertEqual [], g:InvFixed()

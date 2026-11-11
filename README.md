@@ -212,7 +212,8 @@ Remap the default keys through their `<Plug>` mappings:
 ## Development
 
 `make test` runs the [Vader.vim](https://github.com/junegunn/vader.vim) suite
-(cloned on first run). `make hooks` enables the pre-commit hook, which runs the
+(cloned on first run), one Vim per test file in parallel (`make test JOBS=1`
+runs them one at a time). `make hooks` enables the pre-commit hook, which runs the
 tests. Design decisions are in [design.md](design.md).
 
 The README images are recorded with [VHS](https://github.com/charmbracelet/vhs):

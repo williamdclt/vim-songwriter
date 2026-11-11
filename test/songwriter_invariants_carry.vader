@@ -1,0 +1,47 @@
+" Invariants of carrying a note (see invariants/setup.vader).
+
+Include: invariants/setup.vader
+
+" === Carrying a note back leaves no trace (spec 3.6) ===
+
+Execute (an arrow then the opposite arrow gives the tab back as it was):
+  let g:inv_known = []
+  let g:inv_failures = []
+  for g:inv_tab in g:inv_tabs
+    for g:inv_pos in g:InvKeyPositions(g:inv_tab.lines)
+      for [g:inv_there, g:inv_back] in [["\<Right>", "\<Left>"], ["\<Left>", "\<Right>"], ["\<Down>", "\<Up>"], ["\<Up>", "\<Down>"]]
+        if index(["\<Right>", "\<Left>"], g:inv_there) >= 0 && !g:InvInside(g:inv_tab.lines, g:inv_pos)
+          continue
+        endif
+        call g:InvLoad(g:inv_tab.lines, g:inv_pos)
+        call songwriter#tab#insert#Enter()
+        let g:inv_tick = b:changedtick
+        silent! call feedkeys(g:inv_there, 'xt')
+        if b:changedtick == g:inv_tick
+          continue
+        endif
+        silent! call feedkeys(g:inv_back, 'xt')
+        if getline(1, '$') !=# g:inv_tab.lines
+          call add(g:inv_failures, g:InvCase(g:inv_tab, g:inv_pos, g:inv_there . g:inv_back))
+        endif
+      endfor
+    endfor
+  endfor
+  AssertEqual [], g:InvUnexpected()
+  AssertEqual [], g:InvFixed()
+
+Execute (a note carried away from the last bar comes back, and keeps the notes it passed):
+  let g:inv_known = []
+  let g:inv_failures = []
+  for [g:inv_tab, g:inv_pos, g:inv_keys] in [
+        \ [{'name': 'single string', 'lines': ['e|--3--5--7--|']}, [1, 11], "\<Right>\<Left>"],
+        \ [{'name': 'empty bar between', 'lines': ['e|--4--|-----|--1--|']}, [1, 17], "\<Left>"]]
+    call g:InvLoad(g:inv_tab.lines, g:inv_pos)
+    call songwriter#tab#insert#Enter()
+    silent! call feedkeys(g:inv_keys, 'xt')
+    if len(g:InvMusic(getline(1, '$'))[0]) < len(g:InvMusic(g:inv_tab.lines)[0])
+      call add(g:inv_failures, g:InvCase(g:inv_tab, g:inv_pos, g:inv_keys))
+    endif
+  endfor
+  AssertEqual [], g:InvUnexpected()
+  AssertEqual [], g:InvFixed()
