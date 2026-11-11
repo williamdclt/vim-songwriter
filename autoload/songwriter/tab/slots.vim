@@ -153,12 +153,12 @@ function! songwriter#tab#slots#Mark(side) abort
         \ 'before': empty(l:block) ? [] : copy(l:block.lines)}
 endfunction
 
-" Record in `mark` (from Mark) the block as linted before its slot opens
-" (4.2), with the cursor column there, for a motion closing the slot to keep
-" (4.3.3).
-function! songwriter#tab#slots#Linted(mark, block) abort
-  let a:mark.linted = copy(a:block.lines)
-  let a:mark.linted_col = col('.')
+" Record in `mark` (from Mark) the block's `lines` as linted before its slot
+" opens (4.2), with the cursor column `col` there, for a motion closing the
+" slot to keep (4.3.3).
+function! songwriter#tab#slots#Linted(mark, lines, col) abort
+  let a:mark.linted = copy(a:lines)
+  let a:mark.linted_col = a:col
 endfunction
 
 " Remember the slot under the cursor and enter the insert state (spec 3.1).

@@ -170,7 +170,7 @@ function! songwriter#tab#AddNote(side) abort
   endif
   let l:mark = songwriter#tab#slots#Mark(a:side)
   let l:block = songwriter#tab#edit#LintAndFollow(l:block)
-  call songwriter#tab#slots#Linted(l:mark, l:block)
+  call songwriter#tab#slots#Linted(l:mark, l:block.lines, col('.'))
   let l:lin = songwriter#tab#model#CursorLin(l:block)
   let l:result = a:side > 0
         \ ? songwriter#tab#slots#Append(l:block, l:lin, col('.'))
@@ -192,7 +192,7 @@ function! songwriter#tab#AddBarSlot() abort
   endif
   let l:mark = songwriter#tab#slots#Mark(1)
   let l:block = songwriter#tab#edit#LintAndFollow(l:block)
-  call songwriter#tab#slots#Linted(l:mark, l:block)
+  call songwriter#tab#slots#Linted(l:mark, l:block.lines, col('.'))
   call songwriter#tab#edit#Apply(l:block, songwriter#tab#slots#AppendBar(l:block))
   call songwriter#tab#slots#Open(l:mark)
 endfunction

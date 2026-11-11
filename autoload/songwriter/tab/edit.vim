@@ -64,6 +64,41 @@ function! songwriter#tab#edit#Apply(block, result) abort
   endif
 endfunction
 
+" Pure. Where `result` takes `lines`, the cursor being on line `lin` (0-indexed)
+" at column `col`: {'lines', 'lin', 'col'}, linted with the cursor following the
+" music when `lint` is set.
+function! s:resolve(lines, lin, col, result, lint) abort
+  let l:lin = a:lin
+  let l:col = a:col
+  if has_key(a:result, 'col')
+    let l:lin = get(a:result, 'lin', l:lin)
+    let l:col = a:result.col
+  endif
+  let l:lines = get(a:result, 'lines', a:lines)
+  if l:lin >= 0 && l:lin < len(l:lines)
+    " As the cursor would be once there: on the line, at most on its end.
+    let l:col = max([1, min([l:col, len(l:lines[l:lin])])])
+  endif
+  if a:lint
+    let l:linted = songwriter#tab#edit#Linted(l:lines, l:lin, l:col)
+    let [l:lines, l:col] = [l:linted.lines, l:linted.col]
+  endif
+  return {'lines': l:lines, 'lin': l:lin, 'col': l:col}
+endfunction
+
+" Write `lines` over `block` and put the cursor on line `lin` of the block
+" (the cursor's line when outside it), column `col`. `join`: the write is
+" joined to the previous undo step.
+function! s:write(block, lines, lin, col, join) abort
+  if a:lines !=# a:block.lines
+    if a:join
+      silent! undojoin
+    endif
+    call songwriter#tab#model#Write(a:block, a:lines)
+  endif
+  call cursor(a:lin >= 0 && a:lin < len(a:lines) ? a:block.start + a:lin : line('.'), a:col)
+endfunction
+
 " Apply a result to `block`, linted with the cursor kept on the music, in one
 " write, and echo its message. Returns the linted block, or {} when the result
 " was a refusal or nothing to do.
@@ -75,28 +110,19 @@ function! songwriter#tab#edit#Commit(block, result) abort
   if empty(a:result)
     return {}
   endif
-  let l:lin = songwriter#tab#model#CursorLin(a:block)
-  let l:col = col('.')
-  if has_key(a:result, 'col')
-    let l:lin = get(a:result, 'lin', l:lin)
-    let l:col = a:result.col
-  endif
-  let l:lines = get(a:result, 'lines', a:block.lines)
-  if l:lin >= 0 && l:lin < len(l:lines)
-    " As the cursor would be once there: on the line, at most on its end.
-    let l:col = max([1, min([l:col, len(l:lines[l:lin])])])
-  endif
-  let l:linted = songwriter#tab#edit#Linted(l:lines, l:lin, l:col)
-  call songwriter#tab#model#Write(a:block, l:linted.lines)
-  call cursor(l:lin >= 0 && l:lin < len(l:lines) ? a:block.start + l:lin : line('.'), l:linted.col)
+  let l:r = s:resolve(a:block.lines, songwriter#tab#model#CursorLin(a:block), col('.'), a:result, 1)
+  call s:write(a:block, l:r.lines, l:r.lin, l:r.col, 0)
   if !empty(get(a:result, 'msg', ''))
     echo a:result.msg
   endif
   return songwriter#tab#model#Read(a:block.start)
 endfunction
 
-" A whole edit at the cursor: Fn(ctx) gives its result (see the top), ctx
-" being model#Cursor() plus 'insert' (whether the insert state is on).
+" A whole edit at the cursor, written once: the block is linted (in memory),
+" Fn(ctx) gives a result for it (see the top), and the result is linted again
+" and written. ctx is {'block' (the linted block), 'lin', 'col', 'line' (as
+" model#Cursor), 'insert' (whether the insert state is on)}. A refusal or an
+" empty result still writes the first lint.
 " `opts` (all optional):
 "   'slot':    the open slot (spec 4.3): 'close' closes it first, 'motion'
 "              closes it keeping the lint (4.3.3), 'fill' means the edit fills
@@ -131,35 +157,27 @@ function! songwriter#tab#edit#Do(Fn, ...) abort
   if has_key(l:opts, 'open')
     let l:mark = songwriter#tab#slots#Mark(l:opts.open)
   endif
-  if l:join
-    silent! undojoin
-  endif
-  if get(l:opts, 'prelint', 1)
-    let l:block = songwriter#tab#edit#LintAndFollow(l:block)
-  endif
+  let l:pre = s:resolve(l:block.lines, songwriter#tab#model#CursorLin(l:block), col('.'), {},
+        \ get(l:opts, 'prelint', 1))
   if has_key(l:opts, 'open')
-    call songwriter#tab#slots#Linted(l:mark, l:block)
+    call songwriter#tab#slots#Linted(l:mark, l:pre.lines, l:pre.col)
   endif
-  let l:ctx = extend(songwriter#tab#model#Cursor(l:block), {'insert': l:insert})
-  let l:result = a:Fn(l:ctx)
-  if get(l:opts, 'lint', 1)
-    let l:written = songwriter#tab#edit#Commit(l:block, l:result)
-  elseif has_key(l:result, 'error')
+  let l:result = a:Fn({'block': songwriter#tab#model#Parse(l:block.start, l:pre.lines),
+        \ 'lin': l:pre.lin, 'col': l:pre.col, 'line': l:pre.lines[l:pre.lin], 'insert': l:insert})
+  let l:done = !empty(l:result) && !has_key(l:result, 'error')
+  let l:post = l:done ? s:resolve(l:pre.lines, l:pre.lin, l:pre.col, l:result, get(l:opts, 'lint', 1)) : l:pre
+  call s:write(l:block, l:post.lines, l:post.lin, l:post.col, l:join)
+  if has_key(l:result, 'error')
     call songwriter#tab#edit#Error(l:result.error)
-    let l:written = {}
-  elseif !empty(l:result)
-    call songwriter#tab#edit#Apply(l:block, l:result)
-    let l:written = songwriter#tab#model#Read(l:block.start)
-  else
-    let l:written = {}
+  elseif l:done && !empty(get(l:result, 'msg', ''))
+    echo l:result.msg
   endif
-  if !empty(l:written)
+  if l:done
     if l:slot ==# 'fill'
       call songwriter#tab#slots#Forget()
     endif
     for [l:name, l:value] in items(get(l:result, 'state', {}))
-      call songwriter#tab#state#Set(l:name, extend(copy(l:value),
-            \ {'line': line('.'), 'col': col('.')}, 'keep'))
+      call songwriter#tab#state#Set(l:name, extend(copy(l:value), {'line': line('.'), 'col': col('.')}))
     endfor
     if has_key(l:result, 'register')
       let l:r = l:result.register
@@ -175,5 +193,5 @@ function! songwriter#tab#edit#Do(Fn, ...) abort
   if l:insert && get(l:opts, 'insert', 0) && !has_key(l:opts, 'open')
     call songwriter#tab#insert#Keep()
   endif
-  return l:written
+  return l:done ? songwriter#tab#model#Read(l:block.start) : {}
 endfunction
