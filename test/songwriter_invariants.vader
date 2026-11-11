@@ -176,16 +176,7 @@ Execute (a or i then <Esc> gives the tab back as it was, with no undo step):
   AssertEqual [], g:inv_failures
 
 Execute (a or i where no slot can open change nothing):
-  " Bug: a/i opening no slot still lint an unlinted tab (spec [[Bugs]]).
-  let g:inv_known = [
-        \ 'unlinted, 1:1, a',
-        \ 'unlinted, 1:1, i',
-        \ 'unlinted, 1:2, a',
-        \ 'unlinted, 1:3, a',
-        \ 'unlinted, 1:7, i',
-        \ 'unlinted, 1:8, i',
-        \ 'unlinted, 1:11, i',
-        \ ]
+  let g:inv_known = []
   let g:inv_failures = []
   for g:inv_tab in [{'name': 'single string', 'lines': ['e|--3--5--7--|']},
         \ {'name': 'unlinted', 'lines': ['e|-3-5--|7|']}]
@@ -233,11 +224,7 @@ Execute (an arrow then the opposite arrow gives the tab back as it was):
   AssertEqual [], g:InvFixed()
 
 Execute (a note carried away from the last bar comes back, and keeps the notes it passed):
-  " Bug: carrying back from the end of a tab loses a note (spec [[Bugs]]).
-  let g:inv_known = [
-        \ 'single string, 1:11, <Right><Left>',
-        \ 'empty bar between, 1:17, <Left>',
-        \ ]
+  let g:inv_known = []
   let g:inv_failures = []
   for [g:inv_tab, g:inv_pos, g:inv_keys] in [
         \ [{'name': 'single string', 'lines': ['e|--3--5--7--|']}, [1, 11], "\<Right>\<Left>"],
@@ -255,12 +242,7 @@ Execute (a note carried away from the last bar comes back, and keeps the notes i
 " === Edits (spec 4, 6.7, 6.10, 6.11) ===
 
 Execute (each edit is one undo step, leaves the tab linted, and x keeps the other strings' notes):
-  " Bug: da| on a tab's only bar leaves it unlinted (spec [[Bugs]]).
-  let g:inv_known = [
-        \ 'linted: single string, 1:5, da|',
-        \ 'linted: single string, 1:8, da|',
-        \ 'linted: single string, 1:11, da|',
-        \ ]
+  let g:inv_known = []
   let g:inv_failures = []
   for g:inv_tab in g:inv_tabs
     " Most edits act on a note; a digit and `=` also on a dash.

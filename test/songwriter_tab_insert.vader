@@ -164,3 +164,15 @@ Then:
 
 Expect songwriter (3.3.3 h from the slot c opened in an emptied bar goes to the previous note):
   e|--3--|-----|--7--|
+
+Given songwriter (4.2 a where no slot can open changes nothing, not even the lint):
+  e|-3-5--|
+
+Execute (4.2 a where no slot can open changes nothing, not even the lint):
+  call cursor(1, 1)
+  call feedkeys('a', 'xt')
+Then:
+  Assert !songwriter#tab#insert#Active()
+
+Expect songwriter (4.2 a where no slot can open changes nothing, not even the lint):
+  e|-3-5--|

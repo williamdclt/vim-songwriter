@@ -122,7 +122,9 @@ endfunction
 " Fn(ctx) gives a result for it (see the top), and the result is linted again
 " and written. ctx is {'block' (the linted block), 'lin', 'col', 'line' (as
 " model#Cursor), 'insert' (whether the insert state is on)}. A refusal or an
-" empty result still writes the first lint.
+" empty result still writes the first lint, except for an edit that opens a
+" slot: the lint is part of opening it (spec 4.2), so with no slot nothing
+" changes.
 " `opts` (all optional):
 "   'slot':    the open slot (spec 4.3): 'close' closes it first, 'motion'
 "              closes it keeping the lint (4.3.3), 'fill' means the edit fills
@@ -166,7 +168,9 @@ function! songwriter#tab#edit#Do(Fn, ...) abort
         \ 'lin': l:pre.lin, 'col': l:pre.col, 'line': l:pre.lines[l:pre.lin], 'insert': l:insert})
   let l:done = !empty(l:result) && !has_key(l:result, 'error')
   let l:post = l:done ? s:resolve(l:pre.lines, l:pre.lin, l:pre.col, l:result, get(l:opts, 'lint', 1)) : l:pre
-  call s:write(l:block, l:post.lines, l:post.lin, l:post.col, l:join)
+  if l:done || !has_key(l:opts, 'open')
+    call s:write(l:block, l:post.lines, l:post.lin, l:post.col, l:join)
+  endif
   if has_key(l:result, 'error')
     call songwriter#tab#edit#Error(l:result.error)
   elseif l:done && !empty(get(l:result, 'msg', ''))

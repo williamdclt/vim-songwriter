@@ -304,3 +304,13 @@ Execute (6 off a tab line, d is native even in tablature mode):
   normal dw
 Expect songwriter:
   prose here
+
+Given songwriter (6.11 da| on a tab's only bar leaves one empty bar):
+  e|--3--5--7--|
+
+Execute (6.11 da| on a tab's only bar leaves one empty bar):
+  call cursor(1, 5)
+  normal da|
+
+Expect songwriter (6.11 da| on a tab's only bar leaves one empty bar):
+  e|-----|

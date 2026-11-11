@@ -277,3 +277,18 @@ Expect:
   e|----5h7--|---------|
   B|--3/5----|--12b14--|
 
+
+Given songwriter (1.4 a tab with no bar left gets one empty bar):
+  e||
+  B||
+
+Execute (1.4 a tab with no bar left gets one empty bar):
+  call cursor(1, 2)
+  call songwriter#tab#Lint()
+
+Expect songwriter (1.4 a tab with no bar left gets one empty bar):
+  e|-----|
+  B|-----|
+
+Execute (1.4 a tab of bare string names and pipes lints to one empty bar):
+  AssertEqual ['e|-----|'], songwriter#tab#lint#Lint(['e|']).lines

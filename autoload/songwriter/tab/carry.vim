@@ -12,7 +12,10 @@
 " lines are 0-indexed (`lin`), columns 1-indexed.
 
 " Spec 3.6: lift the note covering column `col` of line `lin` out of `lines`.
-" Returns the carry: {'base': the linted lines without the note, 'origin':
+" The base keeps as many bars as the linted tab had: a bar the note leaves
+" empty at the end stays, so that it, and an empty bar before it, are still
+" stops (3.3.4) for the note to go back to. Returns the carry: {'base': the
+" linted lines without the note, 'origin':
 " `lines`, 'text': the note, 'lin', 'pos': where it is over the base, 'lin0',
 " 'col0', 'pos0': where it started}, or {} off a note.
 function! songwriter#tab#carry#Lift(lines, lin, col) abort
@@ -24,6 +27,10 @@ function! songwriter#tab#carry#Lift(lines, lin, col) abort
   let l:erased = songwriter#tab#columns#EraseNote(a:lines, a:lin, l:c)
   let l:lint = songwriter#tab#lint#Lint(l:erased.lines)
   let l:base = l:lint.lines
+  let l:bars = len(songwriter#tab#model#Pipes(songwriter#tab#lint#Lint(a:lines).lines[a:lin])) - 1
+  while len(songwriter#tab#model#Pipes(l:base[a:lin])) - 1 < l:bars
+    call map(l:base, "v:val . '-----|'")
+  endwhile
   if len(l:erased.lines[a:lin]) == len(a:lines[a:lin])
     " Shared column (6.7.1): it stays, with the note's string empty there.
     let l:pos = {'kind': 'col', 'col': songwriter#tab#lint#FollowColumn(l:erased.lines, l:lint, a:lin, l:c)}
@@ -48,8 +55,8 @@ function! songwriter#tab#carry#Lift(lines, lin, col) abort
 endfunction
 
 " The position of a note lifted from column `col` of `line`, alone in its bar,
-" over `base`, that line in the base: that bar, empty, or a new bar when lint
-" dropped it (it was the last one, 1.4).
+" over `base`, that line in the base: that bar, empty, or a new bar when the
+" base has no such bar.
 function! s:emptied_bar(line, base, col) abort
   let l:k = len(filter(songwriter#tab#model#Pipes(a:line), 'v:val < a:col')) - 1
   let l:pipes = songwriter#tab#model#Pipes(a:base)
