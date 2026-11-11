@@ -2,221 +2,221 @@
 
 [![test](https://github.com/williamdclt/vim-songwriter/actions/workflows/test.yml/badge.svg)](https://github.com/williamdclt/vim-songwriter/actions/workflows/test.yml)
 
-Write guitar tablatures, chord progressions and lyrics with chords in plain
-text. The files stay readable in any text editor: no special syntax, no
-rendering step.
+A Vim plugin for writing songs in plain text: guitar tabs, lyrics with chords
+above them, and chord charts, all in one `.song.txt` file.
 
-One `.song.txt` file holds the whole song: sections, notes, tabs, lyrics with
-chords above them, chord charts. Vim highlights each of them:
+The files need no special syntax and no rendering step: they read the same in
+any text editor. In Vim, the plugin highlights them and adds keys that edit tabs
+note by note while keeping every string aligned.
 
 ![A song file with sections, tabs, lyrics with chords and a chord chart](demo/screenshot.png)
 
 ([demo/example.song.txt](demo/example.song.txt) is the file shown here.)
 
-In tablature mode, keys work on the notes played together and keep the tab
-aligned:
-
 ![Writing a tab: notes, a chord, copying a column, moving a note](demo/tabs.gif)
 
 ## Installation
 
-Use your plugin manager, or Vim's packages:
+Requires Vim 8.2 or later (tested on Vim 9). Neovim is untested.
 
-```bash
-git clone <repository-url> ~/.vim/pack/plugins/start/vim-songwriter
+With [vim-plug](https://github.com/junegunn/vim-plug):
+
+```vim
+Plug 'williamdclt/vim-songwriter'
 ```
 
-Files named `*.song.txt` or `*.tab.txt` are detected automatically.
+Or with Vim's built-in packages:
+
+```bash
+git clone https://github.com/williamdclt/vim-songwriter ~/.vim/pack/plugins/start/vim-songwriter
+```
+
+The plugin turns on for files named `*.song.txt` or `*.tab.txt`. It needs
+`filetype plugin on` in your vimrc (most setups have it).
+
+## Quick start
+
+Open a new song and add an empty six-string tab:
+
+```
+vim my-song.song.txt
+:SongwriterNewTab
+```
+
+The cursor is on the high e string, in **tablature mode**. Try, in order:
+
+1. `a5789<Esc>` types four notes: `e|--5-7-8-9--|`.
+2. `jjjj` goes down to the A string, then `a=Am<Enter><Esc>` adds an open A
+   minor chord after them, on every string at once.
+3. `dd` deletes that chord (the whole column); `p` pastes it back.
+
+Every edit keeps the strings the same length, so the tab stays aligned.
+
+Above a lyric line, write chord names (`Am      F`). With the cursor on one,
+`<C-A>` / `<C-X>` transpose it a semitone up / down.
 
 ## File format
 
-| Element      | Example                       | Highlight     |
-|--------------|-------------------------------|---------------|
-| Section      | `[Chorus]`, `[[Bridge]]`      | bold yellow   |
-| Chord        | `Am`, `F#sus4`, `D/F#`        | magenta       |
-| Tab line     | `e\|--3--5h7--x--\|`          | blue dashes   |
-| Anything else | lyrics, notes                | default       |
+| Element       | Example                       |
+|---------------|-------------------------------|
+| Section       | `[Chorus]`, `[[Bridge]]`      |
+| Chord         | `Am`, `F#sus4`, `D/F#`        |
+| Tab line      | `e\|--3--5h7--x--\|`          |
+| Anything else | lyrics, notes                 |
 
 In a tab, a note is a fret number (`12`) or `x` (muted). Anything else between
-notes (`h`, `p`, `/`, `b`, `~`…) is a technique marker and is kept as is.
-Tabs are separated by blank lines.
-
-See [specification.song.txt](specification.song.txt) for the full format.
+notes (`h`, `p`, `/`, `b`, `~`…) is a technique marker, kept as is. Tabs are
+separated by blank lines. [specification.song.txt](specification.song.txt) has
+the full format.
 
 ## Tablature mode
 
-Tablature mode is on when a file is opened; toggle it with `<leader>t`. Outside
-tablature mode, tab lines are plain text with smarter motions (`w`/`b` skip
-dashes, `W`/`B` jump between bar lines).
+Tablature mode is on when a file opens; `<leader>t` toggles it. In it, keys on
+a tab line act on **time columns** (the notes played together, across all
+strings) and keep the tab aligned. The current column is highlighted. Off a tab
+line, Vim behaves as usual.
 
-In tablature mode, keys on a tab line work on **time columns** (the notes played
-together, across all strings) and keep the tab aligned. Off a tab line, Vim
-behaves as usual.
-
-Like Vim, it has a normal state (moving never changes the file) and an insert
-state (moving opens room for new notes). The insert state shows
-`-- TAB INSERT --`. The time column under the cursor is highlighted (group
-`songwriterTimeColumn`, linked to `CursorColumn` by default), so you can see
-which notes column-wise operations act on.
+Like Vim itself, it has a normal state (moving never changes the tab) and an
+insert state, shown as `-- TAB INSERT --`, where moving opens room for new
+notes.
 
 ### Writing notes
 
 | Key            | Action                                                       |
 |----------------|--------------------------------------------------------------|
-| `0`–`9`        | Enter a fret (type `1` `2` for `12`)                         |
-| `x` on a dash  | Enter a muted note                                           |
+| `0`–`9`        | Write a fret (`1` `2` for `12`)                              |
+| `x` on a dash  | Write a muted note                                           |
 | `a` / `i`      | Open a slot after / before the note, enter the insert state  |
 | `<Esc>`        | Leave the insert state (an unused slot disappears)           |
 | `o` / `O`      | New empty tab below / above, same tuning                     |
-| `_`            | Insert a dash at the cursor on every string                  |
+| `_`            | Insert a dash on every string                                |
 | `\|\|`          | Align and tidy the tab                                       |
 
-In the insert state, `l` / `h` step through notes *and* the gaps between them,
-opening a slot in each gap; `l` past the last note adds a new bar.
+In the insert state:
 
-In the insert state, notes are typed one after the other: `a5789` gives
-`5-7-8-9`. A digit joins the fret before it only when that makes a real fret
-(`12`, `24`; at most `g:songwriter_max_fret`, 24 by default), so `25` is two
-notes. Press `<Space>` (same as `l`) to end a `1` or `2` meant alone: `1 5`.
-`j` / `k` after a note stay on its column, to type a chord (`5j7`).
-Technique markers are typed straight after a note: `5h7`, `7b`, `5/9~`
-(`h p b r t s / ~`).
+- Notes are typed one after the other: `a5789` gives `5-7-8-9`. Two digits make
+  one fret only when that is a real fret (up to 24): `12` is one note, `25` is
+  two. `<Space>` ends a note early: `1 5` is `1` then `5`.
+- `l` / `h` step through notes and the gaps between them, opening a slot in
+  each gap; `l` past the last note adds a bar.
+- `j` / `k` after a note stay on its column, to type a chord shape: `5j7`.
+- Technique markers are typed after a note: `5h7`, `7b`, `5/9~`.
+- The arrow keys carry the note under the cursor to another string or column.
 
-In the insert state, the arrow keys carry the note under the cursor:
-`<Up>` / `<Down>` to the next string, `<Left>` / `<Right>` through the notes and
-the gaps between them, as `h` / `l` go. A note it lands on is replaced, and comes
-back when the carried note moves on; the room it leaves behind closes.
-
-Use Vim's `f` and `r` to edit technique markers: `fhr/` turns a hammer-on into
-a slide.
+Edit an existing marker with Vim's `f` and `r`: `fhr/` turns a hammer-on into a
+slide.
 
 ### Writing chords
 
-`=` then a chord name and `<Enter>` writes a whole chord on the time column,
-with its root on the cursor's string: on the A string `=Am<Enter>` is the open
-Am, on the low E string the barre at the 5th fret. `==` right after it cycles to
-the next voicing: lower strings first, then higher ones, then the 12th fret.
-In the insert state it fills the slot, and the next digit goes on after it.
+| Key                  | Action                                                  |
+|----------------------|---------------------------------------------------------|
+| `=Am<Enter>`         | Write the chord on the column, rooted on the cursor's string |
+| `==`                 | Right after: cycle to the next voicing of that chord    |
+| `=M7<Enter>`         | Change the quality of the chord on the column           |
+| `+`                  | Build a chord up from the note: power, major, minor     |
 
-`=` then a quality alone changes the chord already on the column, keeping its
-root (the note on the lowest string): on an `Em`, `=M7<Enter>` gives `EM7`, and
-`=5<Enter>` turns a single note into a power chord.
-
-`+` on a note builds a chord up from it: a power chord rooted on it, then
-(`+` again on that root) the major chord, then the minor one.
-
-Shapes (E, A, D at any fret, open C and G) cover major, `m`, `7`, `m7`, `maj7`,
-`sus2`, `sus4` in standard tuning. Power chords (`=E5`) are root, fifth and
-octave, and follow any tuning (drop D gives the one-finger shape).
+Shapes cover major, `m`, `7`, `m7`, `maj7`, `sus2` and `sus4` in standard
+tuning. Power chords (`=E5`) follow any tuning.
 
 ### Moving
 
-| Key            | Moves to                                          |
-|----------------|---------------------------------------------------|
-| `w` / `b`      | next / previous note on the string                |
-| `l` / `h`      | next / previous time column (any string)          |
-| `L` / `H`      | same, but never opens a slot in the insert state  |
-| `W` / `B` / `E`| start of next bar / start of bar / end of bar     |
-
-`j`, `k`, `f`, `t`, `$`… are unchanged.
+| Key             | Moves to                                          |
+|-----------------|---------------------------------------------------|
+| `w` / `b`       | next / previous note on the string                |
+| `l` / `h`       | next / previous time column (any string)          |
+| `L` / `H`       | same, but never opens a slot in the insert state  |
+| `W` / `B` / `E` | start of next bar / start of bar / end of bar     |
 
 ### Editing columns
 
-Operators act on whole time columns, on every string, and keep the spacing.
+Operators act on whole time columns, on every string.
 
-| Key             | Action                                                   |
-|-----------------|----------------------------------------------------------|
-| `x`             | Erase the note (the column goes if it is left empty)     |
-| `dd` `yy` `cc`  | Delete / yank / change the time column (`Y` = `yy`)      |
-| `D` / `C`       | Delete / change to the end of the bar                    |
-| `p` / `P`       | Paste columns or bars after / before the cursor's        |
-| `gp`            | Overlay a column onto the current one (add a bass note)  |
-| `>>` / `<<`     | Push the column one dash later / earlier                 |
-| `sk` / `sj`     | Move the note one string up / down, same fret            |
-| `Sk` / `Sj`     | Same, keeping the pitch (fret is recomputed)             |
-| `sK` `sJ` `SK` `SJ` | Same, for the whole time column                      |
-| `V`             | Visual selection of the time column                      |
-| `.`             | Repeat                                                   |
+| Key                 | Action                                                   |
+|---------------------|----------------------------------------------------------|
+| `x`                 | Erase the note                                           |
+| `dd` `yy` `cc`      | Delete / yank / change the time column (`Y` = `yy`)      |
+| `D` / `C`           | Delete / change to the end of the bar                    |
+| `p` / `P`           | Paste columns or bars after / before the cursor's        |
+| `gp`                | Overlay a column onto the current one (add a bass note)  |
+| `>>` / `<<`         | Push the column one dash later / earlier                 |
+| `sk` / `sj`         | Move the note one string up / down, same fret            |
+| `Sk` / `Sj`         | Same, keeping the pitch                                  |
+| `sK` `sJ` `SK` `SJ` | Same, for the whole time column                          |
+| `<C-A>` / `<C-X>`   | Move the note up / down a fret (every note in visual)    |
+| `V`                 | Select the time column                                   |
+| `.`                 | Repeat                                                   |
 
-Operators take any motion (`dw`, `d$`, `dW`). `j` / `k` act on the time column
-across strings: `dj` erases the column's notes on this string and the next one
-down, `d2k` on this one and the two above, `dJ` / `dK` down to the bottom / up
-to the top string (`dJ` on the D string of an open Am leaves the top three
-notes). They also take these text objects:
+Operators take motions (`dw`, `dW`, `d$`) and these text objects:
 
 | Object          | Selects                                     |
 |-----------------|---------------------------------------------|
 | `ic` / `ac`     | time column / plus the gap after it         |
 | `i\|` / `a\|`     | bar / plus one bar line                     |
-| `in` / `an`     | single note on its string / plus its gap    |
+| `in` / `an`     | single note / plus its gap                  |
 | `ap`            | whole tab                                   |
 
-Since digits type notes, put counts after the operator: `d3d`, `d2ac`.
+`j` / `k` limit an operator to some strings: `dj` erases the column's notes on
+this string and the next, `dJ` down to the bottom string. Since digits type
+notes, put counts after the operator: `d3d`, `d2ac`.
 
-Yanked columns are ordinary blockwise registers, so they paste fine outside
-tablature mode, and tabs with fewer strings (bass) paste onto the lowest strings.
+Outside tablature mode, tab lines are plain text with smarter motions (`w` / `b`
+skip dashes, `W` / `B` jump between bar lines).
 
-### Status line
+## Chords in lyrics
 
-`songwriter#keys#Mode()` returns `TAB INSERT` in the insert state:
+| Key                 | Action                                                 |
+|---------------------|--------------------------------------------------------|
+| `<C-A>` / `<C-X>`   | Transpose the chord up / down a semitone (takes a count; in visual mode, every chord in the selection) |
+| `<leader>m`         | Toggle minor / major                                   |
 
-```vim
-set statusline+=%{exists('*songwriter#keys#Mode')?songwriter#keys#Mode():''}
-```
-
-## Chords
-
-| Key                 | Action                                                |
-|---------------------|-------------------------------------------------------|
-| `<C-A>` / `<C-X>`   | Transpose the chord up / down a semitone (count works)|
-| `<leader>m`         | Toggle minor / major                                  |
-
-In visual mode, `<C-A>` / `<C-X>` transpose every chord in the selection. Off a
-chord they increment numbers as usual, except on a tab in tablature mode, where
-they move a note up / down a fret (in visual mode, every selected note) and keep
-every note on its time column.
+Off a chord, `<C-A>` / `<C-X>` increment numbers as usual.
 
 ## Commands
 
-| Command                            | Action                                       |
-|------------------------------------|----------------------------------------------|
-| `:SongwriterNewTab [strings]`      | New empty tab (default `eBGDAE`; bass: `GDAE`) |
-| `:SongwriterLint`                  | Align and tidy the tab (`\|\|`)               |
-| `:SongwriterAddDash`               | Insert a dash on every string (`_`)          |
-| `:SongwriterAddDashes`             | Append `--` to every string                  |
-| `:SongwriterAddBar`                | Insert a bar line after the cursor           |
-| `:SongwriterChordAbove {chord}`    | Write a chord above the cursor, aligned      |
-| `:SongwriterTabChord {chord}`      | Write a chord above the tab, at the cursor   |
-| `:SongwriterChordQuality {quality}`| Change the chord's quality (`:SongwriterChordQuality sus4`) |
-| `:SongwriterTransposeChord {n}`    | Transpose the chord by `n` semitones         |
-| `:SongwriterToggleMinorMajor`      | Toggle minor / major (`<leader>m`)           |
-| `:SongwriterToggleTabMode`         | Toggle tablature mode (`<leader>t`)          |
+| Command                             | Action                                         |
+|-------------------------------------|------------------------------------------------|
+| `:SongwriterNewTab [strings]`       | New empty tab (default `eBGDAE`; bass: `GDAE`) |
+| `:SongwriterLint`                   | Align and tidy the tab (`\|\|`)                 |
+| `:SongwriterAddDash`                | Insert a dash on every string (`_`)            |
+| `:SongwriterAddDashes`              | Append `--` to every string                    |
+| `:SongwriterAddBar`                 | Insert a bar line after the cursor             |
+| `:SongwriterChordAbove {chord}`     | Write a chord above the cursor, aligned        |
+| `:SongwriterTabChord {chord}`       | Write a chord name above the tab, at the cursor |
+| `:SongwriterChordQuality {quality}` | Change the chord's quality (`sus4`, `m7`…)     |
+| `:SongwriterTransposeChord {n}`     | Transpose the chord by `n` semitones           |
+| `:SongwriterToggleMinorMajor`       | Toggle minor / major                           |
+| `:SongwriterToggleTabMode`          | Toggle tablature mode                          |
 
-## Mappings
+## Customization
 
-Each default key calls a `<Plug>` mapping, so you can bind your own keys too:
+Remap the default keys through their `<Plug>` mappings:
 
-| Default       | `<Plug>` mapping                          |
-|---------------|-------------------------------------------|
-| `<C-A>`       | `<Plug>(songwriter-transpose-up)`         |
-| `<C-X>`       | `<Plug>(songwriter-transpose-down)`       |
-| `<leader>m`   | `<Plug>(songwriter-toggle-minor-major)`   |
-| `<leader>t`   | `<Plug>(songwriter-toggle-tabmode)`       |
-| `\|\|`         | `<Plug>(songwriter-lint)`                 |
-| `_`           | `<Plug>(songwriter-add-dash)`             |
+| Default     | `<Plug>` mapping                        |
+|-------------|-----------------------------------------|
+| `<C-A>`     | `<Plug>(songwriter-transpose-up)`       |
+| `<C-X>`     | `<Plug>(songwriter-transpose-down)`     |
+| `<leader>m` | `<Plug>(songwriter-toggle-minor-major)` |
+| `<leader>t` | `<Plug>(songwriter-toggle-tabmode)`     |
+| `\|\|`       | `<Plug>(songwriter-lint)`               |
+| `_`         | `<Plug>(songwriter-add-dash)`           |
+
+- `g:songwriter_max_fret` (default 24): the highest fret a two-digit note can be.
+- The `songwriterTimeColumn` highlight group (linked to `CursorColumn`) colors
+  the current time column.
+- To show `TAB INSERT` in your status line:
+
+  ```vim
+  set statusline+=%{exists('*songwriter#keys#Mode')?songwriter#keys#Mode():''}
+  ```
 
 ## Development
 
-Design decisions are recorded in [design.md](design.md); the format and its
-implementation status in [specification.song.txt](specification.song.txt).
+`make test` runs the [Vader.vim](https://github.com/junegunn/vader.vim) suite
+(cloned on first run). `make hooks` enables the pre-commit hook, which runs the
+tests. Design decisions are in [design.md](design.md).
 
-Tests use [Vader.vim](https://github.com/junegunn/vader.vim) (cloned on first
-run): `make test`. Run `make hooks` once after cloning to enable the pre-commit
-hook, which requires green tests.
+The README images are recorded with [VHS](https://github.com/charmbracelet/vhs):
+`vhs demo/screenshot.tape` and `vhs demo/tabs.tape` from the repository root.
 
-The README images are recorded with [VHS](https://github.com/charmbracelet/vhs)
-from `demo/*.tape`: run `vhs demo/screenshot.tape` and `vhs demo/tabs.tape`
-from the repository root.
-
-Inspiration: [vim-guitar-tab](https://github.com/matt-snider/vim-guitar-tab),
+Inspired by [vim-guitar-tab](https://github.com/matt-snider/vim-guitar-tab) and
 [chordpro.vim](https://github.com/vim-scripts/chordpro.vim).
