@@ -176,16 +176,8 @@ Execute (a or i then <Esc> gives the tab back as it was, with no undo step):
   AssertEqual [], g:inv_failures
 
 Execute (a or i where no slot can open change nothing):
-  " Bug: a/i opening no slot leave an undo step and lint (spec [[Bugs]]).
+  " Bug: a/i opening no slot still lint an unlinted tab (spec [[Bugs]]).
   let g:inv_known = [
-        \ 'single string, 1:1, a',
-        \ 'single string, 1:1, i',
-        \ 'single string, 1:2, a',
-        \ 'single string, 1:3, a',
-        \ 'single string, 1:4, a',
-        \ 'single string, 1:12, i',
-        \ 'single string, 1:13, i',
-        \ 'single string, 1:14, i',
         \ 'unlinted, 1:1, a',
         \ 'unlinted, 1:1, i',
         \ 'unlinted, 1:2, a',

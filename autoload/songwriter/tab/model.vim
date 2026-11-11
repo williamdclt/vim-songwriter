@@ -155,9 +155,13 @@ function! songwriter#tab#model#CursorLin(block) abort
 endfunction
 
 " Write `lines` (one per block string) back over the block in the buffer.
+" Only the lines that differ are set, so writing what is already there makes
+" no change (no undo step, b:changedtick unchanged).
 function! songwriter#tab#model#Write(block, lines) abort
   for l:i in range(len(a:lines))
-    call setline(a:block.start + l:i, a:lines[l:i])
+    if getline(a:block.start + l:i) !=# a:lines[l:i]
+      call setline(a:block.start + l:i, a:lines[l:i])
+    endif
   endfor
 endfunction
 

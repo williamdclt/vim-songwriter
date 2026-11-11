@@ -17,6 +17,17 @@ function! songwriter#tab#edit#Error(msg) abort
   echohl None
 endfunction
 
+" Pure. `lines` linted, with column `col` of line `lin` (0-indexed) followed
+" through the lint so that it stays on the same note, or in the same gap
+" between notes (lint#FollowColumn): {'lines', 'col'}. A `lin` outside the
+" block keeps its column.
+function! songwriter#tab#edit#Linted(lines, lin, col) abort
+  let l:result = songwriter#tab#lint#Lint(a:lines)
+  let l:col = a:lin >= 0 && a:lin < len(a:lines)
+        \ ? songwriter#tab#lint#FollowColumn(a:lines, l:result, a:lin, a:col) : a:col
+  return {'lines': l:result.lines, 'col': l:col}
+endfunction
+
 " Lint `block`, write it back and keep the cursor on the same note (or in the
 " same gap between notes) when it is inside the block. Returns the re-read
 " block, or {} when `block` is empty.
@@ -24,12 +35,11 @@ function! songwriter#tab#edit#LintAndFollow(block) abort
   if empty(a:block)
     return {}
   endif
-  let l:result = songwriter#tab#lint#Lint(a:block.lines)
-  call songwriter#tab#model#Write(a:block, l:result.lines)
   let l:lin = songwriter#tab#model#CursorLin(a:block)
+  let l:linted = songwriter#tab#edit#Linted(a:block.lines, l:lin, col('.'))
+  call songwriter#tab#model#Write(a:block, l:linted.lines)
   if l:lin >= 0 && l:lin < len(a:block.lines)
-    call cursor(line('.'),
-          \ songwriter#tab#lint#FollowColumn(a:block.lines, l:result, l:lin, col('.')))
+    call cursor(line('.'), l:linted.col)
   endif
   return songwriter#tab#model#Read(a:block.start)
 endfunction
