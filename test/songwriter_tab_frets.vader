@@ -1,0 +1,258 @@
+" Spec [Tablature][[Editing]] 11: <C-A> / <C-X> change a fret in tablature
+" mode, and every note keeps its time column, the changed one included.
+
+Before:
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_insert b:songwriter_repeat
+  unlet! g:songwriter_max_fret
+  let b:songwriter_tabmode = 1
+
+After:
+  unlet! g:songwriter_max_fret
+
+" === 11.1 Which note ===
+
+Given songwriter (11.1 <C-A> on a note adds one fret):
+  e|--3--5--|
+
+Execute (11.1 <C-A> on a note adds one fret):
+  call cursor(1, 8)
+  execute "normal \<C-A>"
+
+Expect songwriter (11.1 <C-A> on a note adds one fret):
+  e|--3--6--|
+
+Given songwriter (11.1 off a note, the next fret on the string changes):
+  e|--3--5--|
+
+Execute (11.1 off a note, the next fret on the string changes):
+  call cursor(1, 6)
+  execute "normal \<C-X>"
+  AssertEqual 8, col('.')
+
+Expect songwriter (11.1 off a note, the next fret on the string changes):
+  e|--3--4--|
+
+Given songwriter (11.1 a muted note is not a fret):
+  e|--x--5--|
+
+Execute (11.1 a muted note is not a fret):
+  call cursor(1, 5)
+  execute "normal \<C-A>"
+
+Expect songwriter (11.1 a muted note is not a fret):
+  e|--x--6--|
+
+Given songwriter (11.1 the count is the number of frets):
+  e|--3--|
+
+Execute (11.1 the count is the number of frets):
+  call cursor(1, 5)
+  call songwriter#tab#frets#Increment(9)
+
+Expect songwriter (11.1 the count is the number of frets):
+  e|--12--|
+
+Given songwriter (11.1 only the note's own fret changes in a chain):
+  e|--5h7--|
+
+Execute (11.1 only the note's own fret changes in a chain):
+  call cursor(1, 7)
+  execute "normal \<C-A>"
+  AssertEqual 7, col('.')
+
+Expect songwriter (11.1 only the note's own fret changes in a chain):
+  e|--5h8--|
+
+" === 11.2 Every note keeps its time column ===
+
+Given songwriter (11.2 a wider fret takes a dash of its gap):
+  e|--9--7--|
+  B|--9--7--|
+  G|--9--7--|
+  D|--------|
+
+Execute (11.2 a wider fret takes a dash of its gap):
+  call cursor(1, 5)
+  execute "normal \<C-A>"
+  AssertEqual [1, 5], [line('.'), col('.')]
+
+Expect songwriter (11.2 a wider fret takes a dash of its gap):
+  e|--10-7--|
+  B|--9--7--|
+  G|--9--7--|
+  D|--------|
+
+Given songwriter (11.2 with no dash to spare, room is made on every string):
+  e|--9-7--|
+  B|--9-7--|
+
+Execute (11.2 with no dash to spare, room is made on every string):
+  call cursor(1, 5)
+  execute "normal \<C-A>"
+
+Expect songwriter (11.2 with no dash to spare, room is made on every string):
+  e|--10-7--|
+  B|--9--7--|
+
+Given songwriter (11.2 a wider fret does not cover another string's column):
+  e|--9--7--|
+  B|---3-7--|
+
+Execute (11.2 a wider fret does not cover another string's column):
+  call cursor(1, 5)
+  execute "normal \<C-A>"
+
+Expect songwriter (11.2 a wider fret does not cover another string's column):
+  e|--10--7--|
+  B|----3-7--|
+
+Given songwriter (11.2 a narrower fret leaves a dash):
+  e|--10-7--|
+  B|--9--7--|
+
+Execute (11.2 a narrower fret leaves a dash):
+  call cursor(1, 5)
+  execute "normal \<C-X>"
+
+Expect songwriter (11.2 a narrower fret leaves a dash):
+  e|--9--7--|
+  B|--9--7--|
+
+Given songwriter (11.2 a separator after a wider fret stays attached to it):
+  e|--9h7--|
+  B|--5-7--|
+
+Execute (11.2 a separator after a wider fret stays attached to it):
+  call cursor(1, 5)
+  execute "normal \<C-A>"
+
+Expect songwriter (11.2 a separator after a wider fret stays attached to it):
+  e|--10h7--|
+  B|--5--7--|
+
+Given songwriter (11.2 a narrower fret before a separator leaves the dash before it):
+  e|--10h7--|
+  B|--5--7--|
+
+Execute (11.2 a narrower fret before a separator leaves the dash before it):
+  call cursor(1, 5)
+  execute "normal \<C-X>"
+
+Expect songwriter (11.2 a narrower fret before a separator leaves the dash before it):
+  e|--9-h7--|
+  B|--5--7--|
+
+" === 11.3 Refusals ===
+
+Given songwriter (11.3 a fret never goes below 0):
+  e|--0--|
+
+Execute (11.3 a fret never goes below 0):
+  call cursor(1, 5)
+  silent! execute "normal \<C-X>"
+
+Expect songwriter (11.3 a fret never goes below 0):
+  e|--0--|
+
+Given songwriter (11.3 a fret never goes above g:songwriter_max_fret):
+  e|--24--|
+
+Execute (11.3 a fret never goes above g:songwriter_max_fret):
+  call cursor(1, 5)
+  silent! execute "normal \<C-A>"
+
+Expect songwriter (11.3 a fret never goes above g:songwriter_max_fret):
+  e|--24--|
+
+Given songwriter (11.3 no fret on the string after the cursor):
+  e|--5--x--|
+
+Execute (11.3 no fret on the string after the cursor):
+  call cursor(1, 7)
+  silent! execute "normal \<C-A>"
+
+Expect songwriter (11.3 no fret on the string after the cursor):
+  e|--5--x--|
+
+" === 11.4 Undo and repeat ===
+
+Given songwriter (11.4 one undo step, and . repeats it):
+  e|--9--7--|
+  B|--9--7--|
+
+Execute (11.4 one undo step, and . repeats it):
+  call cursor(1, 5)
+  call feedkeys("\<C-A>", 'xt')
+  call feedkeys('.', 'xt')
+  AssertEqual ['e|--11-7--|', 'B|--9--7--|'], getline(1, '$')
+  call feedkeys('u', 'xt')
+  AssertEqual ['e|--10-7--|', 'B|--9--7--|'], getline(1, '$')
+  call feedkeys('u', 'xt')
+  AssertEqual ['e|--9--7--|', 'B|--9--7--|'], getline(1, '$')
+
+" === 11.5 Visual mode ===
+
+Given songwriter (11.5 visual <C-A> on a column changes each string's fret in it):
+  e|--9--7--|
+  B|--9--7--|
+  G|--9--7--|
+  D|--------|
+
+Execute (11.5 visual <C-A> on a column changes each string's fret in it):
+  call cursor(1, 5)
+  execute "normal V\<C-A>\<Esc>"
+
+Expect songwriter (11.5 visual <C-A> on a column changes each string's fret in it):
+  e|--10-7--|
+  B|--10-7--|
+  G|--10-7--|
+  D|--------|
+
+Given songwriter (11.5 visual <C-A> on one string keeps the other strings aligned):
+  e|--9--7--|
+  B|--9--7--|
+
+Execute (11.5 visual <C-A> on one string keeps the other strings aligned):
+  call cursor(1, 5)
+  execute "normal v\<C-A>\<Esc>"
+
+Expect songwriter (11.5 visual <C-A> on one string keeps the other strings aligned):
+  e|--10-7--|
+  B|--9--7--|
+
+" === Typing over a note keeps every time column (spec 3.4) ===
+
+Given songwriter (3.4 a two-digit fret typed into a slot keeps the next column):
+  e|--9--7--|
+  B|--9--7--|
+
+Do (3.4 a two-digit fret typed into a slot keeps the next column):
+  f9a12
+
+Expect songwriter (3.4 a two-digit fret typed into a slot keeps the next column):
+  e|--9-12-7--|
+  B|--9----7--|
+
+Given songwriter (3.4 a second digit typed on a note keeps the next column):
+  e|--9--7--|
+  B|--9--7--|
+
+Execute (3.4 a second digit typed on a note keeps the next column):
+  call cursor(1, 5)
+  call feedkeys('12', 'xt')
+
+Expect songwriter (3.4 a second digit typed on a note keeps the next column):
+  e|--12-7--|
+  B|--9--7--|
+
+Given songwriter (3.4 a digit typed over a two-digit fret keeps the next column):
+  e|--12-7--|
+  B|--9--7--|
+
+Execute (3.4 a digit typed over a two-digit fret keeps the next column):
+  call cursor(1, 5)
+  call feedkeys('5', 'xt')
+
+Expect songwriter (3.4 a digit typed over a two-digit fret keeps the next column):
+  e|--5--7--|
+  B|--9--7--|

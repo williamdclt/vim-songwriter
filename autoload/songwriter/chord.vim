@@ -79,11 +79,14 @@ endfunction
 " === Public chord operations ===
 
 " Transpose the chord under the cursor by `semitones` (spec [Chords][[Editing]],
-" <Ctrl-A>/<Ctrl-X> with their count). Off a chord, including on a tab line,
-" fall back to Vim's own <Ctrl-A>/<Ctrl-X> on the next number of the line.
+" <Ctrl-A>/<Ctrl-X> with their count). On a tab line in tablature mode, change
+" a fret instead (spec [Tablature][[Editing]] 11). Off a chord, fall back to
+" Vim's own <Ctrl-A>/<Ctrl-X> on the next number of the line.
 function! songwriter#chord#TransposeChord(semitones) abort
   let l:n = str2nr(a:semitones)
-  if !s:edit_at_cursor({chord -> s:chord_transpose(chord, l:n)})
+  if songwriter#keys#InTabMode() && songwriter#grammar#IsTabLine(getline('.'))
+    call songwriter#tab#frets#Increment(l:n)
+  elseif !s:edit_at_cursor({chord -> s:chord_transpose(chord, l:n)})
     call s:native_increment('', l:n, songwriter#grammar#IsTabLine(getline('.')))
   endif
 endfunction
@@ -122,8 +125,11 @@ endfunction
 " Visual <Ctrl-A>/<Ctrl-X> (spec [Chords][[Editing]]), run from visual mode with
 " a <Cmd> map. On each selected line, the chords the selection touches are
 " transposed by `semitones`; a line where it touches none gets Vim's own visual
-" increment on its selected part (frets unsigned on tab lines). The selection
-" is kept (same corners and cursor end), so <Ctrl-A> can be pressed again.
+" increment on its selected part (frets unsigned on tab lines), except a tab
+" line in tablature mode, where the first fret it touches changes as the
+" others keep their time columns (spec [Tablature][[Editing]] 11.5). The
+" selection is kept (same corners and cursor end), so <Ctrl-A> can be pressed
+" again.
 function! songwriter#chord#TransposeVisual(semitones) abort
   let l:n = str2nr(a:semitones)
   let l:mode = mode()
@@ -135,6 +141,8 @@ function! songwriter#chord#TransposeVisual(semitones) abort
     let [l:p, l:q] = [l:q, l:p]
   endif
   let [l:lcol, l:rcol] = [min([l:p[2], l:q[2]]) - 1, max([l:p[2], l:q[2]]) - 1]
+  let l:tabmode = songwriter#keys#InTabMode()
+  let l:frets = []
   for l:lnum in range(l:p[1], l:q[1])
     if l:mode ==# 'V'
       let [l:first, l:last] = [0, s:eol]
@@ -148,6 +156,10 @@ function! songwriter#chord#TransposeVisual(semitones) abort
     if l:first >= len(l:line)
       continue
     endif
+    if l:tabmode && songwriter#grammar#IsTabLine(l:line)
+      call add(l:frets, [l:lnum, l:first + 1, min([l:last, len(l:line) - 1]) + 1])
+      continue
+    endif
     let l:new = songwriter#chord#TransposeChordsIn(l:line, l:first, l:last, l:n)
     if l:new !=# l:line
       call setline(l:lnum, l:new)
@@ -155,6 +167,7 @@ function! songwriter#chord#TransposeVisual(semitones) abort
       call s:native_visual_increment(l:lnum, l:first, min([l:last, len(l:line) - 1]), l:n)
     endif
   endfor
+  call songwriter#tab#frets#IncrementIn(l:frets, l:n)
   call s:reselect(l:mode, l:anchor, l:cursor, l:to_eol)
 endfunction
 

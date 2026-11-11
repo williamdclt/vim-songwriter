@@ -293,3 +293,24 @@ Execute (edits that only move time keep every string's music):
     endfor
   endfor
   AssertEqual [], g:inv_failures
+
+" === Changing a note keeps every time column (spec 3.4, 11.2) ===
+
+Execute (changing a note's fret keeps every note on its time column):
+  " Each note as the index of its time column, per string: equal lists mean the
+  " notes that started together still do, and in the same order.
+  let g:InvColumnIndexes = {lines -> map(copy(lines), {_, l -> map(songwriter#tab#model#Notes(l),
+        \ {_, n -> index(songwriter#tab#model#NoteColumns(songwriter#tab#model#Parse(1, lines)), n.col)})})}
+  let g:inv_failures = []
+  for g:inv_tab in g:inv_tabs
+    for g:inv_pos in g:InvNotePositions(g:inv_tab.lines)
+      for g:inv_keys in ["\<C-A>", "\<C-X>", '1', '12']
+        call g:InvLoad(g:inv_tab.lines, g:inv_pos)
+        silent! call feedkeys(g:inv_keys, 'xt')
+        if g:InvColumnIndexes(g:InvTab()) !=# g:InvColumnIndexes(g:inv_tab.lines)
+          call add(g:inv_failures, g:InvCase(g:inv_tab, g:inv_pos, g:inv_keys))
+        endif
+      endfor
+    endfor
+  endfor
+  AssertEqual [], g:inv_failures

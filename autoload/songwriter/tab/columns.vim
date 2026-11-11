@@ -234,6 +234,60 @@ function! songwriter#tab#columns#PutNote(lines, to, c, text) abort
   return l:room
 endfunction
 
+" Rewrite the note starting at column `c` of line `lin` as `text` (another
+" note), keeping every note on its time column, this one included (spec 3.4,
+" 11.2). A narrower note leaves dashes after it, even before a separator
+" (`10h7` -> `9-h7`). A wider one takes the dashes after it, as long as one
+" stays before the next chain on its string (none is needed before a pipe) and
+" it covers no other string's time column; the rest of the room is dashes
+" inserted on every string between the note and the next time column, so all
+" that follows moves together. A separator right after the note stays attached
+" to it. Returns {'lines', 'col'} (the note's column), or {'error'} when the
+" room would cut a note in two on another string.
+function! songwriter#tab#columns#SetNote(lines, lin, c, text) abort
+  let l:lines = copy(a:lines)
+  let l:t = l:lines[a:lin]
+  let l:old = songwriter#tab#model#NoteAt(l:t, a:c)
+  let l:w = len(a:text)
+  let l:end = a:c + l:old.len - 1
+  if l:w <= l:old.len
+    let l:lines[a:lin] = songwriter#tab#model#Splice(l:t, a:c, l:old.len,
+          \ a:text . repeat('-', l:old.len - l:w))
+    return {'lines': l:lines, 'col': a:c}
+  endif
+  let l:free = len(matchstr(l:t, songwriter#grammar#DashRun(), l:end))
+  let l:next = l:t[l:end + l:free : l:end + l:free]
+  let l:spare = l:next ==# '' ? l:w : l:free - (l:next ==# '|' || l:free == 0 ? 0 : 1)
+  let l:k = l:w - l:old.len - l:spare
+  let l:later = filter(songwriter#tab#model#NoteColumns(songwriter#tab#model#Parse(1, l:lines)),
+        \ 'v:val > a:c')
+  let l:last = l:end + l:free
+  if !empty(l:later)
+    let l:k = max([l:k, a:c + l:w - l:later[0]])
+    let l:last = min([l:last, l:later[0] - 1])
+  endif
+  if l:k > 0
+    " Insert after the latest offset before the next column that splits no
+    " note on another string.
+    let l:o = l:last
+    while l:o >= l:end && s:splits(s:others(l:lines, a:lin), l:o)
+      let l:o -= 1
+    endwhile
+    if l:o < l:end
+      return {'error': printf('no room on string %s', songwriter#tab#model#Name(l:t))}
+    endif
+    let l:lines = songwriter#tab#model#InsertColumns(l:lines, l:o, l:k, '-')
+  endif
+  let l:t = songwriter#tab#model#Pad(l:lines[a:lin], a:c + l:w - 1)
+  let l:lines[a:lin] = songwriter#tab#model#Splice(l:t, a:c, l:w, a:text)
+  return {'lines': l:lines, 'col': a:c}
+endfunction
+
+" `lines` without line `lin`.
+function! s:others(lines, lin) abort
+  return filter(copy(a:lines), 'v:key != a:lin')
+endfunction
+
 " True when inserting after byte offset `o` would cut a note in two on a line.
 function! s:splits(lines, o) abort
   for l:l in a:lines

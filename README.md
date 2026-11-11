@@ -174,7 +174,8 @@ set statusline+=%{exists('*songwriter#keys#Mode')?songwriter#keys#Mode():''}
 | `<leader>m`         | Toggle minor / major                                  |
 
 In visual mode, `<C-A>` / `<C-X>` transpose every chord in the selection. Off a
-chord they increment numbers as usual.
+chord they increment numbers as usual, except on a tab in tablature mode, where
+they move a note up / down a fret and keep every note on its time column.
 
 ## Commands
 

@@ -2,8 +2,9 @@
 " tablature mode (spec [Tablature][[Editing]] 3.4): digits, `x` on a dash, and
 " separators straight after a note.
 
-" Spec [Tablature][[Editing]] 3.4: put `digit` in the cell under the cursor. On
-" a dash it replaces the dash; on a note it replaces the whole note. Straight
+"" Spec [Tablature][[Editing]] 3.4: put `digit` in the cell under the cursor. On
+" a dash it replaces the dash; on a note it replaces the whole note, every note
+" keeping its time column (columns#SetNote). Straight
 " after a digit was typed (cursor still on it, buffer unchanged since), the next
 " digit is appended instead, so two-digit frets are typed one key at a time
 " (3.4.1). In the insert state it is appended only when that makes a fret
@@ -52,12 +53,15 @@ function! s:enter_note(digit, here, after_separator, ctx) abort
     let l:lines = songwriter#tab#model#InsertColumns(l:lines, l:col, 1, '-')
     let l:lines[a:ctx.lin] = songwriter#tab#model#Splice(l:lines[a:ctx.lin], l:col + 1, 1, a:digit)
     let l:col += 1
-  elseif a:here && songwriter#grammar#IsFretChar(l:line[l:col - 1])
-    let l:lines[a:ctx.lin] = songwriter#tab#model#Splice(l:line, l:col + 1, 0, a:digit)
-    let l:col += 1
   elseif !empty(l:note)
-    let l:lines[a:ctx.lin] = songwriter#tab#model#Splice(l:line, l:note.col, l:note.len, a:digit)
-    let l:col = l:note.col
+    let l:append = a:here && songwriter#grammar#IsFretChar(l:line[l:col - 1])
+    let l:text = l:append ? l:note.text . a:digit : a:digit
+    let l:res = songwriter#tab#columns#SetNote(l:lines, a:ctx.lin, l:note.col, l:text)
+    if has_key(l:res, 'error')
+      return {'error': 'songwriter: ' . l:res.error}
+    endif
+    let l:lines = l:res.lines
+    let l:col = l:note.col + (l:append ? len(l:text) - 1 : 0)
   else
     let l:lines[a:ctx.lin] = l:line[0 : l:col - 2] . a:digit . l:line[l:col :]
   endif
