@@ -29,7 +29,8 @@ never relies on concealing or rendering.
 | `autoload/songwriter/tab/lint.vim` | The linter, as a pure function over a block's lines. |
 | `autoload/songwriter/tab/highlight.vim` | The time column under the cursor, highlighted in tablature mode. |
 | `autoload/songwriter/tab.vim` | The tab commands that work outside tablature mode too: `_`, `\|\|`, `:SongwriterAddBar`, `:SongwriterAddDashes`, `:SongwriterTabChord`. |
-| `autoload/songwriter/tab/columns.vim` | Editing time columns, pure: extract, delete, erase (any set of notes, `EraseSet`), shift, make room for a note. |
+| `autoload/songwriter/tab/columns.vim` | Editing time columns, pure: extract, delete, erase (any set of notes, `EraseSet`), shift, make room for a note, rewrite a note in place (`SetNote`). |
+| `autoload/songwriter/tab/frets.vim` | `<C-A>`/`<C-X>` in tablature mode: pure `Add()` and the normal and visual entry points. |
 | `autoload/songwriter/tab/objects.vim` | Text object ranges and the snapping of other ranges, pure. |
 | `autoload/songwriter/tab/paste.vim` | Pasting blockwise registers, pure: row matching, insert, overlay. |
 | `autoload/songwriter/tab/operator.vim` | Tablature-mode operators, text objects, `x`/`p`/`P`, `>>`/`<<`, `gp`: buffer entry points around the pure modules. |
@@ -515,6 +516,33 @@ The spec items carry the behaviour; this records why, and how it is built.
   are clamped to the tab rather than blocked on a full-height selection, so a
   partial `<C-v>` still grows and shrinks natively.
 
+### Rewriting a note in place (`<C-A>`/`<C-X>`, typing, spec [Tablature][[Editing]] 3.4, 11)
+
+A note's text changes width (`9` -> `10`, `12` -> `5`) while it stays on its
+time column. Splicing the new text into its line alone shifts everything after
+it on that string by the difference, so the string drifts out of the time
+columns it shared with the others (a different rhythm), and lint cannot tell:
+it aligns pipes and splits overlaps, but has no memory of which notes were
+together. So every edit that rewrites a note goes through one primitive,
+`columns#SetNote`, and `test/songwriter_invariants.vader` checks over the
+corpus that the notes of each time column still start together afterwards.
+
+- **Narrower: dashes after the note.** The note keeps its start, the next note
+  its column. Before a separator this leaves `9-h7`, not `9h7-` (which would
+  move the 7) nor a column deleted on every string (which would change the
+  spacing, and may not be possible).
+- **Wider: the gap first, then room for everyone.** The dashes after the note
+  are used while one stays before its string's next chain (that dash is what
+  keeps `10` and `7` two notes) and the note covers no other string's time
+  column. What is still missing is inserted on every string between the note
+  and the next time column, so all that follows moves together. Unlike
+  `MakeRoom` (a note written onto a free column), the note is already there:
+  no dash goes before it, and a separator right after it is not pushed off,
+  since the chain must stay whole.
+- **`<C-A>` finds its note as Vim does** (under the cursor or next on the
+  line), because that is what the key has always done in the buffer, and the
+  cursor stays on the note's start, the column tablature mode works on.
+
 ### Moving notes between strings (spec [Tablature][[Editing]] 7)
 
 `tab/strings.vim`: a pure `Move()` and its entry point `Change()`, which lints
@@ -663,7 +691,10 @@ quality, build, splice back. The public actions differ only in the transform,
 and are no-ops off a chord, except `<Ctrl-A>`/`<Ctrl-X>`: they transpose by
 their count, and off a chord they run Vim's own increment/decrement, so numbers
 in prose and frets in tabs still work. On a tab line `nrformats` gets
-`unsigned` for that call, since a dash before a fret is not a minus sign.
+`unsigned` for that call, since a dash before a fret is not a minus sign. In
+tablature mode a tab line goes to `tab/frets.vim` instead (see "Rewriting a
+note in place"): Vim's increment splices one line and would shift that
+string's later notes off their time columns.
 In visual mode they act per selected line: the chords the selection touches are
 transposed (spliced right to left, so a wider chord does not shift the others'
 columns before they are found), and a line where it touches none gets Vim's
@@ -688,7 +719,8 @@ Highlighting stays permissive and accepts false positives such as the word "A"
   of tabs and every relevant cursor position rather than one example: lint is
   idempotent and keeps each string's notes, the normal state never edits, an
   abandoned slot and a carried-back note leave no trace, each edit is one
-  undo step and leaves the tab linted. They catch the interactions between
+  undo step and leaves the tab linted, a rewritten note leaves every note on
+  its time column. They catch the interactions between
   features that hand-written cases miss. The main corpus is linted, so an
   edit's own lint shows no difference; unlinted tabs go only where the
   invariant must hold for them too (lint, 4.3). Keys are typed with
