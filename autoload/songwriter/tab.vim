@@ -180,47 +180,6 @@ function! songwriter#tab#AddBarSlot() abort
         \ {'open': 1, 'lint': 0})
 endfunction
 
-" Spec [Tablature][[Editing]] 3.1: open room for a new note on every string,
-" to the right of the current note (side +1, `a`) or to its left (side -1,
-" `i`), land the cursor on the new slot and enter the insert state. An open
-" slot is closed first (4.3). The block is linted (4.2), and the slot is
-" remembered until a note fills it or it is closed, which restores the tab as it
-" was before the lint (4.3).
-function! songwriter#tab#AddNote(side) abort
-  call songwriter#tab#slots#Abandon()
-  let l:block = songwriter#tab#model#Read()
-  if empty(l:block)
-    return
-  endif
-  let l:mark = songwriter#tab#slots#Mark(a:side)
-  let l:block = songwriter#tab#edit#LintAndFollow(l:block)
-  call songwriter#tab#slots#Linted(l:mark, l:block.lines, col('.'))
-  let l:lin = songwriter#tab#model#CursorLin(l:block)
-  let l:result = a:side > 0
-        \ ? songwriter#tab#slots#Append(l:block, l:lin, col('.'))
-        \ : songwriter#tab#slots#Prepend(l:block, l:lin, col('.'))
-  call songwriter#tab#edit#Apply(l:block, l:result)
-  if !empty(l:result)
-    call songwriter#tab#slots#Open(l:mark)
-  endif
-endfunction
-
-" Spec [Tablature][[Editing]] 5: append a new bar to the end of the tab with a
-" slot in its middle, and land the cursor on it, ready for a note. Like `a`,
-" the block is linted first (4.2) and the slot is remembered (4.3); closed, the
-" tab goes back as it was.
-function! songwriter#tab#AddBarSlot() abort
-  let l:block = songwriter#tab#model#Read()
-  if empty(l:block)
-    return
-  endif
-  let l:mark = songwriter#tab#slots#Mark(1)
-  let l:block = songwriter#tab#edit#LintAndFollow(l:block)
-  call songwriter#tab#slots#Linted(l:mark, l:block.lines, col('.'))
-  call songwriter#tab#edit#Apply(l:block, songwriter#tab#slots#AppendBar(l:block))
-  call songwriter#tab#slots#Open(l:mark)
-endfunction
-
 " Spec [Tablature][[Editing]] 8: add an empty tab under (below 1, `o`) or
 " over (below 0, `O`) the block around the cursor, with the same string names
 " and a blank line between the two, and land on the slot in its middle, on the
