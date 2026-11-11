@@ -134,6 +134,7 @@ Operators act on whole time columns, on every string, and keep the spacing.
 | `>>` / `<<`     | Push the column one dash later / earlier                 |
 | `sk` / `sj`     | Move the note one string up / down, same fret            |
 | `Sk` / `Sj`     | Same, keeping the pitch (fret is recomputed)             |
+| `]` / `[`       | Move the note one fret up / down                         |
 | `sK` `sJ` `SK` `SJ` | Same, for the whole time column                      |
 | `V`             | Visual selection of the time column                      |
 | `.`             | Repeat                                                   |
