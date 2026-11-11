@@ -388,7 +388,7 @@ endfunction
 
 " Spec 6.14: `gp`, overlay a column register onto the cursor's column.
 function! songwriter#tab#operator#Overlay(reg) abort
-  call songwriter#tab#edit#Run(function('s:overlay', [a:reg]))
+  call songwriter#tab#edit#Do(function('s:overlay', [a:reg]))
 endfunction
 
 function! s:overlay(reg, ctx) abort

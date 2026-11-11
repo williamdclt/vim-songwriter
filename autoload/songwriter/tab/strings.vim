@@ -131,12 +131,9 @@ endfunction
 " (closing any open slot), moves, lints again with the cursor on the moved
 " note, and records itself for `.` (6.10). A refusal is echoed.
 function! songwriter#tab#strings#Change(dir, keep_pitch, column) abort
-  call songwriter#tab#slots#Abandon()
-  if empty(songwriter#tab#edit#Run(function('s:move', [a:dir, a:keep_pitch, a:column])))
-    return
-  endif
-  call songwriter#tab#repeat#Record(printf('songwriter#tab#strings#Change(%d, %d, %d)',
-        \ a:dir, a:keep_pitch, a:column), 1)
+  call songwriter#tab#edit#Do(function('s:move', [a:dir, a:keep_pitch, a:column]), {
+        \ 'slot': 'close',
+        \ 'repeat': printf('songwriter#tab#strings#Change(%d, %d, %d)', a:dir, a:keep_pitch, a:column)})
 endfunction
 
 function! s:move(dir, keep_pitch, column, ctx) abort
