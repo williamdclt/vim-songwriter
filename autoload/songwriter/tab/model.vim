@@ -155,9 +155,13 @@ function! songwriter#tab#model#CursorLin(block) abort
 endfunction
 
 " Write `lines` (one per block string) back over the block in the buffer.
+" Only the lines that differ are set, so writing what is already there makes
+" no change (no undo step, b:changedtick unchanged).
 function! songwriter#tab#model#Write(block, lines) abort
   for l:i in range(len(a:lines))
-    call setline(a:block.start + l:i, a:lines[l:i])
+    if getline(a:block.start + l:i) !=# a:lines[l:i]
+      call setline(a:block.start + l:i, a:lines[l:i])
+    endif
   endfor
 endfunction
 
@@ -168,6 +172,81 @@ function! songwriter#tab#model#NoteColumns(block) abort
     call extend(l:cols, map(copy(l:s.notes), 'v:val.col'))
   endfor
   return uniq(sort(l:cols, 'n'))
+endfunction
+
+" The last column of a note.
+function! songwriter#tab#model#NoteEnd(note) abort
+  return a:note.col + a:note.len - 1
+endfunction
+
+" The last column of time column `c` of `tab` (a parsed block): the end of its
+" longest note.
+function! songwriter#tab#model#ColumnEnd(tab, c) abort
+  let l:e = a:c
+  for l:s in a:tab.strings
+    for l:n in l:s.notes
+      if l:n.col == a:c
+        let l:e = max([l:e, songwriter#tab#model#NoteEnd(l:n)])
+      endif
+    endfor
+  endfor
+  return l:e
+endfunction
+
+" True when another string than line `lin` of `tab` has a note starting at
+" column `c`.
+function! songwriter#tab#model#IsShared(tab, lin, c) abort
+  for l:i in range(len(a:tab.strings))
+    if l:i != a:lin && !empty(filter(copy(a:tab.strings[l:i].notes), 'v:val.col == a:c'))
+      return 1
+    endif
+  endfor
+  return 0
+endfunction
+
+" The bar around column `col` of line `lin` of `tab` (see BarAt) and its time
+" columns: {'bar', 'cols'}.
+function! songwriter#tab#model#BarColumns(tab, lin, col) abort
+  let l:bar = songwriter#tab#model#BarAt(a:tab.lines[a:lin], a:col)
+  return {'bar': l:bar, 'cols': filter(songwriter#tab#model#NoteColumns(a:tab),
+        \ 'songwriter#tab#model#InBar(v:val, l:bar)')}
+endfunction
+
+" The notes of `tab` starting inside `bar` (see BarAt), on any string, each
+" with its string's 0-indexed `lin`.
+function! songwriter#tab#model#BarNotes(tab, bar) abort
+  let l:res = []
+  for l:lin in range(len(a:tab.strings))
+    for l:n in a:tab.strings[l:lin].notes
+      if songwriter#tab#model#InBar(l:n.col, a:bar)
+        call add(l:res, extend(copy(l:n), {'lin': l:lin}))
+      endif
+    endfor
+  endfor
+  return l:res
+endfunction
+
+" The end of the gap after time column `c` of the bar `bc` (from BarColumns,
+" for line `lin`): the bar's next column, or its closing pipe (the line's end
+" when unbounded), minus one.
+function! songwriter#tab#model#GapEnd(tab, lin, bc, c) abort
+  let l:next = filter(copy(a:bc.cols), 'v:val > a:c')
+  if !empty(l:next)
+    return l:next[0] - 1
+  endif
+  return a:bc.bar.end > 0 ? a:bc.bar.end - 1 : len(a:tab.lines[a:lin])
+endfunction
+
+" The time column for the cursor at `col`, among a bar's columns `cols`: the
+" nearest one at or left of `col`, else the first one right of it; 0 when there
+" is none.
+function! songwriter#tab#model#ColumnFor(cols, col) abort
+  let l:left = filter(copy(a:cols), 'v:val <= a:col')
+  if !empty(l:left)
+    return l:left[-1]
+  endif
+  let l:right = filter(copy(a:cols), 'v:val > a:col')
+  return empty(l:right) ? 0 : l:right[0]
 endfunction
 
 " The bar around `col` on a line: {'start': column of the nearest pipe strictly
@@ -192,52 +271,20 @@ function! songwriter#tab#model#InBar(col, bar) abort
         \ && (a:bar.end == 0 || a:col < a:bar.end)
 endfunction
 
-" Spec [Tablature][[Editing]] 3.3: the stops of `l`/`h` on `line`, one of
-" `block`'s lines: the columns where any string of the block has a note
-" (3.3.1), and the middle of every empty bar (3.3.4).
-function! songwriter#tab#model#Stops(block, line) abort
-  let l:cols = songwriter#tab#model#NoteColumns(a:block)
-  return sort(l:cols + songwriter#tab#model#EmptyBarStops(a:line, l:cols), 'n')
+" `line` padded with dashes to `width` bytes.
+function! songwriter#tab#model#Pad(line, width) abort
+  return len(a:line) < a:width ? a:line . repeat('-', a:width - len(a:line)) : a:line
 endfunction
 
-" Spec 3.3.4: the stops of the empty bars of `line` (no column of `cols`, the
-" block's note columns, inside them): their middle dash. A bar with nothing
-" between its pipes (`||`) has no stop.
-function! songwriter#tab#model#EmptyBarStops(line, cols) abort
-  let l:pipes = songwriter#tab#model#Pipes(a:line)
-  let l:stops = []
-  for l:i in range(len(l:pipes) - 1)
-    let l:bar = {'start': l:pipes[l:i], 'end': l:pipes[l:i + 1]}
-    if l:bar.end > l:bar.start + 1
-          \ && empty(filter(copy(a:cols), 'songwriter#tab#model#InBar(v:val, l:bar)'))
-      call add(l:stops, l:bar.start + (l:bar.end - l:bar.start) / 2)
-    endif
-  endfor
-  return l:stops
+" `line` with the `len` bytes from column `col` replaced by `text` (with `len`
+" 0, `text` is inserted before column `col`).
+function! songwriter#tab#model#Splice(line, col, len, text) abort
+  return strpart(a:line, 0, a:col - 1) . a:text . strpart(a:line, a:col - 1 + a:len)
 endfunction
 
-" True when `col` is in the last bar of a tab line that ends with a pipe:
-" the line's final pipe is the first pipe at or after `col`.
-function! songwriter#tab#model#InLastBar(line, col) abort
-  let l:pipes = songwriter#tab#model#Pipes(a:line)
-  if empty(l:pipes) || l:pipes[-1] != len(a:line) || a:col > l:pipes[-1]
-    return 0
-  endif
-  return empty(filter(copy(l:pipes), 'v:val >= a:col && v:val < l:pipes[-1]'))
-endfunction
-
-" `col` moved `count` stops forward (dir > 0) or backward (dir < 0) through the
-" sorted list `stops`, stopping at the last one reached; `col` when there is none.
-function! songwriter#tab#model#Advance(stops, col, dir, count) abort
-  let l:col = a:col
-  for l:i in range(a:count)
-    let l:c = filter(copy(a:stops), a:dir > 0 ? 'v:val > l:col' : 'v:val < l:col')
-    if empty(l:c)
-      break
-    endif
-    let l:col = a:dir > 0 ? l:c[0] : l:c[-1]
-  endfor
-  return l:col
+" `line` with `note` (as Notes() gives it) turned into dashes of its width.
+function! songwriter#tab#model#Blank(line, note) abort
+  return songwriter#tab#model#Splice(a:line, a:note.col, a:note.len, repeat('-', a:note.len))
 endfunction
 
 " The column-insertion primitive: insert `n` copies of `char` after byte offset

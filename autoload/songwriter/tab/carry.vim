@@ -33,9 +33,8 @@ function! songwriter#tab#carry#Lift(lines, lin, col) abort
     let l:pos = {'kind': 'col', 'col': songwriter#tab#lint#FollowColumn(l:erased.lines, l:lint, a:lin, l:c)}
   else
     " Lone column (6.7.2): it went, the note is in the gap it leaves.
-    let l:bar = songwriter#tab#model#BarAt(a:lines[a:lin], l:c)
-    let l:cols = filter(songwriter#tab#columns#Columns(a:lines),
-          \ 'songwriter#tab#model#InBar(v:val, l:bar) && v:val != l:c')
+    let l:cols = filter(songwriter#tab#model#BarColumns(songwriter#tab#model#Parse(0, a:lines), a:lin, l:c).cols,
+          \ 'v:val != l:c')
     let l:prev = filter(copy(l:cols), 'v:val < l:c')
     if !empty(l:prev)
       let l:pos = {'kind': 'gap', 'side': 1,
@@ -71,9 +70,8 @@ function! s:canonical(base, lin, pos) abort
   if a:pos.kind !=# 'gap' || a:pos.side > 0
     return a:pos
   endif
-  let l:bar = songwriter#tab#model#BarAt(a:base[a:lin], a:pos.col)
-  let l:prev = filter(songwriter#tab#columns#Columns(a:base),
-        \ 'v:val < a:pos.col && songwriter#tab#model#InBar(v:val, l:bar)')
+  let l:prev = filter(songwriter#tab#model#BarColumns(songwriter#tab#model#Parse(0, a:base), a:lin, a:pos.col).cols,
+        \ 'v:val < a:pos.col')
   return empty(l:prev) ? a:pos : {'kind': 'gap', 'side': 1, 'col': l:prev[-1]}
 endfunction
 
@@ -86,7 +84,7 @@ endfunction
 function! songwriter#tab#carry#Step(base, lin, pos, dir) abort
   let l:block = songwriter#tab#model#Parse(0, a:base)
   let l:line = a:base[a:lin]
-  let l:stops = songwriter#tab#model#Stops(l:block, l:line)
+  let l:stops = songwriter#tab#stops#Stops(l:block, l:line)
   if a:pos.kind ==# 'col'
     return s:canonical(a:base, a:lin, {'kind': 'gap', 'side': a:dir, 'col': a:pos.col})
   elseif a:pos.kind ==# 'newbar'
@@ -94,10 +92,10 @@ function! songwriter#tab#carry#Step(base, lin, pos, dir) abort
   elseif a:pos.kind ==# 'gap' && a:pos.side == -a:dir
     return {'kind': 'col', 'col': a:pos.col}
   endif
-  let l:target = songwriter#tab#model#Advance(l:stops, a:pos.col, a:dir, 1)
+  let l:target = songwriter#tab#stops#Advance(l:stops, a:pos.col, a:dir, 1)
   if l:target != a:pos.col
     return s:stop(l:block, l:line, l:target)
-  elseif a:pos.kind ==# 'gap' && a:dir > 0 && songwriter#tab#model#InLastBar(l:line, a:pos.col)
+  elseif a:pos.kind ==# 'gap' && a:dir > 0 && songwriter#tab#stops#InLastBar(l:line, a:pos.col)
     return {'kind': 'newbar'}
   endif
   return a:pos
@@ -105,7 +103,7 @@ endfunction
 
 " The position of stop `col` of `line`: an empty bar's middle, or a column.
 function! s:stop(block, line, col) abort
-  let l:empty = songwriter#tab#model#EmptyBarStops(a:line, songwriter#tab#model#NoteColumns(a:block))
+  let l:empty = songwriter#tab#stops#EmptyBarStops(a:line, songwriter#tab#model#NoteColumns(a:block))
   return {'kind': index(l:empty, a:col) >= 0 ? 'bar' : 'col', 'col': a:col}
 endfunction
 
@@ -139,17 +137,11 @@ function! s:put(lines, lin, col, text) abort
   let l:c = a:col
   let l:note = songwriter#tab#model#NoteAt(l:lines[a:lin], l:c)
   if !empty(l:note)
-    let l:t = l:lines[a:lin]
     let l:c = l:note.col
-    let l:lines[a:lin] = strpart(l:t, 0, l:c - 1) . repeat('-', l:note.len) . strpart(l:t, l:c - 1 + l:note.len)
+    let l:lines[a:lin] = songwriter#tab#model#Blank(l:lines[a:lin], l:note)
   endif
-  let l:room = songwriter#tab#columns#MakeRoom(l:lines, a:lin, l:c, len(a:text))
-  if has_key(l:room, 'error')
-    return {}
-  endif
-  let l:t = l:room.lines[a:lin]
-  let l:room.lines[a:lin] = strpart(l:t, 0, l:room.col - 1) . a:text . strpart(l:t, l:room.col - 1 + len(a:text))
-  return l:room
+  let l:room = songwriter#tab#columns#PutNote(l:lines, a:lin, l:c, a:text)
+  return has_key(l:room, 'error') ? {} : l:room
 endfunction
 
 " Arrow key -> [string step, column direction].
@@ -171,42 +163,42 @@ endfunction
 " linted with the cursor on the note, and the insert state is kept. With
 " nowhere to go, nothing changes.
 function! songwriter#tab#carry#Move(key) abort
-  let [l:dlin, l:dir] = s:moves[a:key]
   let l:block = songwriter#tab#model#Read()
   if empty(l:block)
     return
   endif
   let l:carry = songwriter#tab#state#Get('carry')
   let l:going = !empty(l:carry) && l:carry.start == l:block.start
-        \ && l:carry.line == line('.') && l:carry.cursor == col('.')
-  if !l:going
-    let l:carry = songwriter#tab#carry#Lift(l:block.lines,
-          \ songwriter#tab#model#CursorLin(l:block), col('.'))
+        \ && l:carry.line == line('.') && l:carry.col == col('.')
+  call songwriter#tab#edit#Do(function('s:move', [s:moves[a:key], l:going ? l:carry : {}]),
+        \ {'join': l:going, 'prelint': 0, 'insert': 1})
+endfunction
+
+" Pure. The move [string step, column direction] of the carry `carry` (or of
+" the note under the cursor of `ctx`, lifted, when it is {}).
+function! s:move(move, carry, ctx) abort
+  let [l:dlin, l:dir] = a:move
+  let l:carry = a:carry
+  if empty(l:carry)
+    let l:carry = songwriter#tab#carry#Lift(a:ctx.block.lines, a:ctx.lin, a:ctx.col)
     if empty(l:carry)
-      return
+      return {}
     endif
-    let l:carry.start = l:block.start
+    let l:carry.start = a:ctx.block.start
   endif
   let l:lin = l:carry.lin + l:dlin
-  if l:lin < 0 || l:lin >= len(l:block.lines)
-    return
+  if l:lin < 0 || l:lin >= len(a:ctx.block.lines)
+    return {}
   endif
   let l:pos = l:dir == 0 ? l:carry.pos
         \ : songwriter#tab#carry#Step(l:carry.base, l:lin, l:carry.pos, l:dir)
   if l:pos ==# l:carry.pos && l:lin == l:carry.lin
-    return
+    return {}
   endif
   let l:res = songwriter#tab#carry#Render(l:carry, l:pos, l:lin)
   if empty(l:res)
-    return
+    return {}
   endif
-  if l:going
-    silent! undojoin
-  endif
-  call songwriter#tab#model#Write(l:block, l:res.lines)
-  call cursor(l:block.start + l:lin, l:res.col)
-  call songwriter#tab#edit#LintAndFollow(songwriter#tab#model#Read())
-  call songwriter#tab#state#Set('carry', extend(l:carry,
-        \ {'pos': l:pos, 'lin': l:lin, 'line': line('.'), 'cursor': col('.')}))
-  call songwriter#tab#insert#Keep()
+  return {'lines': l:res.lines, 'lin': l:lin, 'col': l:res.col,
+        \ 'state': {'carry': extend(copy(l:carry), {'pos': l:pos, 'lin': l:lin})}}
 endfunction

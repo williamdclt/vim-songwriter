@@ -77,7 +77,7 @@ function! songwriter#tab#operator#Opfunc(type) abort
       let [l:s, l:e] = [min([l:s, l:e]), max([l:s, l:e])]
     endif
     if !l:p.exact
-      let [l:s, l:e] = songwriter#tab#columns#Snap(l:block.lines, l:lin, l:s, l:e)
+      let [l:s, l:e] = songwriter#tab#objects#Snap(l:block.lines, l:lin, l:s, l:e)
     endif
     if l:s > l:e
       return
@@ -163,7 +163,7 @@ function! s:slot_anchor(lines, lin, s) abort
   let l:pipes = songwriter#tab#model#Pipes(a:lines[a:lin])
   let l:left = max([0] + filter(copy(l:pipes), 'v:val < a:s'))
   let l:right = get(filter(copy(l:pipes), 'v:val >= a:s'), 0, 0)
-  let l:cols = filter(songwriter#tab#columns#Columns(a:lines),
+  let l:cols = filter(songwriter#tab#model#NoteColumns(songwriter#tab#model#Parse(0, a:lines)),
         \ 'v:val > l:left && (l:right == 0 || v:val < l:right)')
   let l:next = filter(copy(l:cols), 'v:val >= a:s')
   let l:prev = filter(copy(l:cols), 'v:val < a:s')
@@ -214,16 +214,17 @@ endfunction
 " with none (the change was at the end of the tab), to the last one before it.
 function! s:to_next_column() abort
   let l:block = songwriter#tab#model#Read()
-  if empty(l:block)
-    return
+  if !empty(l:block)
+    call cursor(line('.'), s:next_column(l:block.lines, col('.')))
   endif
-  let l:cols = songwriter#tab#columns#Columns(l:block.lines)
-  let l:next = filter(copy(l:cols), 'v:val >= col(".")')
-  if !empty(l:next)
-    call cursor(line('.'), l:next[0])
-  elseif !empty(l:cols)
-    call cursor(line('.'), l:cols[-1])
-  endif
+endfunction
+
+" Pure. The first note column of `lines` at or after `col`, else the last one
+" before it, else `col`.
+function! s:next_column(lines, col) abort
+  let l:cols = songwriter#tab#model#NoteColumns(songwriter#tab#model#Parse(0, a:lines))
+  let l:next = filter(copy(l:cols), 'v:val >= a:col')
+  return !empty(l:next) ? l:next[0] : !empty(l:cols) ? l:cols[-1] : a:col
 endfunction
 
 " === Operator-pending targets ===
@@ -234,7 +235,7 @@ endfunction
 " note cancels the operator.
 function! songwriter#tab#operator#Motion(key) abort
   let l:c = songwriter#tab#model#Cursor()
-  call s:select_exact(empty(l:c) ? [] : songwriter#tab#columns#StringMotion(l:c.block.lines,
+  call s:select_exact(empty(l:c) ? [] : songwriter#tab#stops#StringMotion(l:c.block.lines,
         \ l:c.line, l:c.col, a:key, v:count1), 2)
 endfunction
 
@@ -243,7 +244,7 @@ endfunction
 " without snapping. Off a column / bar, the operator is cancelled.
 function! songwriter#tab#operator#Object(kind, around) abort
   let l:c = songwriter#tab#model#Cursor()
-  call s:select_exact(empty(l:c) ? [] : songwriter#tab#columns#Object(a:kind, l:c.block.lines,
+  call s:select_exact(empty(l:c) ? [] : songwriter#tab#objects#Object(a:kind, l:c.block.lines,
         \ l:c.lin, l:c.col, v:count1, a:around), 0)
 endfunction
 
@@ -251,7 +252,7 @@ endfunction
 " or word under the cursor on its string.
 function! songwriter#tab#operator#StringObject(kind, around) abort
   let l:c = songwriter#tab#model#Cursor()
-  call s:select_exact(empty(l:c) ? [] : songwriter#tab#columns#StringObject(a:kind,
+  call s:select_exact(empty(l:c) ? [] : songwriter#tab#objects#StringObject(a:kind,
         \ l:c.block.lines, l:c.lin, l:c.col, a:around), 1)
 endfunction
 
@@ -275,7 +276,7 @@ endfunction
 " elsewhere, erase (6.7).
 function! songwriter#tab#operator#EraseOrMute(count, reg) abort
   if getline('.')[col('.') - 1] ==# '-'
-    call songwriter#tab#EnterNote('x')
+    call songwriter#tab#typing#EnterNote('x')
   else
     call songwriter#tab#operator#Erase(a:count, a:reg)
   endif
@@ -284,64 +285,64 @@ endfunction
 " Spec 6.7: `x`, `count` times on the cursor's string (after the first, from
 " the next note on the string). Writes what was erased to `reg` (6.7.3).
 function! songwriter#tab#operator#Erase(count, reg) abort
-  let l:block = songwriter#tab#edit#LintAndFollow(songwriter#tab#model#Read())
-  if empty(l:block)
-    return
-  endif
+  call songwriter#tab#edit#Do(function('s:erase', [a:count, a:reg]), {
+        \ 'repeat': "songwriter#tab#operator#Erase(%d, '" . a:reg . "')", 'count': a:count})
+endfunction
+
+function! s:erase(count, reg, ctx) abort
+  let l:lines = a:ctx.block.lines
+  let l:col = a:ctx.col
   let l:rows = []
   let l:lone = 0
   for l:i in range(max([a:count, 1]))
-    let l:lin = songwriter#tab#model#CursorLin(l:block)
-    if l:i > 0 && !s:on_note(getline('.'), col('.'))
-      let l:next = filter(map(songwriter#tab#model#Notes(getline('.')), 'v:val.col'), 'v:val > col(".")')
+    if l:i > 0 && empty(songwriter#tab#model#NoteAt(l:lines[a:ctx.lin], l:col))
+      let l:next = filter(map(songwriter#tab#model#Notes(l:lines[a:ctx.lin]), 'v:val.col'), 'v:val > l:col')
       if empty(l:next)
         break
       endif
-      call cursor(line('.'), l:next[0])
+      let l:col = l:next[0]
     endif
-    let l:res = songwriter#tab#columns#EraseNote(l:block.lines, l:lin, col('.'))
+    let l:res = songwriter#tab#columns#EraseNote(l:lines, a:ctx.lin, l:col)
     if empty(l:res)
       break
     endif
-    let l:lone = len(l:res.lines[l:lin]) < len(l:block.lines[l:lin])
+    let l:lone = len(l:res.lines[a:ctx.lin]) < len(l:lines[a:ctx.lin])
     let l:rows = empty(l:rows) ? l:res.rows : map(l:rows, 'v:val . l:res.rows[v:key]')
-    let l:block = songwriter#tab#edit#Commit(l:block, l:res)
+    let l:linted = songwriter#tab#edit#Linted(l:res.lines, a:ctx.lin,
+          \ max([1, min([l:res.col, len(l:res.lines[a:ctx.lin])])]))
+    let [l:lines, l:col] = [l:linted.lines, l:linted.col]
   endfor
   if empty(l:rows)
-    return
+    return {}
   endif
-  call songwriter#tab#register#Set(a:reg, l:rows, 'b', songwriter#tab#model#Names(l:block.lines))
-  if l:lone
-    call s:to_next_column()
-  endif
-  call songwriter#tab#repeat#Record("songwriter#tab#operator#Erase(%d, '" . a:reg . "')", a:count)
-endfunction
-
-function! s:on_note(line, col) abort
-  return !empty(filter(songwriter#tab#model#Notes(a:line),
-        \ 'v:val.col <= a:col && a:col < v:val.col + v:val.len'))
+  return {'lines': l:lines, 'col': l:lone ? s:next_column(l:lines, l:col) : l:col,
+        \ 'register': {'name': a:reg, 'rows': l:rows, 'type': 'b',
+        \   'names': songwriter#tab#model#Names(l:lines)}}
 endfunction
 
 " Spec 6.5 / 6.3.2: `p` (before 0) / `P` (before 1) from register `reg`.
 function! songwriter#tab#operator#Put(before, count, reg) abort
+  let l:repeat = printf("songwriter#tab#operator#Put(%d, %%d, '%s')", a:before, a:reg)
+  if getregtype(a:reg) !=# 'V'
+    call songwriter#tab#edit#Do(function('s:put', [a:before, a:count, a:reg]),
+          \ {'repeat': l:repeat, 'count': a:count})
+    return
+  endif
   let l:block = songwriter#tab#edit#LintAndFollow(songwriter#tab#model#Read())
-  if empty(l:block)
-    return
-  endif
-  let l:rows = songwriter#tab#register#BlockRows(a:reg)
-  if getregtype(a:reg) ==# 'V'
+  if !empty(l:block)
     call s:put_lines(l:block, getreg(a:reg, 1, 1), a:before, a:count)
-  elseif !empty(l:rows)
-    let l:res = songwriter#tab#columns#Paste(l:block.lines, songwriter#tab#model#CursorLin(l:block),
-          \ col('.'), l:rows, songwriter#tab#register#Names(a:reg), a:before, a:count)
-    if empty(songwriter#tab#edit#Commit(l:block, l:res))
-      return
-    endif
-  else
-    call songwriter#tab#edit#Error('songwriter: cannot paste a character-wise register into a tab')
-    return
+    call songwriter#tab#repeat#Record(l:repeat, a:count)
   endif
-  call songwriter#tab#repeat#Record(printf("songwriter#tab#operator#Put(%d, %%d, '%s')", a:before, a:reg), a:count)
+endfunction
+
+" Spec 6.5: a blockwise register pasted at the cursor of `ctx`.
+function! s:put(before, count, reg, ctx) abort
+  let l:rows = songwriter#tab#register#BlockRows(a:reg)
+  if empty(l:rows)
+    return {'error': 'songwriter: cannot paste a character-wise register into a tab'}
+  endif
+  return songwriter#tab#paste#Paste(a:ctx.block.lines, a:ctx.lin, a:ctx.col, l:rows,
+        \ songwriter#tab#register#Names(a:reg), a:before, a:count)
 endfunction
 
 " A line-wise register goes after the tab (before it for `P`), never between
@@ -373,27 +374,29 @@ endfunction
 
 " Spec 6.13: `>>` (dir +1) / `<<` (dir -1), `count` times.
 function! songwriter#tab#operator#Shift(dir, count) abort
-  let l:block = songwriter#tab#edit#LintAndFollow(songwriter#tab#model#Read())
-  if empty(l:block)
-    return
-  endif
+  call songwriter#tab#edit#Do(function('s:shift', [a:dir, a:count]), {
+        \ 'repeat': 'songwriter#tab#operator#Shift(' . a:dir . ', %d)', 'count': a:count})
+endfunction
+
+function! s:shift(dir, count, ctx) abort
+  let l:lines = a:ctx.block.lines
+  let l:col = a:ctx.col
   let l:done = 0
   for l:i in range(max([a:count, 1]))
-    let l:res = songwriter#tab#columns#ShiftColumn(l:block.lines, songwriter#tab#model#CursorLin(l:block), col('.'), a:dir)
+    let l:res = songwriter#tab#columns#ShiftColumn(l:lines, a:ctx.lin, l:col, a:dir)
     if empty(l:res)
       break
     endif
-    let l:block = songwriter#tab#edit#Commit(l:block, l:res)
+    let l:linted = songwriter#tab#edit#Linted(l:res.lines, a:ctx.lin, l:res.col)
+    let [l:lines, l:col] = [l:linted.lines, l:linted.col]
     let l:done = 1
   endfor
-  if l:done
-    call songwriter#tab#repeat#Record('songwriter#tab#operator#Shift(' . a:dir . ', %d)', a:count)
-  endif
+  return l:done ? {'lines': l:lines, 'col': l:col} : {}
 endfunction
 
 " Spec 6.14: `gp`, overlay a column register onto the cursor's column.
 function! songwriter#tab#operator#Overlay(reg) abort
-  call songwriter#tab#edit#Run(function('s:overlay', [a:reg]))
+  call songwriter#tab#edit#Do(function('s:overlay', [a:reg]))
 endfunction
 
 function! s:overlay(reg, ctx) abort
@@ -401,7 +404,7 @@ function! s:overlay(reg, ctx) abort
   if empty(l:rows)
     return {'error': 'songwriter: gp pastes a column register'}
   endif
-  return songwriter#tab#columns#Overlay(a:ctx.block.lines, a:ctx.lin, a:ctx.col,
+  return songwriter#tab#paste#Overlay(a:ctx.block.lines, a:ctx.lin, a:ctx.col,
         \ l:rows, songwriter#tab#register#Names(a:reg))
 endfunction
 

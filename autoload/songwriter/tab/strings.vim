@@ -43,17 +43,14 @@ function! songwriter#tab#strings#Move(lines, lin, col, dir, keep_pitch, column) 
   " Clear every source first, so that the notes of a column never collide.
   let l:lines = copy(a:lines)
   for l:m in l:movers
-    let l:lines[l:m.lin] = strpart(l:lines[l:m.lin], 0, l:c - 1) . repeat('-', l:m.len)
-          \ . strpart(l:lines[l:m.lin], l:c - 1 + l:m.len)
+    let l:lines[l:m.lin] = songwriter#tab#model#Blank(l:lines[l:m.lin], {'col': l:c, 'len': l:m.len})
   endfor
   for l:m in l:movers
-    let l:room = songwriter#tab#columns#MakeRoom(l:lines, l:m.to, l:c, len(l:m.text))
+    let l:room = songwriter#tab#columns#PutNote(l:lines, l:m.to, l:c, l:m.text)
     if has_key(l:room, 'error')
       return l:room
     endif
     let [l:lines, l:c] = [l:room.lines, l:room.col]
-    let l:t = l:lines[l:m.to]
-    let l:lines[l:m.to] = strpart(l:t, 0, l:c - 1) . l:m.text . strpart(l:t, l:c - 1 + len(l:m.text))
   endfor
 
   " 7.6: the cursor moves one string with the notes, on the same character of
@@ -134,12 +131,9 @@ endfunction
 " (closing any open slot), moves, lints again with the cursor on the moved
 " note, and records itself for `.` (6.10). A refusal is echoed.
 function! songwriter#tab#strings#Change(dir, keep_pitch, column) abort
-  call songwriter#tab#slots#Abandon()
-  if empty(songwriter#tab#edit#Run(function('s:move', [a:dir, a:keep_pitch, a:column])))
-    return
-  endif
-  call songwriter#tab#repeat#Record(printf('songwriter#tab#strings#Change(%d, %d, %d)',
-        \ a:dir, a:keep_pitch, a:column), 1)
+  call songwriter#tab#edit#Do(function('s:move', [a:dir, a:keep_pitch, a:column]), {
+        \ 'slot': 'close',
+        \ 'repeat': printf('songwriter#tab#strings#Change(%d, %d, %d)', a:dir, a:keep_pitch, a:column)})
 endfunction
 
 function! s:move(dir, keep_pitch, column, ctx) abort

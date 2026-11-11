@@ -7,7 +7,7 @@
 " Dispatch picks the action for the current context, most specific first, and
 " falls back to the key's default behaviour:
 "   1. s:typed[mode]   - tablature mode, insert state, straight after a note
-"                        was typed (songwriter#tab#JustTyped)
+"                        was typed (songwriter#tab#typing#JustTyped)
 "   2. s:tabinsert[mode] - tablature mode, insert state
 "   3. s:tabmode[mode] - tablature mode on (<leader>t) and cursor on a tab line
 "   4. s:tabline[mode] - cursor on a tab line
@@ -25,11 +25,11 @@ let s:tabline = {}
 " Spec [Tablature][[Editing]] 3.4.1.3: separator keys write a separator
 " straight after a typed note.
 for s:sep in ['h', 'p', 'b', 'r', 't', 's', '/', '~']
-  let s:typed.n[s:sep] = printf('call songwriter#tab#EnterSeparator(%s)', string(s:sep))
+  let s:typed.n[s:sep] = printf('call songwriter#tab#typing#EnterSeparator(%s)', string(s:sep))
 endfor
 unlet s:sep
 " Spec 3.4.1.2: `<Space>` is `l`.
-let s:tabinsert.n['<Space>'] = 'call songwriter#tab#MoveColumn(1)'
+let s:tabinsert.n['<Space>'] = 'call songwriter#tab#motion#MoveColumn(1)'
 " Spec 3.6: the arrows carry the note under the cursor.
 for s:arrow in ['<Up>', '<Down>', '<Left>', '<Right>']
   let s:tabinsert.n[s:arrow] = printf('=songwriter#tab#carry#Key(%s)', string(s:arrow))
@@ -38,19 +38,19 @@ unlet s:arrow
 
 " Spec [Tablature][[Editing]] 3, 6, 8 and 10.
 let s:tabmode.n = {
-      \ 'w': 'call songwriter#tab#MoveWord("w")',
-      \ 'b': 'call songwriter#tab#MoveWord("b")',
-      \ 'e': 'call songwriter#tab#MoveWord("e")',
-      \ 'ge': 'call songwriter#tab#MoveWord("ge")',
-      \ 'l': 'call songwriter#tab#MoveColumn(1)',
-      \ 'h': 'call songwriter#tab#MoveColumn(-1)',
-      \ 'L': 'call songwriter#tab#StepColumn(1)',
-      \ 'H': 'call songwriter#tab#StepColumn(-1)',
-      \ 'W': 'call songwriter#tab#MoveBar("W", v:count1)',
-      \ 'B': 'call songwriter#tab#MoveBar("B", v:count1)',
-      \ 'E': 'call songwriter#tab#MoveBar("E", v:count1)',
-      \ 'a': 'call songwriter#tab#AddNote(1)',
-      \ 'i': 'call songwriter#tab#AddNote(-1)',
+      \ 'w': 'call songwriter#tab#motion#MoveWord("w")',
+      \ 'b': 'call songwriter#tab#motion#MoveWord("b")',
+      \ 'e': 'call songwriter#tab#motion#MoveWord("e")',
+      \ 'ge': 'call songwriter#tab#motion#MoveWord("ge")',
+      \ 'l': 'call songwriter#tab#motion#MoveColumn(1)',
+      \ 'h': 'call songwriter#tab#motion#MoveColumn(-1)',
+      \ 'L': 'call songwriter#tab#motion#StepColumn(1)',
+      \ 'H': 'call songwriter#tab#motion#StepColumn(-1)',
+      \ 'W': 'call songwriter#tab#motion#MoveBar("W", v:count1)',
+      \ 'B': 'call songwriter#tab#motion#MoveBar("B", v:count1)',
+      \ 'E': 'call songwriter#tab#motion#MoveBar("E", v:count1)',
+      \ 'a': 'call songwriter#tab#slots#AddNote(1)',
+      \ 'i': 'call songwriter#tab#slots#AddNote(-1)',
       \ '<Esc>': 'call songwriter#tab#insert#Escape()',
       \ 'd': '=songwriter#tab#operator#Start("d")',
       \ 'y': '=songwriter#tab#operator#Start("y")',
@@ -65,8 +65,8 @@ let s:tabmode.n = {
       \ 'p': 'call songwriter#tab#operator#Put(0, v:count1, v:register)',
       \ 'P': 'call songwriter#tab#operator#Put(1, v:count1, v:register)',
       \ '.': '=songwriter#tab#repeat#Repeat()',
-      \ 'o': 'call songwriter#tab#NewTab(1)',
-      \ 'O': 'call songwriter#tab#NewTab(0)',
+      \ 'o': 'call songwriter#tab#newtab#NewTab(1)',
+      \ 'O': 'call songwriter#tab#newtab#NewTab(0)',
       \ 'V': 'call songwriter#tab#visual#Column()',
       \ '=': 'call songwriter#tab#voicings#Prompt()',
       \ '+': 'call songwriter#tab#voicings#Plus()',
@@ -81,13 +81,13 @@ for [s:prefix, s:pitch] in [['s', 0], ['S', 1]]
 endfor
 unlet s:prefix s:pitch s:dirkey s:dir
 for s:d in range(10)
-  let s:tabmode.n[s:d] = 'call songwriter#tab#EnterNote(' . s:d . ')'
+  let s:tabmode.n[s:d] = 'call songwriter#tab#typing#EnterNote(' . s:d . ')'
 endfor
 unlet s:d
 
-" Spec 6.1 (text objects, `iW`/`aW` being `i|`/`a|`), 6.2.1 and 6.2.2 (string
-" motions after an operator, `L`/`H` being `l`/`h`, 3.3.5) and 6.8
-" (a doubled operator, `dd`, acts on the column).
+" Spec 6.2.1 and 6.2.2 (string motions after an operator, `L`/`H` being
+" `l`/`h`, 3.3.5) and 6.8 (a doubled operator, `dd`, acts on the column). The
+" text objects are added to this table and the visual one below.
 let s:tabmode.o = {
       \ 'w': 'call songwriter#tab#operator#Motion("w")',
       \ 'b': 'call songwriter#tab#operator#Motion("b")',
@@ -97,20 +97,11 @@ let s:tabmode.o = {
       \ 'h': 'call songwriter#tab#operator#Motion("h")',
       \ 'L': 'call songwriter#tab#operator#Motion("l")',
       \ 'H': 'call songwriter#tab#operator#Motion("h")',
-      \ 'ic': 'call songwriter#tab#operator#Object("c", 0)',
-      \ 'ac': 'call songwriter#tab#operator#Object("c", 1)',
-      \ 'i|': 'call songwriter#tab#operator#Object("|", 0)',
-      \ 'a|': 'call songwriter#tab#operator#Object("|", 1)',
-      \ 'iW': 'call songwriter#tab#operator#Object("|", 0)',
-      \ 'aW': 'call songwriter#tab#operator#Object("|", 1)',
-      \ 'in': 'call songwriter#tab#operator#StringObject("n", 0)',
-      \ 'an': 'call songwriter#tab#operator#StringObject("n", 1)',
-      \ 'iw': 'call songwriter#tab#operator#StringObject("w", 0)',
-      \ 'aw': 'call songwriter#tab#operator#StringObject("w", 1)',
       \ 'd': 'call songwriter#tab#operator#Doubled("d")',
       \ 'y': 'call songwriter#tab#operator#Doubled("y")',
       \ 'c': 'call songwriter#tab#operator#Doubled("c")',
       \ }
+
 " Spec 6.9.
 let s:tabmode.x = {
       \ 'w': 'call songwriter#tab#visual#Motion("w")',
@@ -124,16 +115,6 @@ let s:tabmode.x = {
       \ 'W': 'call songwriter#tab#visual#Motion("W")',
       \ 'B': 'call songwriter#tab#visual#Motion("B")',
       \ 'E': 'call songwriter#tab#visual#Motion("E")',
-      \ 'ic': 'call songwriter#tab#visual#Object("c", 0)',
-      \ 'ac': 'call songwriter#tab#visual#Object("c", 1)',
-      \ 'i|': 'call songwriter#tab#visual#Object("|", 0)',
-      \ 'a|': 'call songwriter#tab#visual#Object("|", 1)',
-      \ 'iW': 'call songwriter#tab#visual#Object("|", 0)',
-      \ 'aW': 'call songwriter#tab#visual#Object("|", 1)',
-      \ 'in': 'call songwriter#tab#visual#StringObject("n", 0)',
-      \ 'an': 'call songwriter#tab#visual#StringObject("n", 1)',
-      \ 'iw': 'call songwriter#tab#visual#StringObject("w", 0)',
-      \ 'aw': 'call songwriter#tab#visual#StringObject("w", 1)',
       \ 'd': 'call songwriter#tab#visual#Op("d", v:register)',
       \ 'x': 'call songwriter#tab#visual#Op("d", v:register)',
       \ 'y': 'call songwriter#tab#visual#Op("y", v:register)',
@@ -143,6 +124,21 @@ let s:tabmode.x = {
       \ 'j': '=songwriter#tab#visual#Vertical("j")',
       \ 'k': '=songwriter#tab#visual#Vertical("k")',
       \ }
+" Spec 6.1 / 6.9.1, 6.9.6: the text objects, the same after an operator
+" (operator.vim) and in visual mode (visual.vim): [key, function, kind,
+" around]. `iW`/`aW` are `i|`/`a|`.
+for [s:key, s:fn, s:kind, s:around] in [
+      \ ['ic', 'Object', 'c', 0], ['ac', 'Object', 'c', 1],
+      \ ['i|', 'Object', '|', 0], ['a|', 'Object', '|', 1],
+      \ ['iW', 'Object', '|', 0], ['aW', 'Object', '|', 1],
+      \ ['in', 'StringObject', 'n', 0], ['an', 'StringObject', 'n', 1],
+      \ ['iw', 'StringObject', 'w', 0], ['aw', 'StringObject', 'w', 1]]
+  for [s:mode, s:module] in [['o', 'operator'], ['x', 'visual']]
+    let s:tabmode[s:mode][s:key] = printf('call songwriter#tab#%s#%s(%s, %d)',
+          \ s:module, s:fn, string(s:kind), s:around)
+  endfor
+endfor
+unlet s:key s:fn s:kind s:around s:mode s:module
 
 " Spec [Tablature][[Motions]].
 let s:tabline.n = {
@@ -171,7 +167,7 @@ function! songwriter#keys#Dispatch(key, ...) abort
   let l:mode = a:0 ? a:1 : 'n'
   if songwriter#grammar#IsTabLine(getline('.'))
     if songwriter#keys#InTabMode()
-      if has_key(s:typed[l:mode], a:key) && songwriter#tab#JustTyped()
+      if has_key(s:typed[l:mode], a:key) && songwriter#tab#typing#JustTyped()
         return s:action(s:typed[l:mode][a:key])
       endif
       if has_key(s:tabinsert[l:mode], a:key) && songwriter#tab#insert#Active()
