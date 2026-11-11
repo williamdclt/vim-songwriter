@@ -126,8 +126,8 @@ endfunction
 " a <Cmd> map. On each selected line, the chords the selection touches are
 " transposed by `semitones`; a line where it touches none gets Vim's own visual
 " increment on its selected part (frets unsigned on tab lines), except a tab
-" line in tablature mode, where the first fret it touches changes as the
-" others keep their time columns (spec [Tablature][[Editing]] 11.5). The
+" line in tablature mode, where every fret it touches changes, keeping its
+" time column (spec [Tablature][[Editing]] 11.5). The
 " selection is kept (same corners and cursor end), so <Ctrl-A> can be pressed
 " again.
 function! songwriter#chord#TransposeVisual(semitones) abort

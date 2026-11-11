@@ -527,10 +527,12 @@ together. So every edit that rewrites a note goes through one primitive,
 `columns#SetNote`, and `test/songwriter_invariants.vader` checks over the
 corpus that the notes of each time column still start together afterwards.
 
-- **Narrower: dashes after the note.** The note keeps its start, the next note
-  its column. Before a separator this leaves `9-h7`, not `9h7-` (which would
-  move the 7) nor a column deleted on every string (which would change the
-  spacing, and may not be possible).
+- **Narrower: the chain closes up, dashes after it.** The note keeps its
+  start; the rest of its chain follows it (`10h7` -> `9h7-`), because a dash
+  inside a chain (`9-h7`) would detach the separator from the note it belongs
+  to, and a chain is written as one unit. Its other notes move by the
+  difference, the one place where a note leaves its column; notes outside the
+  chain keep theirs (`10-7` -> `9--7`).
 - **Wider: the gap first, then room for everyone.** The dashes after the note
   are used while one stays before its string's next chain (that dash is what
   keeps `10` and `7` two notes) and the note covers no other string's time
@@ -539,6 +541,10 @@ corpus that the notes of each time column still start together afterwards.
   `MakeRoom` (a note written onto a free column), the note is already there:
   no dash goes before it, and a separator right after it is not pushed off,
   since the chain must stay whole.
+- **Visual `<C-A>` changes every fret selected**, so a riff is moved up the
+  neck in one go, rather than Vim's first number per line, which means
+  nothing in a tab. The notes change right to left: each one's room or
+  closing-up only affects what lies to its right, which is already done.
 - **`<C-A>` finds its note as Vim does** (under the cursor or next on the
   line), because that is what the key has always done in the buffer, and the
   cursor stays on the note's start, the column tablature mode works on.

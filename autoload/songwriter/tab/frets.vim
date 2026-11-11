@@ -5,17 +5,13 @@
 "
 " Block lines are 0-indexed (`lin`), columns 1-indexed, as in tab/columns.vim.
 
-" Spec 11.1: the first fret of `line` that ends at or after column `from` and
-" starts at or before column `to` (as model#Notes() gives it), or {}. A muted
-" note is not a fret.
-function! songwriter#tab#frets#Target(line, from, to) abort
-  for l:n in songwriter#tab#model#Notes(a:line)
-    if songwriter#tab#model#NoteEnd(l:n) >= a:from && l:n.col <= a:to
-          \ && l:n.text =~# '^' . songwriter#grammar#Fret() . '$'
-      return l:n
-    endif
-  endfor
-  return {}
+" Spec 11.1, 11.5: the frets of `line` that end at or after column `from` and
+" start at or before column `to`, left to right (as model#Notes() gives them).
+" A muted note is not a fret.
+function! songwriter#tab#frets#Targets(line, from, to) abort
+  return filter(songwriter#tab#model#Notes(a:line), {_, n ->
+        \ songwriter#tab#model#NoteEnd(n) >= a:from && n.col <= a:to
+        \ && n.text =~# '^' . songwriter#grammar#Fret() . '$'})
 endfunction
 
 " Spec 11: the note starting at column `c` of line `lin`, `n` frets up (n > 0)
@@ -50,10 +46,11 @@ function! songwriter#tab#frets#Increment(n) abort
 endfunction
 
 function! s:increment(n, ctx) abort
-  let l:note = songwriter#tab#frets#Target(a:ctx.line, a:ctx.col, len(a:ctx.line))
-  if empty(l:note)
+  let l:notes = songwriter#tab#frets#Targets(a:ctx.line, a:ctx.col, len(a:ctx.line))
+  if empty(l:notes)
     return {'error': 'songwriter: no fret under or after the cursor'}
   endif
+  let l:note = l:notes[0]
   let l:res = songwriter#tab#frets#Add(a:ctx.block.lines, a:ctx.lin, l:note.col, a:n)
   if has_key(l:res, 'error')
     return {'error': 'songwriter: ' . l:res.error}
@@ -64,11 +61,11 @@ function! s:increment(n, ctx) abort
 endfunction
 
 " Spec 11.5: visual <C-A> / <C-X>, `ranges` being [lnum, first, last] (byte
-" columns, 1-indexed) of selected tab lines: on each, the first fret the range
-" touches changes by `n` as in Add(). The notes of a block change right to left,
-" so that the room one makes does not move the others before they are found;
-" frets that would go out of range are left as they are. Each block is linted
-" once.
+" columns, 1-indexed) of selected tab lines: every fret a range touches changes
+" by `n` as in Add(). The notes of a block change right to left, so that the
+" room one makes, or a chain closing up, does not move the others before they
+" are found; frets that would go out of range are left as they are. Each block
+" is linted once.
 function! songwriter#tab#frets#IncrementIn(ranges, n) abort
   let l:done = {}
   for [l:lnum, l:first, l:last] in a:ranges
@@ -80,10 +77,9 @@ function! songwriter#tab#frets#IncrementIn(ranges, n) abort
     let l:targets = []
     for [l:l, l:f, l:e] in a:ranges
       if l:l >= l:block.start && l:l <= l:block.end
-        let l:note = songwriter#tab#frets#Target(l:block.lines[l:l - l:block.start], l:f, l:e)
-        if !empty(l:note)
+        for l:note in songwriter#tab#frets#Targets(l:block.lines[l:l - l:block.start], l:f, l:e)
           call add(l:targets, [l:note.col, l:l - l:block.start])
-        endif
+        endfor
       endif
     endfor
     let l:lines = l:block.lines

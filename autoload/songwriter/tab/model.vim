@@ -53,6 +53,16 @@ function! songwriter#tab#model#Chains(line) abort
   return s:matches(a:line, songwriter#grammar#Chain(), songwriter#tab#model#BodyOffset())
 endfunction
 
+" The chain of `line` covering column `col`, or {}.
+function! songwriter#tab#model#ChainAt(line, col) abort
+  for l:ch in songwriter#tab#model#Chains(a:line)
+    if a:col >= l:ch.col && a:col < l:ch.col + l:ch.len
+      return l:ch
+    endif
+  endfor
+  return {}
+endfunction
+
 " Words of a tab line (spec [Tablature][[Editing]] 3.2): its chains holding at
 " least one note, left to right, as {'start', 'end' (the chain's first and last
 " columns), 'first', 'last' (the start columns of its first and last notes)}.
