@@ -1,24 +1,21 @@
 " autoload/songwriter/tab/highlight.vim - the time column under the cursor,
-" highlighted in tablature mode (spec [Tablature][[Rendering]] 4), so that it
+" highlighted on every string in tablature mode (spec [Tablature][[Rendering]] 4), so that it
 " is clear which notes column-wise operations act on. Highlighting only (a
 " window match on the group songwriterTimeColumn): the file is unchanged.
 
 " Pure. The positions [[lnum, col, len], ...] of the time column under the
-" cursor at column `col` of line `lin` of `block`: the notes starting where the
-" note under the cursor starts (on the cursor's column when it is on no note),
-" on every string. [] when there is none.
+" cursor at column `col` of line `lin` of `block`: the column where the note
+" under the cursor starts (the cursor's column when it is on no note), on
+" every string, notes or dashes, as wide as its widest note. [] when no note
+" starts there on any string.
 function! songwriter#tab#highlight#Positions(block, lin, col) abort
   let l:note = songwriter#tab#model#NoteAt(a:block.lines[a:lin], a:col)
   let l:c = empty(l:note) ? a:col : l:note.col
-  let l:res = []
-  for l:i in range(len(a:block.strings))
-    for l:n in a:block.strings[l:i].notes
-      if l:n.col == l:c
-        call add(l:res, [a:block.start + l:i, l:n.col, l:n.len])
-      endif
-    endfor
-  endfor
-  return l:res
+  if index(songwriter#tab#model#NoteColumns(a:block), l:c) < 0
+    return []
+  endif
+  let l:width = songwriter#tab#model#ColumnEnd(a:block, l:c) - l:c + 1
+  return map(range(len(a:block.lines)), {i, _ -> [a:block.start + i, l:c, l:width]})
 endfunction
 
 " Highlight the time column under the cursor in the current window, or

@@ -35,7 +35,7 @@ A note is a fret (digits: `12` is one note) or `x` (a muted note). Anything else
 1. String names (EADGBe at the start of the line) MUST be in blue ✓
 2. Dashes MUST be in blue ✓
 3. everything else in white ✓
-4. In tablature mode, the time column under the cursor (the notes starting on the cursor's column, on every string of the tab) is highlighted, so it is clear which notes column-wise operations act on. Highlighting only: the file is unchanged. ✓
+4. In tablature mode, the time column under the cursor (the column where the note under the cursor starts, or the cursor's column when a note starts there on any string) is highlighted on every string of the tab, notes and dashes alike, as wide as its widest note, so it is clear which notes column-wise operations act on. Highlighting only: the file is unchanged. ✓
 
 [[Motions]]
 1. Motions like `w` MUST stop on `|` (as well as `dw`, `cw`...) ✓
