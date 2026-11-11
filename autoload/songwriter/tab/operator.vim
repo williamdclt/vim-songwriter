@@ -77,7 +77,7 @@ function! songwriter#tab#operator#Opfunc(type) abort
       let [l:s, l:e] = [min([l:s, l:e]), max([l:s, l:e])]
     endif
     if !l:p.exact
-      let [l:s, l:e] = songwriter#tab#columns#Snap(l:block.lines, l:lin, l:s, l:e)
+      let [l:s, l:e] = songwriter#tab#objects#Snap(l:block.lines, l:lin, l:s, l:e)
     endif
     if l:s > l:e
       return
@@ -235,7 +235,7 @@ endfunction
 " note cancels the operator.
 function! songwriter#tab#operator#Motion(key) abort
   let l:c = songwriter#tab#model#Cursor()
-  call s:select_exact(empty(l:c) ? [] : songwriter#tab#columns#StringMotion(l:c.block.lines,
+  call s:select_exact(empty(l:c) ? [] : songwriter#tab#stops#StringMotion(l:c.block.lines,
         \ l:c.line, l:c.col, a:key, v:count1), 2)
 endfunction
 
@@ -244,7 +244,7 @@ endfunction
 " without snapping. Off a column / bar, the operator is cancelled.
 function! songwriter#tab#operator#Object(kind, around) abort
   let l:c = songwriter#tab#model#Cursor()
-  call s:select_exact(empty(l:c) ? [] : songwriter#tab#columns#Object(a:kind, l:c.block.lines,
+  call s:select_exact(empty(l:c) ? [] : songwriter#tab#objects#Object(a:kind, l:c.block.lines,
         \ l:c.lin, l:c.col, v:count1, a:around), 0)
 endfunction
 
@@ -252,7 +252,7 @@ endfunction
 " or word under the cursor on its string.
 function! songwriter#tab#operator#StringObject(kind, around) abort
   let l:c = songwriter#tab#model#Cursor()
-  call s:select_exact(empty(l:c) ? [] : songwriter#tab#columns#StringObject(a:kind,
+  call s:select_exact(empty(l:c) ? [] : songwriter#tab#objects#StringObject(a:kind,
         \ l:c.block.lines, l:c.lin, l:c.col, a:around), 1)
 endfunction
 
@@ -341,7 +341,7 @@ function! s:put(before, count, reg, ctx) abort
   if empty(l:rows)
     return {'error': 'songwriter: cannot paste a character-wise register into a tab'}
   endif
-  return songwriter#tab#columns#Paste(a:ctx.block.lines, a:ctx.lin, a:ctx.col, l:rows,
+  return songwriter#tab#paste#Paste(a:ctx.block.lines, a:ctx.lin, a:ctx.col, l:rows,
         \ songwriter#tab#register#Names(a:reg), a:before, a:count)
 endfunction
 
@@ -404,7 +404,7 @@ function! s:overlay(reg, ctx) abort
   if empty(l:rows)
     return {'error': 'songwriter: gp pastes a column register'}
   endif
-  return songwriter#tab#columns#Overlay(a:ctx.block.lines, a:ctx.lin, a:ctx.col,
+  return songwriter#tab#paste#Overlay(a:ctx.block.lines, a:ctx.lin, a:ctx.col,
         \ l:rows, songwriter#tab#register#Names(a:reg))
 endfunction
 

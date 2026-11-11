@@ -84,7 +84,7 @@ endfunction
 function! songwriter#tab#carry#Step(base, lin, pos, dir) abort
   let l:block = songwriter#tab#model#Parse(0, a:base)
   let l:line = a:base[a:lin]
-  let l:stops = songwriter#tab#model#Stops(l:block, l:line)
+  let l:stops = songwriter#tab#stops#Stops(l:block, l:line)
   if a:pos.kind ==# 'col'
     return s:canonical(a:base, a:lin, {'kind': 'gap', 'side': a:dir, 'col': a:pos.col})
   elseif a:pos.kind ==# 'newbar'
@@ -92,10 +92,10 @@ function! songwriter#tab#carry#Step(base, lin, pos, dir) abort
   elseif a:pos.kind ==# 'gap' && a:pos.side == -a:dir
     return {'kind': 'col', 'col': a:pos.col}
   endif
-  let l:target = songwriter#tab#model#Advance(l:stops, a:pos.col, a:dir, 1)
+  let l:target = songwriter#tab#stops#Advance(l:stops, a:pos.col, a:dir, 1)
   if l:target != a:pos.col
     return s:stop(l:block, l:line, l:target)
-  elseif a:pos.kind ==# 'gap' && a:dir > 0 && songwriter#tab#model#InLastBar(l:line, a:pos.col)
+  elseif a:pos.kind ==# 'gap' && a:dir > 0 && songwriter#tab#stops#InLastBar(l:line, a:pos.col)
     return {'kind': 'newbar'}
   endif
   return a:pos
@@ -103,7 +103,7 @@ endfunction
 
 " The position of stop `col` of `line`: an empty bar's middle, or a column.
 function! s:stop(block, line, col) abort
-  let l:empty = songwriter#tab#model#EmptyBarStops(a:line, songwriter#tab#model#NoteColumns(a:block))
+  let l:empty = songwriter#tab#stops#EmptyBarStops(a:line, songwriter#tab#model#NoteColumns(a:block))
   return {'kind': index(l:empty, a:col) >= 0 ? 'bar' : 'col', 'col': a:col}
 endfunction
 

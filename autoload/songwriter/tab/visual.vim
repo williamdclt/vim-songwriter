@@ -29,7 +29,7 @@ function! songwriter#tab#visual#StringObject(kind, around) abort
   if empty(l:c)
     return
   endif
-  let l:range = songwriter#tab#columns#StringObject(a:kind, l:c.block.lines, l:c.lin, l:c.col, a:around)
+  let l:range = songwriter#tab#objects#StringObject(a:kind, l:c.block.lines, l:c.lin, l:c.col, a:around)
   if empty(l:range)
     return
   endif
@@ -53,7 +53,7 @@ function! songwriter#tab#visual#Object(kind, around) abort
     let l:o = {'kind': a:kind, 'around': a:around, 'count': v:count1,
           \ 'lin': songwriter#tab#model#CursorLin(l:block), 'col': col('.')}
   endif
-  let l:range = songwriter#tab#columns#Object(a:kind, l:block.lines, l:o.lin, l:o.col, l:o.count, a:around)
+  let l:range = songwriter#tab#objects#Object(a:kind, l:block.lines, l:o.lin, l:o.col, l:o.count, a:around)
   if empty(l:range)
     return
   endif
@@ -102,12 +102,12 @@ function! songwriter#tab#visual#Motion(key) abort
     return
   endif
   if a:key =~# '[WBE]'
-    call cursor(line('.'), songwriter#tab#columns#BarStop(l:block.lines, getline('.'),
+    call cursor(line('.'), songwriter#tab#stops#BarStop(l:block.lines, getline('.'),
           \ col('.'), a:key, v:count1))
     return
   endif
-  let l:stops = songwriter#tab#columns#Stops(l:block.lines, getline('.'), a:key)
-  let l:col = songwriter#tab#model#Advance(l:stops, col('.'), a:key =~# '^[wle]$' ? 1 : -1, v:count1)
+  let l:stops = songwriter#tab#stops#KeyStops(l:block.lines, getline('.'), a:key)
+  let l:col = songwriter#tab#stops#Advance(l:stops, col('.'), a:key =~# '^[wle]$' ? 1 : -1, v:count1)
   call cursor(line('.'), l:col)
 endfunction
 
@@ -141,7 +141,7 @@ function! songwriter#tab#visual#Op(op, reg) abort
     return
   endif
   if !l:exact
-    let [l:s, l:e] = songwriter#tab#columns#Snap(l:block.lines, l:lnum - l:block.start, l:s, l:e)
+    let [l:s, l:e] = songwriter#tab#objects#Snap(l:block.lines, l:lnum - l:block.start, l:s, l:e)
   endif
   call cursor(l:lnum, l:s)
   call songwriter#tab#operator#ApplyRange(a:op, a:reg, l:block, l:s, l:e, l:note)
@@ -171,10 +171,10 @@ function! songwriter#tab#visual#Put(reg) abort
     return
   endif
   if !l:exact || l:note
-    let [l:s, l:e] = songwriter#tab#columns#Snap(l:block.lines, l:lnum - l:block.start, l:s, l:e)
+    let [l:s, l:e] = songwriter#tab#objects#Snap(l:block.lines, l:lnum - l:block.start, l:s, l:e)
   endif
   let l:lines = songwriter#tab#columns#DeleteRange(l:block.lines, l:s, l:e).lines
-  let l:res = songwriter#tab#columns#PasteAt(l:lines, l:s - 1, l:rows, l:names)
+  let l:res = songwriter#tab#paste#PasteAt(l:lines, l:s - 1, l:rows, l:names)
   let l:res.lin = l:lnum - l:block.start
   call songwriter#tab#edit#Commit(l:block, l:res)
 endfunction

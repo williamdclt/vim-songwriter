@@ -271,52 +271,9 @@ function! songwriter#tab#model#InBar(col, bar) abort
         \ && (a:bar.end == 0 || a:col < a:bar.end)
 endfunction
 
-" Spec [Tablature][[Editing]] 3.3: the stops of `l`/`h` on `line`, one of
-" `block`'s lines: the columns where any string of the block has a note
-" (3.3.1), and the middle of every empty bar (3.3.4).
-function! songwriter#tab#model#Stops(block, line) abort
-  let l:cols = songwriter#tab#model#NoteColumns(a:block)
-  return sort(l:cols + songwriter#tab#model#EmptyBarStops(a:line, l:cols), 'n')
-endfunction
-
-" Spec 3.3.4: the stops of the empty bars of `line` (no column of `cols`, the
-" block's note columns, inside them): their middle dash. A bar with nothing
-" between its pipes (`||`) has no stop.
-function! songwriter#tab#model#EmptyBarStops(line, cols) abort
-  let l:pipes = songwriter#tab#model#Pipes(a:line)
-  let l:stops = []
-  for l:i in range(len(l:pipes) - 1)
-    let l:bar = {'start': l:pipes[l:i], 'end': l:pipes[l:i + 1]}
-    if l:bar.end > l:bar.start + 1
-          \ && empty(filter(copy(a:cols), 'songwriter#tab#model#InBar(v:val, l:bar)'))
-      call add(l:stops, l:bar.start + (l:bar.end - l:bar.start) / 2)
-    endif
-  endfor
-  return l:stops
-endfunction
-
-" True when `col` is in the last bar of a tab line that ends with a pipe:
-" the line's final pipe is the first pipe at or after `col`.
-function! songwriter#tab#model#InLastBar(line, col) abort
-  let l:pipes = songwriter#tab#model#Pipes(a:line)
-  if empty(l:pipes) || l:pipes[-1] != len(a:line) || a:col > l:pipes[-1]
-    return 0
-  endif
-  return empty(filter(copy(l:pipes), 'v:val >= a:col && v:val < l:pipes[-1]'))
-endfunction
-
-" `col` moved `count` stops forward (dir > 0) or backward (dir < 0) through the
-" sorted list `stops`, stopping at the last one reached; `col` when there is none.
-function! songwriter#tab#model#Advance(stops, col, dir, count) abort
-  let l:col = a:col
-  for l:i in range(a:count)
-    let l:c = filter(copy(a:stops), a:dir > 0 ? 'v:val > l:col' : 'v:val < l:col')
-    if empty(l:c)
-      break
-    endif
-    let l:col = a:dir > 0 ? l:c[0] : l:c[-1]
-  endfor
-  return l:col
+" `line` padded with dashes to `width` bytes.
+function! songwriter#tab#model#Pad(line, width) abort
+  return len(a:line) < a:width ? a:line . repeat('-', a:width - len(a:line)) : a:line
 endfunction
 
 " `line` with the `len` bytes from column `col` replaced by `text` (with `len`

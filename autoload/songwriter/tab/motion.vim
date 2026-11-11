@@ -13,7 +13,7 @@ function! songwriter#tab#motion#MoveWord(key) abort
   if !songwriter#grammar#IsTabLine(l:line)
     return
   endif
-  let l:cols = songwriter#tab#columns#Stops([], l:line, a:key)
+  let l:cols = songwriter#tab#stops#KeyStops([], l:line, a:key)
   let l:target = s:from_slot(l:slot, l:cols, col('.'), a:key =~# '^[we]$' ? 1 : -1)
   if l:target != col('.')
     call cursor(line('.'), l:target)
@@ -28,7 +28,7 @@ function! songwriter#tab#motion#MoveBar(key, count) abort
   if empty(l:block)
     return
   endif
-  let l:col = songwriter#tab#columns#BarStop(l:block.lines, getline('.'), col('.'), a:key, a:count)
+  let l:col = songwriter#tab#stops#BarStop(l:block.lines, getline('.'), col('.'), a:key, a:count)
   if l:col != col('.')
     call cursor(line('.'), l:col)
   endif
@@ -47,7 +47,7 @@ function! songwriter#tab#motion#MoveColumn(dir) abort
   if empty(l:block)
     return
   endif
-  let l:target = songwriter#tab#model#Advance(songwriter#tab#model#Stops(l:block, getline('.')), col('.'), a:dir, 1)
+  let l:target = songwriter#tab#stops#Advance(songwriter#tab#stops#Stops(l:block, getline('.')), col('.'), a:dir, 1)
   if l:target != col('.')
     call cursor(line('.'), l:target)
   endif
@@ -62,7 +62,7 @@ function! songwriter#tab#motion#StepColumn(dir) abort
   if empty(l:block)
     return
   endif
-  let l:target = s:from_slot(l:slot, songwriter#tab#model#Stops(l:block, getline('.')), col('.'), a:dir)
+  let l:target = s:from_slot(l:slot, songwriter#tab#stops#Stops(l:block, getline('.')), col('.'), a:dir)
   if l:target != col('.')
     call cursor(line('.'), l:target)
   endif
@@ -87,10 +87,10 @@ function! s:insert_column(dir) abort
   elseif index(songwriter#tab#model#NoteColumns(l:block), l:col) >= 0
     call songwriter#tab#slots#AddNote(a:dir)
   else
-    let l:target = songwriter#tab#model#Advance(songwriter#tab#model#Stops(l:block, getline('.')), l:col, a:dir, 1)
+    let l:target = songwriter#tab#stops#Advance(songwriter#tab#stops#Stops(l:block, getline('.')), l:col, a:dir, 1)
     if l:target != l:col
       call s:land(l:block, l:target)
-    elseif a:dir > 0 && songwriter#tab#model#InLastBar(getline('.'), l:col)
+    elseif a:dir > 0 && songwriter#tab#stops#InLastBar(getline('.'), l:col)
       call songwriter#tab#slots#AddBarSlot()
     endif
   endif
@@ -103,8 +103,8 @@ endfunction
 function! s:leave_slot(block, slot, dir) abort
   let l:col = col('.')
   let l:back = get(a:slot, 'side', 0) == -a:dir
-  if !l:back && songwriter#tab#model#Advance(songwriter#tab#model#Stops(a:block, getline('.')), l:col, a:dir, 1) == l:col
-    if a:dir > 0 && songwriter#tab#model#InLastBar(getline('.'), l:col) && s:bar_has_notes(a:block, l:col)
+  if !l:back && songwriter#tab#stops#Advance(songwriter#tab#stops#Stops(a:block, getline('.')), l:col, a:dir, 1) == l:col
+    if a:dir > 0 && songwriter#tab#stops#InLastBar(getline('.'), l:col) && s:bar_has_notes(a:block, l:col)
       call songwriter#tab#slots#Abandon(1)
       call songwriter#tab#slots#AddBarSlot()
     endif
@@ -112,7 +112,7 @@ function! s:leave_slot(block, slot, dir) abort
   endif
   call songwriter#tab#slots#Abandon(1)
   let l:block = songwriter#tab#model#Read()
-  call s:land(l:block, s:from_slot(a:slot, songwriter#tab#model#Stops(l:block, getline('.')), col('.'), a:dir))
+  call s:land(l:block, s:from_slot(a:slot, songwriter#tab#stops#Stops(l:block, getline('.')), col('.'), a:dir))
 endfunction
 
 " Where a move in direction `dir` goes among `stops` from column `col`, the
@@ -124,13 +124,13 @@ function! s:from_slot(slot, stops, col, dir) abort
   if get(a:slot, 'side', 0) == -a:dir && index(a:stops, a:col) >= 0
     return a:col
   endif
-  return songwriter#tab#model#Advance(a:stops, a:col, a:dir, 1)
+  return songwriter#tab#stops#Advance(a:stops, a:col, a:dir, 1)
 endfunction
 
 " Move the cursor to column `target` of its line, opening the slot of the
 " empty bar there if it is one (3.3.4).
 function! s:land(block, target) abort
-  if index(songwriter#tab#model#EmptyBarStops(getline('.'), songwriter#tab#model#NoteColumns(a:block)), a:target) >= 0
+  if index(songwriter#tab#stops#EmptyBarStops(getline('.'), songwriter#tab#model#NoteColumns(a:block)), a:target) >= 0
     let l:mark = songwriter#tab#slots#Mark(0)
     call cursor(line('.'), a:target)
     let l:mark.from = a:target

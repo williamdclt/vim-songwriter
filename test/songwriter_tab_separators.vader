@@ -171,7 +171,7 @@ Expect songwriter:
   e|--5-h7--|
 
 Execute (notes dropped from a register are counted as notes):
-  let m = songwriter#tab#columns#MatchRows(['E'], ['5h7', '3--'], ['e', 'E'])
+  let m = songwriter#tab#paste#MatchRows(['E'], ['5h7', '3--'], ['e', 'E'])
   AssertEqual 'songwriter: 2 notes dropped', m.msg
 
 " --- String moves ---

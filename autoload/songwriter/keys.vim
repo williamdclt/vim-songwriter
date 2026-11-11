@@ -85,9 +85,9 @@ for s:d in range(10)
 endfor
 unlet s:d
 
-" Spec 6.1 (text objects, `iW`/`aW` being `i|`/`a|`), 6.2.1 and 6.2.2 (string
-" motions after an operator, `L`/`H` being `l`/`h`, 3.3.5) and 6.8
-" (a doubled operator, `dd`, acts on the column).
+" Spec 6.2.1 and 6.2.2 (string motions after an operator, `L`/`H` being
+" `l`/`h`, 3.3.5) and 6.8 (a doubled operator, `dd`, acts on the column). The
+" text objects are added to this table and the visual one below.
 let s:tabmode.o = {
       \ 'w': 'call songwriter#tab#operator#Motion("w")',
       \ 'b': 'call songwriter#tab#operator#Motion("b")',
@@ -97,20 +97,11 @@ let s:tabmode.o = {
       \ 'h': 'call songwriter#tab#operator#Motion("h")',
       \ 'L': 'call songwriter#tab#operator#Motion("l")',
       \ 'H': 'call songwriter#tab#operator#Motion("h")',
-      \ 'ic': 'call songwriter#tab#operator#Object("c", 0)',
-      \ 'ac': 'call songwriter#tab#operator#Object("c", 1)',
-      \ 'i|': 'call songwriter#tab#operator#Object("|", 0)',
-      \ 'a|': 'call songwriter#tab#operator#Object("|", 1)',
-      \ 'iW': 'call songwriter#tab#operator#Object("|", 0)',
-      \ 'aW': 'call songwriter#tab#operator#Object("|", 1)',
-      \ 'in': 'call songwriter#tab#operator#StringObject("n", 0)',
-      \ 'an': 'call songwriter#tab#operator#StringObject("n", 1)',
-      \ 'iw': 'call songwriter#tab#operator#StringObject("w", 0)',
-      \ 'aw': 'call songwriter#tab#operator#StringObject("w", 1)',
       \ 'd': 'call songwriter#tab#operator#Doubled("d")',
       \ 'y': 'call songwriter#tab#operator#Doubled("y")',
       \ 'c': 'call songwriter#tab#operator#Doubled("c")',
       \ }
+
 " Spec 6.9.
 let s:tabmode.x = {
       \ 'w': 'call songwriter#tab#visual#Motion("w")',
@@ -124,16 +115,6 @@ let s:tabmode.x = {
       \ 'W': 'call songwriter#tab#visual#Motion("W")',
       \ 'B': 'call songwriter#tab#visual#Motion("B")',
       \ 'E': 'call songwriter#tab#visual#Motion("E")',
-      \ 'ic': 'call songwriter#tab#visual#Object("c", 0)',
-      \ 'ac': 'call songwriter#tab#visual#Object("c", 1)',
-      \ 'i|': 'call songwriter#tab#visual#Object("|", 0)',
-      \ 'a|': 'call songwriter#tab#visual#Object("|", 1)',
-      \ 'iW': 'call songwriter#tab#visual#Object("|", 0)',
-      \ 'aW': 'call songwriter#tab#visual#Object("|", 1)',
-      \ 'in': 'call songwriter#tab#visual#StringObject("n", 0)',
-      \ 'an': 'call songwriter#tab#visual#StringObject("n", 1)',
-      \ 'iw': 'call songwriter#tab#visual#StringObject("w", 0)',
-      \ 'aw': 'call songwriter#tab#visual#StringObject("w", 1)',
       \ 'd': 'call songwriter#tab#visual#Op("d", v:register)',
       \ 'x': 'call songwriter#tab#visual#Op("d", v:register)',
       \ 'y': 'call songwriter#tab#visual#Op("y", v:register)',
@@ -143,6 +124,21 @@ let s:tabmode.x = {
       \ 'j': '=songwriter#tab#visual#Vertical("j")',
       \ 'k': '=songwriter#tab#visual#Vertical("k")',
       \ }
+" Spec 6.1 / 6.9.1, 6.9.6: the text objects, the same after an operator
+" (operator.vim) and in visual mode (visual.vim): [key, function, kind,
+" around]. `iW`/`aW` are `i|`/`a|`.
+for [s:key, s:fn, s:kind, s:around] in [
+      \ ['ic', 'Object', 'c', 0], ['ac', 'Object', 'c', 1],
+      \ ['i|', 'Object', '|', 0], ['a|', 'Object', '|', 1],
+      \ ['iW', 'Object', '|', 0], ['aW', 'Object', '|', 1],
+      \ ['in', 'StringObject', 'n', 0], ['an', 'StringObject', 'n', 1],
+      \ ['iw', 'StringObject', 'w', 0], ['aw', 'StringObject', 'w', 1]]
+  for [s:mode, s:module] in [['o', 'operator'], ['x', 'visual']]
+    let s:tabmode[s:mode][s:key] = printf('call songwriter#tab#%s#%s(%s, %d)',
+          \ s:module, s:fn, string(s:kind), s:around)
+  endfor
+endfor
+unlet s:key s:fn s:kind s:around s:mode s:module
 
 " Spec [Tablature][[Motions]].
 let s:tabline.n = {
