@@ -415,7 +415,6 @@ endfunction
 " True when the bar of the cursor's line around `col` has a note on any string
 " of `block`.
 function! s:bar_has_notes(block, col) abort
-  let l:bar = songwriter#tab#model#BarAt(getline('.'), a:col)
-  return !empty(filter(songwriter#tab#model#NoteColumns(a:block),
-        \ 'songwriter#tab#model#InBar(v:val, l:bar)'))
+  return !empty(songwriter#tab#model#BarColumns(a:block,
+        \ songwriter#tab#model#CursorLin(a:block), a:col).cols)
 endfunction

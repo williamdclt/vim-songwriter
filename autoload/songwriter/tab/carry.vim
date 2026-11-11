@@ -33,9 +33,8 @@ function! songwriter#tab#carry#Lift(lines, lin, col) abort
     let l:pos = {'kind': 'col', 'col': songwriter#tab#lint#FollowColumn(l:erased.lines, l:lint, a:lin, l:c)}
   else
     " Lone column (6.7.2): it went, the note is in the gap it leaves.
-    let l:bar = songwriter#tab#model#BarAt(a:lines[a:lin], l:c)
-    let l:cols = filter(songwriter#tab#columns#Columns(a:lines),
-          \ 'songwriter#tab#model#InBar(v:val, l:bar) && v:val != l:c')
+    let l:cols = filter(songwriter#tab#model#BarColumns(songwriter#tab#model#Parse(0, a:lines), a:lin, l:c).cols,
+          \ 'v:val != l:c')
     let l:prev = filter(copy(l:cols), 'v:val < l:c')
     if !empty(l:prev)
       let l:pos = {'kind': 'gap', 'side': 1,
@@ -71,9 +70,8 @@ function! s:canonical(base, lin, pos) abort
   if a:pos.kind !=# 'gap' || a:pos.side > 0
     return a:pos
   endif
-  let l:bar = songwriter#tab#model#BarAt(a:base[a:lin], a:pos.col)
-  let l:prev = filter(songwriter#tab#columns#Columns(a:base),
-        \ 'v:val < a:pos.col && songwriter#tab#model#InBar(v:val, l:bar)')
+  let l:prev = filter(songwriter#tab#model#BarColumns(songwriter#tab#model#Parse(0, a:base), a:lin, a:pos.col).cols,
+        \ 'v:val < a:pos.col')
   return empty(l:prev) ? a:pos : {'kind': 'gap', 'side': 1, 'col': l:prev[-1]}
 endfunction
 

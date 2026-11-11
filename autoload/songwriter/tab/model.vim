@@ -170,6 +170,81 @@ function! songwriter#tab#model#NoteColumns(block) abort
   return uniq(sort(l:cols, 'n'))
 endfunction
 
+" The last column of a note.
+function! songwriter#tab#model#NoteEnd(note) abort
+  return a:note.col + a:note.len - 1
+endfunction
+
+" The last column of time column `c` of `tab` (a parsed block): the end of its
+" longest note.
+function! songwriter#tab#model#ColumnEnd(tab, c) abort
+  let l:e = a:c
+  for l:s in a:tab.strings
+    for l:n in l:s.notes
+      if l:n.col == a:c
+        let l:e = max([l:e, songwriter#tab#model#NoteEnd(l:n)])
+      endif
+    endfor
+  endfor
+  return l:e
+endfunction
+
+" True when another string than line `lin` of `tab` has a note starting at
+" column `c`.
+function! songwriter#tab#model#IsShared(tab, lin, c) abort
+  for l:i in range(len(a:tab.strings))
+    if l:i != a:lin && !empty(filter(copy(a:tab.strings[l:i].notes), 'v:val.col == a:c'))
+      return 1
+    endif
+  endfor
+  return 0
+endfunction
+
+" The bar around column `col` of line `lin` of `tab` (see BarAt) and its time
+" columns: {'bar', 'cols'}.
+function! songwriter#tab#model#BarColumns(tab, lin, col) abort
+  let l:bar = songwriter#tab#model#BarAt(a:tab.lines[a:lin], a:col)
+  return {'bar': l:bar, 'cols': filter(songwriter#tab#model#NoteColumns(a:tab),
+        \ 'songwriter#tab#model#InBar(v:val, l:bar)')}
+endfunction
+
+" The notes of `tab` starting inside `bar` (see BarAt), on any string, each
+" with its string's 0-indexed `lin`.
+function! songwriter#tab#model#BarNotes(tab, bar) abort
+  let l:res = []
+  for l:lin in range(len(a:tab.strings))
+    for l:n in a:tab.strings[l:lin].notes
+      if songwriter#tab#model#InBar(l:n.col, a:bar)
+        call add(l:res, extend(copy(l:n), {'lin': l:lin}))
+      endif
+    endfor
+  endfor
+  return l:res
+endfunction
+
+" The end of the gap after time column `c` of the bar `bc` (from BarColumns,
+" for line `lin`): the bar's next column, or its closing pipe (the line's end
+" when unbounded), minus one.
+function! songwriter#tab#model#GapEnd(tab, lin, bc, c) abort
+  let l:next = filter(copy(a:bc.cols), 'v:val > a:c')
+  if !empty(l:next)
+    return l:next[0] - 1
+  endif
+  return a:bc.bar.end > 0 ? a:bc.bar.end - 1 : len(a:tab.lines[a:lin])
+endfunction
+
+" The time column for the cursor at `col`, among a bar's columns `cols`: the
+" nearest one at or left of `col`, else the first one right of it; 0 when there
+" is none.
+function! songwriter#tab#model#ColumnFor(cols, col) abort
+  let l:left = filter(copy(a:cols), 'v:val <= a:col')
+  if !empty(l:left)
+    return l:left[-1]
+  endif
+  let l:right = filter(copy(a:cols), 'v:val > a:col')
+  return empty(l:right) ? 0 : l:right[0]
+endfunction
+
 " The bar around `col` on a line: {'start': column of the nearest pipe strictly
 " left of col, 'end': column of the nearest pipe strictly right}. A side with no
 " pipe is 0, meaning unbounded.

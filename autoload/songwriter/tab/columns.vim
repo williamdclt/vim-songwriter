@@ -7,56 +7,8 @@
 " 1-indexed inclusive byte columns, applied to every string of the block.
 " Block lines are 0-indexed (`lin`), as in the linter.
 
-" Start columns of every note on any string, sorted, unique.
-function! songwriter#tab#columns#Columns(lines) abort
-  let l:cols = []
-  for l:l in a:lines
-    call extend(l:cols, map(songwriter#tab#model#Notes(l:l), 'v:val.col'))
-  endfor
-  return uniq(sort(l:cols, 'n'))
-endfunction
-
-" The last column of time column `c`: the end of its longest note.
-function! s:column_end(lines, c) abort
-  let l:e = a:c
-  for l:l in a:lines
-    for l:a in songwriter#tab#model#Notes(l:l)
-      if l:a.col == a:c
-        let l:e = max([l:e, l:a.col + l:a.len - 1])
-      endif
-    endfor
-  endfor
-  return l:e
-endfunction
-
-" Columns of the bar around `col` on line `lin`, and the bar itself.
-function! s:bar_columns(lines, lin, col) abort
-  let l:bar = songwriter#tab#model#BarAt(a:lines[a:lin], a:col)
-  let l:cols = filter(songwriter#tab#columns#Columns(a:lines),
-        \ 'songwriter#tab#model#InBar(v:val, l:bar)')
-  return [l:bar, l:cols]
-endfunction
-
-" The end of the gap after column `c` in `bar`: the next column of the bar, or
-" the bar's closing pipe (the line end when unbounded), minus one.
-function! s:gap_end(lines, lin, bar, cols, c) abort
-  let l:next = filter(copy(a:cols), 'v:val > a:c')
-  if !empty(l:next)
-    return l:next[0] - 1
-  endif
-  return a:bar.end > 0 ? a:bar.end - 1 : len(a:lines[a:lin])
-endfunction
-
-" The time column for the cursor: the nearest column start at or left of `col`
-" in its bar, else the bar's first column right of it; 0 when the bar has none.
-function! s:column_for(cols, col) abort
-  let l:left = filter(copy(a:cols), 'v:val <= a:col')
-  if !empty(l:left)
-    return l:left[-1]
-  endif
-  let l:right = filter(copy(a:cols), 'v:val > a:col')
-  return empty(l:right) ? 0 : l:right[0]
-endfunction
+" Every function here takes a block's `lines` and parses them once
+" (model#Parse) for the model's queries.
 
 " True when column `col` of `line` is its string name or a pipe.
 function! songwriter#tab#columns#OnPipeOrName(line, col) abort
@@ -70,14 +22,15 @@ function! songwriter#tab#columns#ColumnObject(lines, lin, col, count, around) ab
   if songwriter#tab#columns#OnPipeOrName(a:lines[a:lin], a:col)
     return []
   endif
-  let [l:bar, l:cols] = s:bar_columns(a:lines, a:lin, a:col)
-  let l:c = s:column_for(l:cols, a:col)
+  let l:tab = songwriter#tab#model#Parse(0, a:lines)
+  let l:bc = songwriter#tab#model#BarColumns(l:tab, a:lin, a:col)
+  let l:c = songwriter#tab#model#ColumnFor(l:bc.cols, a:col)
   if l:c == 0
     return []
   endif
-  let l:last = l:cols[min([index(l:cols, l:c) + max([a:count, 1]) - 1, len(l:cols) - 1])]
-  let l:e = a:around ? s:gap_end(a:lines, a:lin, l:bar, l:cols, l:last)
-        \ : s:column_end(a:lines, l:last)
+  let l:last = l:bc.cols[min([index(l:bc.cols, l:c) + max([a:count, 1]) - 1, len(l:bc.cols) - 1])]
+  let l:e = a:around ? songwriter#tab#model#GapEnd(l:tab, a:lin, l:bc, l:last)
+        \ : songwriter#tab#model#ColumnEnd(l:tab, l:last)
   return [l:c, l:e]
 endfunction
 
@@ -154,7 +107,7 @@ function! songwriter#tab#columns#Stops(lines, line, key) abort
   elseif a:key =~# '^g\=e$'
     return map(songwriter#tab#model#Words(a:line), 'v:val.last')
   endif
-  return songwriter#tab#columns#Columns(a:lines)
+  return songwriter#tab#model#NoteColumns(songwriter#tab#model#Parse(0, a:lines))
 endfunction
 
 " Spec 6.2.2: the range [s, e] on `line` that the string motion `key` covers
@@ -259,7 +212,7 @@ endfunction
 " dash when it has no note)}. A bar with nothing between its pipes is left out.
 function! s:bar_stops(lines, line) abort
   let l:pipes = songwriter#tab#model#Pipes(a:line)
-  let l:cols = songwriter#tab#columns#Columns(a:lines)
+  let l:cols = songwriter#tab#model#NoteColumns(songwriter#tab#model#Parse(0, a:lines))
   let l:bars = []
   for l:i in range(len(l:pipes) - 1)
     let [l:s, l:e] = l:pipes[l:i : l:i + 1]
@@ -279,13 +232,14 @@ endfunction
 " of its bar; e goes to the end of the note it is in, and a range ending on a
 " note takes that note's gap too.
 function! songwriter#tab#columns#Snap(lines, lin, s, e) abort
+  let l:tab = songwriter#tab#model#Parse(0, a:lines)
   let l:s = a:s
   let l:e = a:e
   let l:covered = 0
   let l:ends = 0
-  for l:l in a:lines
-    for l:a in songwriter#tab#model#Notes(l:l)
-      let l:aend = l:a.col + l:a.len - 1
+  for l:str in l:tab.strings
+    for l:a in l:str.notes
+      let l:aend = songwriter#tab#model#NoteEnd(l:a)
       if l:a.col <= a:s && a:s <= l:aend
         let l:s = min([l:s, l:a.col])
         let l:covered = 1
@@ -296,22 +250,21 @@ function! songwriter#tab#columns#Snap(lines, lin, s, e) abort
     endfor
   endfor
   if !l:covered && !songwriter#tab#columns#OnPipeOrName(a:lines[a:lin], a:s)
-    let [l:bar, l:cols] = s:bar_columns(a:lines, a:lin, a:s)
-    let l:left = filter(copy(l:cols), 'v:val < a:s')
+    let l:left = filter(songwriter#tab#model#BarColumns(l:tab, a:lin, a:s).cols, 'v:val < a:s')
     if !empty(l:left)
       let l:s = l:left[-1]
     endif
   endif
-  for l:l in a:lines
-    for l:a in songwriter#tab#model#Notes(l:l)
-      if l:a.col + l:a.len - 1 == l:e
+  for l:str in l:tab.strings
+    for l:a in l:str.notes
+      if songwriter#tab#model#NoteEnd(l:a) == l:e
         let l:ends = 1
       endif
     endfor
   endfor
   if l:ends && !songwriter#tab#columns#OnPipeOrName(a:lines[a:lin], l:e)
-    let [l:bar, l:cols] = s:bar_columns(a:lines, a:lin, l:e)
-    let l:e = s:gap_end(a:lines, a:lin, l:bar, l:cols, l:e)
+    let l:e = songwriter#tab#model#GapEnd(l:tab, a:lin,
+          \ songwriter#tab#model#BarColumns(l:tab, a:lin, l:e), l:e)
   endif
   return [l:s, l:e]
 endfunction
@@ -414,12 +367,13 @@ function! songwriter#tab#columns#Paste(lines, lin, col, rows, regnames, before, 
       let l:offset = a:before ? l:bar.start : (l:bar.end > 0 ? l:bar.end : len(l:line))
     endif
   else
-    let [l:bar, l:cols] = s:bar_columns(a:lines, a:lin, l:col)
-    let l:c = s:column_for(l:cols, l:col)
+    let l:tab = songwriter#tab#model#Parse(0, a:lines)
+    let l:bc = songwriter#tab#model#BarColumns(l:tab, a:lin, l:col)
+    let l:c = songwriter#tab#model#ColumnFor(l:bc.cols, l:col)
     if l:c == 0
-      let l:offset = l:bar.start + 2
+      let l:offset = l:bc.bar.start + 2
     else
-      let l:offset = a:before ? l:c - 1 : s:gap_end(a:lines, a:lin, l:bar, l:cols, l:c)
+      let l:offset = a:before ? l:c - 1 : songwriter#tab#model#GapEnd(l:tab, a:lin, l:bc, l:c)
     endif
   endif
   let l:res = s:insert_rows(a:lines, l:offset, l:rows, a:count)
@@ -463,24 +417,14 @@ endfunction
 " every string. Returns {'lines', 'col', 'rows'} where rows is what `ac` would
 " yank with the other strings as dashes (6.7.3), or {} off a note.
 function! songwriter#tab#columns#EraseNote(lines, lin, col) abort
-  let l:note = {}
-  for l:a in songwriter#tab#model#Notes(a:lines[a:lin])
-    if l:a.col <= a:col && a:col < l:a.col + l:a.len
-      let l:note = l:a
-    endif
-  endfor
+  let l:note = songwriter#tab#model#NoteAt(a:lines[a:lin], a:col)
   if empty(l:note)
     return {}
   endif
+  let l:tab = songwriter#tab#model#Parse(0, a:lines)
   let l:c = l:note.col
-  let l:shared = 0
-  for l:i in range(len(a:lines))
-    if l:i != a:lin && !empty(filter(songwriter#tab#model#Notes(a:lines[l:i]), 'v:val.col == l:c'))
-      let l:shared = 1
-    endif
-  endfor
-  let [l:bar, l:cols] = s:bar_columns(a:lines, a:lin, l:c)
-  let l:e = s:gap_end(a:lines, a:lin, l:bar, l:cols, l:c)
+  let l:shared = songwriter#tab#model#IsShared(l:tab, a:lin, l:c)
+  let l:e = songwriter#tab#model#GapEnd(l:tab, a:lin, songwriter#tab#model#BarColumns(l:tab, a:lin, l:c), l:c)
   let l:rows = songwriter#tab#columns#Extract(a:lines, l:c, l:e)
   for l:i in range(len(l:rows))
     if l:i != a:lin
@@ -505,21 +449,20 @@ function! songwriter#tab#columns#ShiftColumn(lines, lin, col, dir) abort
   if songwriter#tab#columns#OnPipeOrName(a:lines[a:lin], a:col)
     return {}
   endif
-  let [l:bar, l:cols] = s:bar_columns(a:lines, a:lin, a:col)
-  let l:c = s:column_for(l:cols, a:col)
-  if l:c == 0 || l:c == l:cols[0]
+  let l:tab = songwriter#tab#model#Parse(0, a:lines)
+  let l:bc = songwriter#tab#model#BarColumns(l:tab, a:lin, a:col)
+  let l:c = songwriter#tab#model#ColumnFor(l:bc.cols, a:col)
+  if l:c == 0 || l:c == l:bc.cols[0]
     return {}
   endif
   if a:dir > 0
     return {'lines': songwriter#tab#model#InsertColumns(a:lines, l:c - 1, 1, '-'), 'col': l:c + 1}
   endif
   let l:prev_end = 0
-  for l:l in a:lines
-    for l:a in songwriter#tab#model#Notes(l:l)
-      if l:a.col < l:c && songwriter#tab#model#InBar(l:a.col, l:bar)
-        let l:prev_end = max([l:prev_end, l:a.col + l:a.len - 1])
-      endif
-    endfor
+  for l:a in songwriter#tab#model#BarNotes(l:tab, l:bc.bar)
+    if l:a.col < l:c
+      let l:prev_end = max([l:prev_end, songwriter#tab#model#NoteEnd(l:a)])
+    endif
   endfor
   if l:c - l:prev_end - 1 < 2
     return {}
@@ -554,8 +497,8 @@ function! songwriter#tab#columns#Overlay(lines, lin, col, rows, regnames) abort
   endif
   let l:c = 0
   if !songwriter#tab#columns#OnPipeOrName(a:lines[a:lin], a:col)
-    let [l:bar, l:cols] = s:bar_columns(a:lines, a:lin, a:col)
-    let l:c = s:column_for(l:cols, a:col)
+    let l:c = songwriter#tab#model#ColumnFor(songwriter#tab#model#BarColumns(
+          \ songwriter#tab#model#Parse(0, a:lines), a:lin, a:col).cols, a:col)
   endif
   if l:c == 0
     return {'error': 'songwriter: gp needs a note column under the cursor'}

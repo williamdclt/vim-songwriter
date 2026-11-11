@@ -39,12 +39,10 @@ endfunction
 function! songwriter#tab#slots#Append(block, lin, col) abort
   let l:bar = songwriter#tab#model#BarAt(a:block.lines[a:lin], a:col)
   let l:e = 0
-  for l:s in a:block.strings
-    for l:n in l:s.notes
-      if l:n.col <= a:col && songwriter#tab#model#InBar(l:n.col, l:bar)
-        let l:e = max([l:e, l:n.col - 1 + l:n.len])
-      endif
-    endfor
+  for l:n in songwriter#tab#model#BarNotes(a:block, l:bar)
+    if l:n.col <= a:col
+      let l:e = max([l:e, songwriter#tab#model#NoteEnd(l:n)])
+    endif
   endfor
   if l:e == 0
     return {}
@@ -78,14 +76,10 @@ endfunction
 function! songwriter#tab#slots#Prepend(block, lin, col) abort
   let l:bar = songwriter#tab#model#BarAt(a:block.lines[a:lin], a:col)
   let l:s = 0
-  for l:str in a:block.strings
-    for l:n in l:str.notes
-      if l:n.col - 1 + l:n.len >= a:col
-            \ && songwriter#tab#model#InBar(l:n.col, l:bar)
-            \ && (l:s == 0 || l:n.col < l:s)
-        let l:s = l:n.col
-      endif
-    endfor
+  for l:n in songwriter#tab#model#BarNotes(a:block, l:bar)
+    if songwriter#tab#model#NoteEnd(l:n) >= a:col && (l:s == 0 || l:n.col < l:s)
+      let l:s = l:n.col
+    endif
   endfor
   if l:s == 0
     return {}

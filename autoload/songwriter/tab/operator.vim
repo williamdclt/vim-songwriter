@@ -163,7 +163,7 @@ function! s:slot_anchor(lines, lin, s) abort
   let l:pipes = songwriter#tab#model#Pipes(a:lines[a:lin])
   let l:left = max([0] + filter(copy(l:pipes), 'v:val < a:s'))
   let l:right = get(filter(copy(l:pipes), 'v:val >= a:s'), 0, 0)
-  let l:cols = filter(songwriter#tab#columns#Columns(a:lines),
+  let l:cols = filter(songwriter#tab#model#NoteColumns(songwriter#tab#model#Parse(0, a:lines)),
         \ 'v:val > l:left && (l:right == 0 || v:val < l:right)')
   let l:next = filter(copy(l:cols), 'v:val >= a:s')
   let l:prev = filter(copy(l:cols), 'v:val < a:s')
@@ -217,7 +217,7 @@ function! s:to_next_column() abort
   if empty(l:block)
     return
   endif
-  let l:cols = songwriter#tab#columns#Columns(l:block.lines)
+  let l:cols = songwriter#tab#model#NoteColumns(l:block)
   let l:next = filter(copy(l:cols), 'v:val >= col(".")')
   if !empty(l:next)
     call cursor(line('.'), l:next[0])
@@ -292,7 +292,7 @@ function! songwriter#tab#operator#Erase(count, reg) abort
   let l:lone = 0
   for l:i in range(max([a:count, 1]))
     let l:lin = songwriter#tab#model#CursorLin(l:block)
-    if l:i > 0 && !s:on_note(getline('.'), col('.'))
+    if l:i > 0 && empty(songwriter#tab#model#NoteAt(getline('.'), col('.')))
       let l:next = filter(map(songwriter#tab#model#Notes(getline('.')), 'v:val.col'), 'v:val > col(".")')
       if empty(l:next)
         break
@@ -315,11 +315,6 @@ function! songwriter#tab#operator#Erase(count, reg) abort
     call s:to_next_column()
   endif
   call songwriter#tab#repeat#Record("songwriter#tab#operator#Erase(%d, '" . a:reg . "')", a:count)
-endfunction
-
-function! s:on_note(line, col) abort
-  return !empty(filter(songwriter#tab#model#Notes(a:line),
-        \ 'v:val.col <= a:col && a:col < v:val.col + v:val.len'))
 endfunction
 
 " Spec 6.5 / 6.3.2: `p` (before 0) / `P` (before 1) from register `reg`.
