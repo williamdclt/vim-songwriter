@@ -276,7 +276,7 @@ endfunction
 " elsewhere, erase (6.7).
 function! songwriter#tab#operator#EraseOrMute(count, reg) abort
   if getline('.')[col('.') - 1] ==# '-'
-    call songwriter#tab#EnterNote('x')
+    call songwriter#tab#typing#EnterNote('x')
   else
     call songwriter#tab#operator#Erase(a:count, a:reg)
   endif

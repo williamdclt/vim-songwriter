@@ -128,7 +128,7 @@ Given songwriter (a digit replaces one fret next to a separator):
 
 Execute (a digit replaces one fret next to a separator):
   call cursor(1, 7)
-  call songwriter#tab#EnterNote(3)
+  call songwriter#tab#typing#EnterNote(3)
 Expect songwriter:
   e|--5h3--|
 
@@ -137,7 +137,7 @@ Given songwriter (a digit on a separator does nothing):
 
 Execute (a digit on a separator does nothing):
   call cursor(1, 6)
-  call songwriter#tab#EnterNote(3)
+  call songwriter#tab#typing#EnterNote(3)
 Expect songwriter:
   e|--5h7--|
 

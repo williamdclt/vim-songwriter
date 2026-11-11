@@ -1,7 +1,8 @@
 " autoload/songwriter/tab/slots.vim - slots: room opened for a note that is not
 " typed yet (spec [Tablature][[Editing]] 3.1, 4.3, 5, 6.6, 8). The pure functions
 " compute where a slot goes; Mark, Open, OpenHere, Forget and Abandon handle the
-" one open slot of a buffer, kept in tab/state.vim (see Open).
+" one open slot of a buffer, kept in tab/state.vim (see Open); AddNote (`a`,
+" `i`) and AddBarSlot (a new bar, spec 5) are the entry points that open one.
 
 " A new, empty bar: five dashes with the slot on the middle one.
 let s:new_bar = '-----'
@@ -251,4 +252,30 @@ function! songwriter#tab#slots#OpenHere(side) abort
   endif
   call songwriter#tab#edit#Apply(l:block, l:res)
   call songwriter#tab#slots#Open()
+endfunction
+
+" Spec [Tablature][[Editing]] 3.1: open room for a new note on every string,
+" to the right of the current note (side +1, `a`) or to its left (side -1,
+" `i`), land the cursor on the new slot and enter the insert state. An open
+" slot is closed first (4.3). The block is linted (4.2), and the slot is
+" remembered until a note fills it or it is closed, which restores the tab as it
+" was before the lint (4.3).
+function! songwriter#tab#slots#AddNote(side) abort
+  call songwriter#tab#edit#Do(function('s:add_note', [a:side]),
+        \ {'slot': 'close', 'open': a:side, 'lint': 0})
+endfunction
+
+function! s:add_note(side, ctx) abort
+  return a:side > 0
+        \ ? songwriter#tab#slots#Append(a:ctx.block, a:ctx.lin, a:ctx.col)
+        \ : songwriter#tab#slots#Prepend(a:ctx.block, a:ctx.lin, a:ctx.col)
+endfunction
+
+" Spec [Tablature][[Editing]] 5: append a new bar to the end of the tab with a
+" slot in its middle, and land the cursor on it, ready for a note. Like `a`,
+" the block is linted first (4.2) and the slot is remembered (4.3); closed, the
+" tab goes back as it was.
+function! songwriter#tab#slots#AddBarSlot() abort
+  call songwriter#tab#edit#Do({ctx -> songwriter#tab#slots#AppendBar(ctx.block)},
+        \ {'open': 1, 'lint': 0})
 endfunction

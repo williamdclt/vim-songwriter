@@ -12,7 +12,7 @@ Given songwriter (a digit enters the note on an empty slot):
 
 Execute (a digit enters the note on an empty slot):
   call cursor(1, 5)
-  call songwriter#tab#EnterNote('5')
+  call songwriter#tab#typing#EnterNote('5')
 Then:
   AssertEqual 5, col('.')
 Expect:
@@ -23,8 +23,8 @@ Given songwriter (a second digit typed straight after the first makes a two-digi
 
 Execute (a second digit typed straight after the first makes a two-digit fret):
   call cursor(1, 5)
-  call songwriter#tab#EnterNote('1')
-  call songwriter#tab#EnterNote('8')
+  call songwriter#tab#typing#EnterNote('1')
+  call songwriter#tab#typing#EnterNote('8')
 Then:
   AssertEqual 6, col('.')
 Expect:
@@ -35,7 +35,7 @@ Given songwriter (a digit on an existing note replaces it):
 
 Execute (a digit on an existing note replaces it):
   call cursor(1, 5)
-  call songwriter#tab#EnterNote('8')
+  call songwriter#tab#typing#EnterNote('8')
 Then:
   AssertEqual 5, col('.')
 Expect:
@@ -46,7 +46,7 @@ Given songwriter (a digit on either digit of an existing two-digit note replaces
 
 Execute (a digit on either digit of an existing two-digit note replaces the whole note):
   call cursor(1, 6)
-  call songwriter#tab#EnterNote('3')
+  call songwriter#tab#typing#EnterNote('3')
 Then:
   AssertEqual 5, col('.')
 Expect:
@@ -57,9 +57,9 @@ Given songwriter (after moving to another note, a digit replaces it rather than 
 
 Execute (after moving to another note, a digit replaces it rather than appending):
   call cursor(1, 5)
-  call songwriter#tab#EnterNote('5')
+  call songwriter#tab#typing#EnterNote('5')
   call cursor(1, 8)
-  call songwriter#tab#EnterNote('7')
+  call songwriter#tab#typing#EnterNote('7')
 Expect:
   e|--5--7--|
 
@@ -94,7 +94,7 @@ Given songwriter (a adds room to the right: 1 dash after the current note, 2 bef
 
 Execute (a adds room to the right: 1 dash after the current note, 2 before the pipe):
   call cursor(1, 5)
-  call songwriter#tab#AddNote(1)
+  call songwriter#tab#slots#AddNote(1)
 Then:
   AssertEqual 7, col('.')
   AssertEqual 1, line('.')
@@ -108,7 +108,7 @@ Given songwriter (i is the mirror of a, opening a room to the left of the curren
 
 Execute (i is the mirror of a, opening a room to the left of the current note):
   call cursor(1, 11)
-  call songwriter#tab#AddNote(-1)
+  call songwriter#tab#slots#AddNote(-1)
 Then:
   AssertEqual 11, col('.')
   AssertEqual 1, line('.')
@@ -122,7 +122,7 @@ Given songwriter (a anchors on the note under the cursor, not the bar's last not
 
 Execute (a anchors on the note under the cursor, not the bar's last note):
   call cursor(1, 5)
-  call songwriter#tab#AddNote(1)
+  call songwriter#tab#slots#AddNote(1)
 Then:
   AssertEqual 7, col('.')
 Expect:
@@ -135,7 +135,7 @@ Given songwriter (a keeps a 1-dash gap with a next note on another string):
 
 Execute (a keeps a 1-dash gap with a next note on another string):
   call cursor(1, 5)
-  call songwriter#tab#AddNote(1)
+  call songwriter#tab#slots#AddNote(1)
 Then:
   AssertEqual 7, col('.')
 Expect:
@@ -148,7 +148,7 @@ Given songwriter (i keeps a 1-dash gap with the previous note):
 
 Execute (i keeps a 1-dash gap with the previous note):
   call cursor(1, 8)
-  call songwriter#tab#AddNote(-1)
+  call songwriter#tab#slots#AddNote(-1)
 Then:
   AssertEqual 7, col('.')
 Expect:
@@ -161,7 +161,7 @@ Given songwriter (i keeps a 1-dash gap with a previous note on another string):
 
 Execute (i keeps a 1-dash gap with a previous note on another string):
   call cursor(1, 7)
-  call songwriter#tab#AddNote(-1)
+  call songwriter#tab#slots#AddNote(-1)
 Then:
   AssertEqual 7, col('.')
 Expect:
@@ -174,7 +174,7 @@ Given songwriter (i anchors on a two-digit note when the cursor is on its second
 
 Execute (i anchors on a two-digit note when the cursor is on its second digit):
   call cursor(1, 9)
-  call songwriter#tab#AddNote(-1)
+  call songwriter#tab#slots#AddNote(-1)
 Then:
   AssertEqual 7, col('.')
 Expect:
@@ -186,7 +186,7 @@ Given (a is a no-op off a tab block):
 
 Execute (a is a no-op off a tab block):
   call cursor(1, 1)
-  call songwriter#tab#AddNote(1)
+  call songwriter#tab#slots#AddNote(1)
 Expect:
   I walk a
 
