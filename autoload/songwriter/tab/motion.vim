@@ -96,10 +96,10 @@ function! s:insert_column(dir) abort
   endif
 endfunction
 
-" Close `slot`, under the cursor, and move from where the cursor was before it
-" opened (see s:from_slot), opening the slot of an empty bar landed in (3.3.4).
-" With no stop that way the slot stays open, except that `l` from a slot after
-" the last note of the tab's last bar makes a new bar (5) instead.
+" Close `slot`, under the cursor, and move on from the position it was in, as
+" stops#Step goes, opening the slot of an empty bar landed in (3.3.4). With no
+" stop that way the slot stays open, except that `l` from a slot after the
+" last note of the tab's last bar makes a new bar (5) instead.
 function! s:leave_slot(block, slot, dir) abort
   let l:col = col('.')
   let l:back = get(a:slot, 'side', 0) == -a:dir
@@ -112,7 +112,27 @@ function! s:leave_slot(block, slot, dir) abort
   endif
   call songwriter#tab#slots#Abandon(1)
   let l:block = songwriter#tab#model#Read()
-  call s:land(l:block, s:from_slot(a:slot, songwriter#tab#stops#Stops(l:block, getline('.')), col('.'), a:dir))
+  let l:stops = songwriter#tab#stops#Stops(l:block, getline('.'))
+  let l:target = col('.')
+  if has_key(a:slot, 'from')
+    let l:pos = songwriter#tab#stops#Step(l:block.lines, songwriter#tab#model#CursorLin(l:block),
+          \ s:position(a:slot, l:target), a:dir)
+    let l:target = get(l:pos, 'col', l:target)
+  endif
+  if index(l:stops, l:target) < 0 || !has_key(a:slot, 'from')
+    " Off the stops (back to a slot opened by `a` on a dash, or a slot of a
+    " bigger edit, which has no position): on to the next stop.
+    let l:target = songwriter#tab#stops#Advance(l:stops, l:target, a:dir, 1)
+  endif
+  call s:land(l:block, l:target)
+endfunction
+
+" The position (see stops#Step) of the cursor at column `col` once `slot`, a
+" slot opened by a move or `a`/`i` (slots#Mark), is closed: in the gap on the
+" side of its column it was opened on, or in its empty bar.
+function! s:position(slot, col) abort
+  let l:side = get(a:slot, 'side', 0)
+  return l:side != 0 ? {'kind': 'gap', 'side': l:side, 'col': a:col} : {'kind': 'bar', 'col': a:col}
 endfunction
 
 " Where a move in direction `dir` goes among `stops` from column `col`, the

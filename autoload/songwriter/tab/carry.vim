@@ -1,20 +1,15 @@
 " autoload/songwriter/tab/carry.vim - carrying a note with the arrow keys in the
-" insert state (spec [Tablature][[Editing]] 3.6). Lift, Step and Render are
-" pure (block lines in, lines and cursor out); Key and Move are the entry points.
+" insert state (spec [Tablature][[Editing]] 3.6). Lift and Render are pure
+" (block lines in, lines and cursor out); Key and Move are the entry points.
 "
 " The first arrow lifts the note out of the tab, as `x` would erase it (6.7):
 " what is left is the base, kept for the whole carry with the note's text. Where
-" the note is over the base is a position:
-"   {'kind': 'col', 'col': c}             on the note column c, replacing the
-"                                         note of its string there
-"   {'kind': 'gap', 'side': s, 'col': c}  in a slot opened after (s 1, as `a`)
-"                                         or before (s -1, as `i`) column c,
-"                                         the column it was entered from
-"   {'kind': 'bar', 'col': m}             in the empty bar whose middle is m
-"   {'kind': 'newbar'}                    in a bar added after the last one
-" Each arrow moves the position (or the string) and renders the base with the
-" note there, so whatever the note replaced or opened on its way is back as it
-" was once it moves on. Block lines are 0-indexed (`lin`), columns 1-indexed.
+" the note is over the base is a position of the insert state (see
+" stops#Step, which `l`/`h` step through too), on the note's string. Each arrow
+" moves the position (stops#Step) or the string and renders the base with the
+" note there, replacing the note of its string on a column, so whatever the
+" note replaced or opened on its way is back as it was once it moves on. Block
+" lines are 0-indexed (`lin`), columns 1-indexed.
 
 " Spec 3.6: lift the note covering column `col` of line `lin` out of `lines`.
 " Returns the carry: {'base': the linted lines without the note, 'origin':
@@ -74,39 +69,6 @@ function! s:canonical(base, lin, pos) abort
   let l:prev = filter(songwriter#tab#model#BarColumns(songwriter#tab#model#Parse(0, a:base), a:lin, a:pos.col).cols,
         \ 'v:val < a:pos.col')
   return empty(l:prev) ? a:pos : {'kind': 'gap', 'side': 1, 'col': l:prev[-1]}
-endfunction
-
-" Spec 3.6: the position after `pos` (over `base`, on line `lin`) in direction
-" `dir`, through the stops of `l`/`h` in the insert state (3.3.3): from a
-" column into the gap on that side of it, opened from that column as `a` / `i`
-" open it, from a gap onto the column it was entered from or on to the next
-" stop, an empty bar being one (3.3.4). Past the
-" last stop of the tab's last bar, a new bar (5); back from it, the last stop.
-" `pos` itself when there is nowhere to go.
-function! songwriter#tab#carry#Step(base, lin, pos, dir) abort
-  let l:block = songwriter#tab#model#Parse(0, a:base)
-  let l:line = a:base[a:lin]
-  let l:stops = songwriter#tab#stops#Stops(l:block, l:line)
-  if a:pos.kind ==# 'col'
-    return {'kind': 'gap', 'side': a:dir, 'col': a:pos.col}
-  elseif a:pos.kind ==# 'newbar'
-    return a:dir < 0 && !empty(l:stops) ? s:stop(l:block, l:line, l:stops[-1]) : a:pos
-  elseif a:pos.kind ==# 'gap' && a:pos.side == -a:dir
-    return {'kind': 'col', 'col': a:pos.col}
-  endif
-  let l:target = songwriter#tab#stops#Advance(l:stops, a:pos.col, a:dir, 1)
-  if l:target != a:pos.col
-    return s:stop(l:block, l:line, l:target)
-  elseif a:pos.kind ==# 'gap' && a:dir > 0 && songwriter#tab#stops#InLastBar(l:line, a:pos.col)
-    return {'kind': 'newbar'}
-  endif
-  return a:pos
-endfunction
-
-" The position of stop `col` of `line`: an empty bar's middle, or a column.
-function! s:stop(block, line, col) abort
-  let l:empty = songwriter#tab#stops#EmptyBarStops(a:line, songwriter#tab#model#NoteColumns(a:block))
-  return {'kind': index(l:empty, a:col) >= 0 ? 'bar' : 'col', 'col': a:col}
 endfunction
 
 " Spec 3.6: the tab with the note of `carry` at `pos` on line `lin`: its base
@@ -194,7 +156,7 @@ function! s:move(move, carry, ctx) abort
     return {}
   endif
   let l:pos = l:dir == 0 ? l:carry.pos
-        \ : songwriter#tab#carry#Step(l:carry.base, l:lin, l:carry.pos, l:dir)
+        \ : songwriter#tab#stops#Step(l:carry.base, l:lin, l:carry.pos, l:dir)
   if l:pos ==# l:carry.pos && l:lin == l:carry.lin
     return {}
   endif

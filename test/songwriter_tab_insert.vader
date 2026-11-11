@@ -151,3 +151,16 @@ Then:
   AssertEqual 8, col('.')
 Expect songwriter:
   e|--4--1--|
+
+Given songwriter (3.3.3 h from the slot c opened in an emptied bar goes to the previous note):
+  e|--3--|--5--|--7--|
+
+Execute (3.3.3 h from the slot c opened in an emptied bar goes to the previous note):
+  call cursor(1, 11)
+  call feedkeys('cac', 'xt')
+  call feedkeys('h', 'xt')
+Then:
+  AssertEqual 5, col('.')
+
+Expect songwriter (3.3.3 h from the slot c opened in an emptied bar goes to the previous note):
+  e|--3--|-----|--7--|
