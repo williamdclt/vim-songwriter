@@ -1,5 +1,5 @@
 " Spec [Tablature][[Editing]] 3.4.1.1-3.4.1.3: typing notes one after the
-" other in the insert state, without `l` in between. `feedkeys` where undo
+" other, without `l` in between. `feedkeys` where undo
 " steps matter (`normal` makes one undo step of all its keys).
 
 Before:
@@ -149,14 +149,36 @@ Execute (3.4.1.1 each note is its own undo step with its slot):
 Expect songwriter (3.4.1.1 each note is its own undo step with its slot):
   e|--4-5--|
 
-Given songwriter (3.4.1.1 in the normal state digits are appended as before):
+Given songwriter (3.4.1.1 in the normal state a digit is appended when it makes a fret):
   e|--4--|
 
-Do (3.4.1.1 in the normal state digits are appended as before):
+Do (3.4.1.1 in the normal state a digit is appended when it makes a fret):
+  f412
+
+Expect songwriter (3.4.1.1 in the normal state a digit is appended when it makes a fret):
+  e|--12--|
+
+Given songwriter (3.4.1.1 in the normal state a digit that makes no fret is the next note):
+  e|--4--|
+
+Do (3.4.1.1 in the normal state a digit that makes no fret is the next note):
   f457
 
-Expect songwriter (3.4.1.1 in the normal state digits are appended as before):
-  e|--57--|
+Expect songwriter (3.4.1.1 in the normal state a digit that makes no fret is the next note):
+  e|--5-7--|
+
+Given songwriter (3.4.1.1 in the normal state a run of notes on a dash):
+  e|-----|
+
+Execute (3.4.1.1 in the normal state a run of notes on a dash):
+  call cursor(1, 5)
+  normal 357
+Then:
+  Assert !songwriter#tab#insert#Active()
+  AssertEqual 9, col('.')
+
+Expect songwriter (3.4.1.1 in the normal state a run of notes on a dash):
+  e|--3-5-7--|
 
 " === 3.4.1.2 <Space> ===
 
