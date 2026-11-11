@@ -207,6 +207,7 @@ endfunction
 
 function! songwriter#keys#ToggleTabMode() abort
   let b:songwriter_tabmode = !songwriter#keys#InTabMode()
+  call songwriter#tab#highlight#Update()
   echo (b:songwriter_tabmode ? 'songwriter: tablature mode on' : 'songwriter: tablature mode off')
 endfunction
 

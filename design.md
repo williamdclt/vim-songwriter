@@ -27,8 +27,9 @@ never relies on concealing or rendering.
 | `autoload/songwriter/tab/newtab.vim` | New tabs: `o`/`O` and `:SongwriterNewTab`. |
 | `autoload/songwriter/tab/state.vim` | Buffer state valid only while `b:changedtick` is unchanged (slot, insert state, digit being typed, carried note, `.`). |
 | `autoload/songwriter/tab/lint.vim` | The linter, as a pure function over a block's lines. |
+| `autoload/songwriter/tab/highlight.vim` | The time column under the cursor, highlighted in tablature mode. |
 | `autoload/songwriter/tab.vim` | The tab commands that work outside tablature mode too: `_`, `\|\|`, `:SongwriterAddBar`, `:SongwriterAddDashes`, `:SongwriterTabChord`. |
-| `autoload/songwriter/tab/columns.vim` | Editing time columns, pure: extract, delete, erase, shift, make room for a note. |
+| `autoload/songwriter/tab/columns.vim` | Editing time columns, pure: extract, delete, erase (any set of notes, `EraseSet`), shift, make room for a note. |
 | `autoload/songwriter/tab/objects.vim` | Text object ranges and the snapping of other ranges, pure. |
 | `autoload/songwriter/tab/paste.vim` | Pasting blockwise registers, pure: row matching, insert, overlay. |
 | `autoload/songwriter/tab/operator.vim` | Tablature-mode operators, text objects, `x`/`p`/`P`, `>>`/`<<`, `gp`: buffer entry points around the pure modules. |
@@ -443,6 +444,14 @@ The spec items carry the behaviour; this records why, and how it is built.
   apart (`columns.vim` `s:removable`), since a dash lost between `10` and `12`
   would turn them into `1012`, which no lint can undo; with no room at all the
   note becomes dashes, as on a shared column.
+- **Across strings (6.2.4).** `j`/`k` after an operator move across strings,
+  so `dj` acts where they go: the time column under the cursor, on the
+  strings covered (`operator#Across`, an operator-pending map like the text
+  objects). Its notes are erased as `x` erases each (`columns#EraseSet`, which
+  `x`, the string motions and the note objects share), so the column goes with
+  its gap only when no note is left on it. The register is one column, with
+  the strings not erased as dashes (as `in`), rather than `x`'s one column per
+  note: the notes were played together and should paste together.
 - **The column is the tab's line.** A doubled operator acts on a line in text
   and on the time column in a tab: `dd`/`yy`/`cc` are `dac`/`yac`/`cac`, so
   `ddp` and `yyp` swap and duplicate columns as they do lines. The second key
@@ -602,6 +611,19 @@ on the string being worked on. Outside tablature mode `o`/`O` stay native.
 and turns tablature mode on, since the slot it opens only means something
 there. It is a command rather than a key: a key on a prose line would take a
 native key away, and the command takes the tuning as its argument.
+
+### Time column highlight ([[Rendering]] 4)
+
+Column-wise operations act on the notes starting on the cursor's column, on
+every string, which the cursor alone does not show. `tab/highlight.vim` keeps
+a window match (`matchaddpos`, group `songwriterTimeColumn`, linked by default
+to `CursorColumn`) on those notes: the note under the cursor decides the
+column, so a cursor on the `2` of `12` still shows that note's column.
+Buffer-local autocommands update it on every cursor move and text change,
+and clear it when the window loses focus or shows another buffer (a window
+match would otherwise stay on that buffer). Reading the block on each move is
+cheap (a few short lines); the match is replaced only when the column
+changes.
 
 ### Outside tablature mode
 

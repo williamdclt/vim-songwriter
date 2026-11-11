@@ -1,0 +1,56 @@
+" Spec [Tablature][[Rendering]] 4: in tablature mode, the time column under
+" the cursor (the notes starting on the cursor's column, on every string) is
+" highlighted. Highlighting only: the file is unchanged.
+
+Before:
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_insert
+  let b:songwriter_tabmode = 1
+  call songwriter#tab#highlight#Clear()
+
+After:
+  call songwriter#tab#highlight#Clear()
+
+Execute (Rendering 4 pure: the notes starting on the cursor's column, on every string):
+  let b = songwriter#tab#model#Parse(3, ['e|--0--3--|', 'B|--1-----|', 'G|-----12-|'])
+  AssertEqual [[3, 5, 1], [4, 5, 1]], songwriter#tab#highlight#Positions(b, 0, 5)
+  AssertEqual [[3, 8, 1], [5, 8, 2]], songwriter#tab#highlight#Positions(b, 2, 9)
+  AssertEqual [], songwriter#tab#highlight#Positions(b, 0, 6)
+
+Given songwriter (Rendering 4 the column under the cursor is highlighted):
+  e|--0--3--|
+  B|--1-----|
+
+Execute (Rendering 4 the column under the cursor is highlighted):
+  call cursor(2, 5)
+  call songwriter#tab#highlight#Update()
+  let m = filter(getmatches(), 'v:val.group ==# "songwriterTimeColumn"')
+  AssertEqual 1, len(m)
+  AssertEqual [1, 5, 1], m[0].pos1
+  AssertEqual [2, 5, 1], m[0].pos2
+
+Execute (Rendering 4 moving updates the highlight, a dash with no column clears it):
+  call cursor(1, 8)
+  call songwriter#tab#highlight#Update()
+  AssertEqual [[1, 8, 1]], map(filter(getmatches(), 'v:val.group ==# "songwriterTimeColumn"'), '[v:val.pos1]')[0]
+  call cursor(1, 6)
+  call songwriter#tab#highlight#Update()
+  AssertEqual [], filter(getmatches(), 'v:val.group ==# "songwriterTimeColumn"')
+
+Execute (Rendering 4 nothing is highlighted outside tablature mode):
+  let b:songwriter_tabmode = 0
+  call cursor(1, 5)
+  call songwriter#tab#highlight#Update()
+  AssertEqual [], filter(getmatches(), 'v:val.group ==# "songwriterTimeColumn"')
+
+Given songwriter (Rendering 4 nothing is highlighted off a tab line):
+  some prose 12
+
+Execute (Rendering 4 nothing is highlighted off a tab line):
+  call cursor(1, 12)
+  call songwriter#tab#highlight#Update()
+  AssertEqual [], filter(getmatches(), 'v:val.group ==# "songwriterTimeColumn"')
+
+Execute (Rendering 4 the highlight follows the cursor through autocommands):
+  Assert exists('#songwriter_column#CursorMoved#<buffer>')
+  Assert exists('#songwriter_column#WinLeave#<buffer>')
+  AssertEqual 'CursorColumn', synIDattr(synIDtrans(hlID('songwriterTimeColumn')), 'name')
