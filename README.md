@@ -1,5 +1,7 @@
 # vim-songwriter
 
+[![test](https://github.com/williamdclt/vim-songwriter/actions/workflows/test.yml/badge.svg)](https://github.com/williamdclt/vim-songwriter/actions/workflows/test.yml)
+
 Write guitar tablatures, chord progressions and lyrics with chords in plain
 text. The files stay readable in any text editor: no special syntax, no
 rendering step.
