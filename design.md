@@ -16,8 +16,8 @@ never relies on concealing or rendering.
 | File | Role |
 |---|---|
 | `autoload/songwriter/grammar.vim` | The format's patterns (tab line, note, fret, separator, chain, chord, highlighting). The only place regexes for the format are written. |
-| `autoload/songwriter/tab/model.vim` | Tab block model: parse, queries, the column-insertion primitive, and `Read`/`Write` (the buffer edges). |
-| `autoload/songwriter/tab/edit.vim` | The buffer side of a tablature edit: `Commit` a pure function's result (write, cursor, lint and follow, message or refusal), `Run` a whole edit at the cursor. |
+| `autoload/songwriter/tab/model.vim` | Tab block model: parse, queries (notes, time columns, bars), `Splice`/`Blank` and the column-insertion primitive, and `Read`/`Write` (the buffer edges). |
+| `autoload/songwriter/tab/edit.vim` | The buffer side of a tablature edit: `Do` runs a whole edit at the cursor (slot, undo join, lints, one write, insert state, state for the next key, register, `.`); `Commit`, `LintAndFollow`, `Apply` and the pure `Linted` are its parts. |
 | `autoload/songwriter/tab/slots.vim` | Slots: where a new note's room goes (pure) and the buffer's one open slot, with how to close it. |
 | `autoload/songwriter/tab/insert.vim` | The insert state of tablature mode: entering, keeping, leaving it, and `<Esc>`. |
 | `autoload/songwriter/tab/carry.vim` | Carrying a note with the arrow keys in the insert state. |
@@ -48,10 +48,23 @@ An operation is a thin buffer entry point around pure logic:
 1. `songwriter#tab#model#Read()` parses the block around the cursor (or returns
    `{}` off a tab line, which every entry point treats as a no-op);
 2. a pure function computes the result: new lines and/or a cursor column
-   (`{'lines': [...], 'col': n}`, `{}` for "nothing to do");
-3. the entry point writes it back (`edit#Commit` lints and follows too;
-   `edit#Apply` only writes and moves the cursor). `edit#Run` is the whole
-   sequence for an edit at the cursor.
+   (`{'lines': [...], 'col': n}`, `{}` for "nothing to do"), and what to record
+   (`state`, `register`);
+3. the result is written back.
+
+`edit#Do(Fn, opts)` is the whole sequence for an edit at the cursor, and the
+one place that applies the rules of spec 4 (linting after edits) and 4.3
+(slots): what happens to an open slot (closed, closed keeping the lint,
+filled), whether the edit joins the previous undo step, lints before and
+after, opens a slot, keeps the insert state, and records itself for `.`. An
+entry point states these as options instead of writing them out, so a rule is
+never forgotten in one place. The lints and the edit are computed in memory
+(`edit#Linted` is lint plus cursor-following, pure) and written once, and
+`model#Write` sets only the lines that differ: an edit that changes nothing
+leaves no undo step, and the undo join happens only on an actual write. Entry
+points that are not one edit at the cursor (operators, which run through
+`g@`; slots closed by motions) use its parts: `Commit` (lint, follow, write),
+`LintAndFollow`, `Apply` (write, no lint).
 
 Pure functions are testable without buffer setup and composable: spec item 4
 (lint after an edit) is "edit, then lint, then follow the moved note", which is
@@ -102,11 +115,16 @@ the block.
 
 `model#Parse(start, lines)` gives `{start, end, lines, strings}` with each string's
 notes (`{col, len, text}`) and pipe columns. Columns are 1-indexed byte columns,
-as `col()` returns (tab lines are ASCII). Queries: `NoteColumns` (block-wide,
-sorted, unique), `BarAt`, `InBar`, `Advance` (through a list of stops); and
-`Cursor`, the cursor as `{block, lin, col, line}`. Pure functions address the
-cursor as `lin` (0-indexed in the block) and `col`. The width of a line's
-prefix is known only to `Name`, `Names` and `BodyOffset`. The single mutation primitive is
+as `col()` returns (tab lines are ASCII). Queries on a parsed block:
+`NoteColumns` (block-wide, sorted, unique), `ColumnEnd`, `IsShared`,
+`BarColumns` (a bar and its time columns), `BarNotes`, `GapEnd`; on a line,
+`BarAt`, `InBar`, `NoteAt`; on a list, `ColumnFor`, `Advance` (through stops);
+and `Cursor`, the cursor as `{block, lin, col, line}`. The pure column code
+(`columns.vim`) takes a block's lines and parses them once on entry. Pure
+functions address the cursor as `lin` (0-indexed in the block) and `col`. The
+width of a line's prefix is known only to `Name`, `Names` and `BodyOffset`.
+Text is written into a line with `Splice` (`Blank` turns a note into dashes);
+the single mutation primitive across strings is
 `InsertColumns(lines, offset, n, char)`: pad every line with dashes up to
 `offset`, then insert `n` copies of `char` after it, on every string, so pipes
 and notes stay vertically aligned.
