@@ -12,15 +12,19 @@ the per-feature tests: run `make test` after every step.
 
 ## 1. Slots and carrying on one position model
 
-**Now.** `tab/carry.vim` has a clean pure position model (`col`, `gap`,
-`bar`, `newbar`; `Step`, `Render`), and `carry#Step` already encodes the
-insert-state stops of `l`/`h` (spec 3.3.3). `tab.vim` does the same traversal
-imperatively for `l`/`h`/`L`/`H` in the insert state: `s:insert_column`,
-`s:leave_slot`, `s:from_slot`, `s:land`, `tab#AddBarSlot`. A slot is a carry
-with no note, and the slot's recorded `before` lines are the carry's base.
-[[Bugs]] 2 (carrying back from the end of a tab loses a note) lives in the
-carry copy (`Step` from `newbar`, and the lint of the base dropping empty
-bars).
+**Now.** `tab/carry.vim` has a pure position model (`col`, `gap`, `bar`,
+`newbar`; `Step`, `Render`), and `carry#Step` encodes the insert-state stops of
+`l`/`h` (spec 3.3.3). `tab/motion.vim` does the same traversal imperatively
+for `l`/`h`/`L`/`H` in the insert state (`s:insert_column`, `s:leave_slot`,
+`s:from_slot`, `s:land`, with `slots#AddNote` and `slots#AddBarSlot`). A slot
+is a carry with no note, and the slot's recorded `before` lines are the carry's
+base. Compared step by step, the two agree on where they go, including on a
+new bar and at bar lines; the one difference is how a gap is opened: `h` on a
+note in the insert state opens the slot before that note (`slots#Prepend`, as
+`i`), while carrying names a gap after the column before it (`s:canonical`)
+and renders it with `slots#Append`, which can put the dashes differently.
+[[Bugs]] 2 is in the carry's base, not its steps: going back from a new bar
+lands on the last column, as `h` does from the new bar's slot.
 
 **Change.** Make the insert state's cursor a position over a base: `l`/`h`
 step the position (`carry#Step`) and render it with no note (`Render` minus the
@@ -28,29 +32,11 @@ note), the arrows render it with the carried note. Closing a slot renders the
 base. Keep the undo handling of spec 4.3 (no undo step left) as it is.
 
 **Buys.** `l` and `<Right>` agree by construction; one copy of the stop logic
-to fix. This is the largest and riskiest step: unifying may expose small
-differences between `l`/`h` and the arrows, each of which is a behaviour change
-to check with the user.
+to fix. It changes behaviour where a gap is opened from its right (`h`, or
+`<Left>`): which of `Append`/`Prepend` both use must be decided with the user
+first.
 
-## 2. Module boundaries
-
-**Now.** `tab.vim` (the most-changed file) mixes typing, motions, new tabs and
-simple commands. `tab/columns.vim` holds text objects, motion ranges (`Stops`,
-`BarStop`, `StringMotion`), register row matching and pasting (`MatchRows`,
-`Paste`, `PasteAt`, `Overlay`) and `MakeRoom`. `tab/model.vim` holds motion
-concerns (`Stops`, `EmptyBarStops`, `InLastBar`, `Advance`). In `keys.vim`,
-the operator-pending and visual tables repeat the same text-object keys.
-
-**Change.** Split `tab.vim` into `tab/typing.vim` (`EnterNote`,
-`EnterSeparator`, `JustTyped`), `tab/motion.vim` (word, bar, column motions and
-the insert-state stops) and `tab/newtab.vim`; split `columns.vim` into
-`tab/objects.vim` (objects, `Snap`), `tab/motions.vim` (pure stops and motion
-ranges, with the model's `Stops`/`Advance`), `tab/paste.vim`, and what is left
-(delete, extract, erase, shift, `MakeRoom`). Generate the `o` and `x` object
-entries in `keys.vim` from one list. Low risk; can be done alongside the
-others. Update design.md's module table.
-
-## 3. Groundwork for the open spec items
+## 2. Groundwork for the open spec items
 
 - **6.2.4 (`dj`/`dk`)**: generalise `columns#EraseNotes` from "the notes of one
   line in a range" to a set of `(lin, col)` notes. `x`, `dl`, `dw`, `dan` and
