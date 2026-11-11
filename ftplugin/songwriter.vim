@@ -50,5 +50,16 @@ for s:mode in ['n', 'o', 'x']
   endfor
 endfor
 
+" Spec [Tablature][[Rendering]] 4: the time column under the cursor follows
+" it; the highlight is a window match, so it goes when the window shows
+" another buffer or loses focus.
+augroup songwriter_column
+  autocmd! * <buffer>
+  autocmd CursorMoved,CursorMovedI,BufWinEnter,WinEnter,TextChanged,TextChangedI <buffer>
+        \ call songwriter#tab#highlight#Update()
+  autocmd BufWinLeave,WinLeave <buffer> call songwriter#tab#highlight#Clear()
+augroup END
+let b:undo_ftplugin .= '| exe "autocmd! songwriter_column * <buffer>" | call songwriter#tab#highlight#Clear()'
+
 unlet s:mode s:lhs
 unlet s:key s:plug s:plug_keys

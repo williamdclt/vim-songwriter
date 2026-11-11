@@ -16,9 +16,8 @@ function! songwriter#tab#columns#OnPipeOrName(line, col) abort
 endfunction
 
 " Spec 6.2.2 / 6.1.4: erase every note of line `lin` that lies in [s, e], each
-" as `x` does (EraseNote), right to left so that a removed column does not
-" shift the next ones. {'lines', 'rows' (what `x` writes for each note, left to
-" right), 'col' (the first erased note), 'removed' (a column went)}, or {}
+" as `x` does (EraseSet). {'lines', 'rows' (what `x` writes for each note, left
+" to right), 'col' (the first erased note), 'removed' (a column went)}, or {}
 " when there is no note there.
 function! songwriter#tab#columns#EraseNotes(lines, lin, s, e) abort
   let l:notes = filter(songwriter#tab#model#Notes(a:lines[a:lin]),
@@ -26,16 +25,34 @@ function! songwriter#tab#columns#EraseNotes(lines, lin, s, e) abort
   if empty(l:notes)
     return {}
   endif
-  let l:first = l:notes[0].col
-  let l:lines = a:lines
+  let l:res = songwriter#tab#columns#EraseSet(a:lines,
+        \ map(l:notes, {_, n -> {'lin': a:lin, 'col': n.col}}))
   let l:rows = map(copy(a:lines), '""')
-  for l:n in reverse(l:notes)
-    let l:res = songwriter#tab#columns#EraseNote(l:lines, a:lin, l:n.col)
-    let l:rows = map(l:rows, 'l:res.rows[v:key] . v:val')
+  for l:r in l:res.rows
+    let l:rows = map(l:rows, 'v:val . l:r[v:key]')
+  endfor
+  return {'lines': l:res.lines, 'rows': l:rows, 'col': l:res.col, 'removed': l:res.removed}
+endfunction
+
+" Erase the notes `notes` ([{'lin', 'col'}], any column of each note, on any
+" strings), each as `x` does (EraseNote), right to left so that a removed
+" column does not shift the next ones; on one column, the last note erased
+" takes the column with it when it goes (6.7.2). {'lines', 'rows' (what `x`
+" writes for each note, left to right), 'col' (the leftmost note's start),
+" 'removed' (a column went)}.
+function! songwriter#tab#columns#EraseSet(lines, notes) abort
+  let l:notes = map(copy(a:notes), {_, n -> extend(copy(n),
+        \ {'col': songwriter#tab#model#NoteAt(a:lines[n.lin], n.col).col})})
+  call sort(l:notes, {a, b -> a.col != b.col ? b.col - a.col : a.lin - b.lin})
+  let l:lines = a:lines
+  let l:rows = []
+  for l:n in l:notes
+    let l:res = songwriter#tab#columns#EraseNote(l:lines, l:n.lin, l:n.col)
+    call insert(l:rows, l:res.rows)
     let l:lines = l:res.lines
   endfor
-  return {'lines': l:lines, 'rows': l:rows, 'col': l:first,
-        \ 'removed': len(l:lines[a:lin]) < len(a:lines[a:lin])}
+  return {'lines': l:lines, 'rows': l:rows, 'col': l:notes[-1].col,
+        \ 'removed': len(l:lines[0]) < len(a:lines[0])}
 endfunction
 
 " The columns [s, e] of every line (short lines padded with dashes).

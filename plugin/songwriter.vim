@@ -6,6 +6,14 @@ if exists('g:loaded_songwriter_plugin')
 endif
 let g:loaded_songwriter_plugin = 1
 
+" Spec [Tablature][[Rendering]] 4: the time column under the cursor (a
+" default that a color scheme or the user can override).
+highlight default link songwriterTimeColumn CursorColumn
+augroup songwriter_colors
+  autocmd!
+  autocmd ColorScheme * highlight default link songwriterTimeColumn CursorColumn
+augroup END
+
 " === Ex commands ===
 command! -nargs=0 SongwriterAddBar call songwriter#tab#AddBar()
 command! -nargs=0 SongwriterAddDash call songwriter#tab#AddDash()

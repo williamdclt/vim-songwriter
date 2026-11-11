@@ -10,7 +10,7 @@
 " (`note`, see ApplyRange) are kept in s:pending, since v:register is not
 " reliable inside 'operatorfunc'.
 
-let s:pending = {'op': 'd', 'reg': '"', 'exact': 0, 'note': 0, 'cancel': 0, 'tick': -1}
+let s:pending = {'op': 'd', 'reg': '"', 'exact': 0, 'note': 0, 'across': {}, 'cancel': 0, 'tick': -1}
 
 " === Operators ===
 
@@ -18,7 +18,7 @@ let s:pending = {'op': 'd', 'reg': '"', 'exact': 0, 'note': 0, 'cancel': 0, 'tic
 " operation's), then g@. The <Cmd> that lints consumes the count, so it is
 " given again after g@ (`3dw` runs as `g@3w`).
 function! songwriter#tab#operator#Start(op) abort
-  let s:pending = {'op': a:op, 'reg': v:register, 'exact': 0, 'note': 0, 'cancel': 0, 'tick': -1}
+  let s:pending = {'op': a:op, 'reg': v:register, 'exact': 0, 'note': 0, 'across': {}, 'cancel': 0, 'tick': -1}
   set operatorfunc=songwriter#tab#operator#Opfunc
   return "\<Cmd>call songwriter#tab#operator#Prelint()\<CR>g@"
         \ . (v:count ? v:count : '')
@@ -55,6 +55,7 @@ function! songwriter#tab#operator#Opfunc(type) abort
   let l:p = copy(s:pending)
   let s:pending.exact = 0
   let s:pending.note = 0
+  let s:pending.across = {}
   let s:pending.cancel = 0
   if l:p.cancel
     return
@@ -83,7 +84,11 @@ function! songwriter#tab#operator#Opfunc(type) abort
       return
     endif
     call cursor(l:lnum, l:s)
-    call songwriter#tab#operator#ApplyRange(l:p.op, l:p.reg, l:block, l:s, l:e, l:p.note)
+    if !empty(l:p.across)
+      call s:across(l:p.op, l:p.reg, l:block, l:p.across)
+    else
+      call songwriter#tab#operator#ApplyRange(l:p.op, l:p.reg, l:block, l:s, l:e, l:p.note)
+    endif
   endif
 endfunction
 
@@ -147,6 +152,39 @@ function! s:noteop(op, reg, block, s, e, exact) abort
   if a:op ==# 'y'
     return
   endif
+  call cursor(line('.'), l:res.col)
+  if l:res.removed
+    call s:write_deleted(a:op, a:block, l:res.lines, l:res.col)
+  else
+    call songwriter#tab#edit#Commit(a:block, {'lines': l:res.lines})
+  endif
+endfunction
+
+" Spec 6.2.4: `op` on the notes starting on time column `a.col` of the
+" strings `a.lins` ([first, last], 0-indexed), each erased as `x` does. The
+" register holds that column and its gap, the other strings as dashes; `c`
+" opens a slot if the column went.
+function! s:across(op, reg, block, a) abort
+  let l:notes = []
+  for l:lin in range(a:a.lins[0], a:a.lins[1])
+    if !empty(filter(copy(a:block.strings[l:lin].notes), 'v:val.col == a:a.col'))
+      call add(l:notes, {'lin': l:lin, 'col': a:a.col})
+    endif
+  endfor
+  if empty(l:notes)
+    return
+  endif
+  let l:lin = songwriter#tab#model#CursorLin(a:block)
+  let l:e = songwriter#tab#model#GapEnd(a:block, l:lin,
+        \ songwriter#tab#model#BarColumns(a:block, l:lin, a:a.col), a:a.col)
+  let l:lins = map(copy(l:notes), 'v:val.lin')
+  let l:rows = map(songwriter#tab#columns#Extract(a:block.lines, a:a.col, l:e),
+        \ {i, r -> index(l:lins, i) >= 0 ? r : repeat('-', len(r))})
+  call songwriter#tab#register#Set(a:reg, l:rows, 'b', songwriter#tab#model#Names(a:block.lines))
+  if a:op ==# 'y'
+    return
+  endif
+  let l:res = songwriter#tab#columns#EraseSet(a:block.lines, l:notes)
   call cursor(line('.'), l:res.col)
   if l:res.removed
     call s:write_deleted(a:op, a:block, l:res.lines, l:res.col)
@@ -237,6 +275,33 @@ function! songwriter#tab#operator#Motion(key) abort
   let l:c = songwriter#tab#model#Cursor()
   call s:select_exact(empty(l:c) ? [] : songwriter#tab#stops#StringMotion(l:c.block.lines,
         \ l:c.line, l:c.col, a:key, v:count1), 2)
+endfunction
+
+" Spec 6.2.4: `j`/`k` after an operator: the time column under the cursor
+" (as `ic` finds it), on the cursor's string and `count` more below / above;
+" `J`/`K` down to the bottom / up to the top string. With no string that way
+" or no column, the operator is cancelled.
+function! songwriter#tab#operator#Across(key) abort
+  let l:c = songwriter#tab#model#Cursor()
+  if empty(l:c) || songwriter#tab#columns#OnPipeOrName(l:c.line, l:c.col)
+    let s:pending.cancel = 1
+    return
+  endif
+  let l:last = len(l:c.block.lines) - 1
+  if a:key ==# 'j' && l:c.lin == l:last || a:key ==# 'k' && l:c.lin == 0
+    let s:pending.cancel = 1
+    return
+  endif
+  let l:to = {'j': l:c.lin + v:count1, 'k': l:c.lin - v:count1, 'J': l:last, 'K': 0}[a:key]
+  let l:to = max([0, min([l:to, l:last])])
+  let l:col = songwriter#tab#model#ColumnFor(
+        \ songwriter#tab#model#BarColumns(l:c.block, l:c.lin, l:c.col).cols, l:c.col)
+  if l:col == 0
+    let s:pending.cancel = 1
+    return
+  endif
+  call s:select_exact([l:col, l:col], 0)
+  let s:pending.across = {'col': l:col, 'lins': [min([l:c.lin, l:to]), max([l:c.lin, l:to])]}
 endfunction
 
 " Spec 6.1: `ic`/`ac` (kind 'c') and `i|`/`a|` (kind '|'), with a count.

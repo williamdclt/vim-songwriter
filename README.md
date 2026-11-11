@@ -55,7 +55,9 @@ behaves as usual.
 
 Like Vim, it has a normal state (moving never changes the file) and an insert
 state (moving opens room for new notes). The insert state shows
-`-- TAB INSERT --`.
+`-- TAB INSERT --`. The time column under the cursor is highlighted (group
+`songwriterTimeColumn`, linked to `CursorColumn` by default), so you can see
+which notes column-wise operations act on.
 
 ### Writing notes
 
@@ -136,7 +138,11 @@ Operators act on whole time columns, on every string, and keep the spacing.
 | `V`             | Visual selection of the time column                      |
 | `.`             | Repeat                                                   |
 
-Operators take any motion (`dw`, `d$`, `dW`) and these text objects:
+Operators take any motion (`dw`, `d$`, `dW`). `j` / `k` act on the time column
+across strings: `dj` erases the column's notes on this string and the next one
+down, `d2k` on this one and the two above, `dJ` / `dK` down to the bottom / up
+to the top string (`dJ` on the D string of an open Am leaves the top three
+notes). They also take these text objects:
 
 | Object          | Selects                                     |
 |-----------------|---------------------------------------------|
