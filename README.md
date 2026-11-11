@@ -6,19 +6,17 @@ Write guitar tablatures, chord progressions and lyrics with chords in plain
 text. The files stay readable in any text editor: no special syntax, no
 rendering step.
 
-```
-[Verse]
+One `.song.txt` file holds the whole song: sections, notes, tabs, lyrics with
+chords above them, chord charts. Vim highlights each of them:
 
-Am                F
-I walk a lonely road
+![A song file with sections, tabs, lyrics with chords and a chord chart](demo/screenshot.png)
 
-e|--------0-----|--------1-----|
-B|-----1-----1--|-----1-----1--|
-G|--2-----------|--2-----------|
-D|--------------|--------------|
-A|--0-----------|--------------|
-E|--------------|--1-----------|
-```
+([demo/example.song.txt](demo/example.song.txt) is the file shown here.)
+
+In tablature mode, keys work on the notes played together and keep the tab
+aligned:
+
+![Writing a tab: notes, a chord, copying a column, moving a note](demo/tabs.gif)
 
 ## Installation
 
@@ -213,6 +211,10 @@ implementation status in [specification.song.txt](specification.song.txt).
 Tests use [Vader.vim](https://github.com/junegunn/vader.vim) (cloned on first
 run): `make test`. Run `make hooks` once after cloning to enable the pre-commit
 hook, which requires green tests.
+
+The README images are recorded with [VHS](https://github.com/charmbracelet/vhs)
+from `demo/*.tape`: run `vhs demo/screenshot.tape` and `vhs demo/tabs.tape`
+from the repository root.
 
 Inspiration: [vim-guitar-tab](https://github.com/matt-snider/vim-guitar-tab),
 [chordpro.vim](https://github.com/vim-scripts/chordpro.vim).
