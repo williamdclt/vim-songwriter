@@ -22,7 +22,7 @@ never relies on concealing or rendering.
 | `autoload/songwriter/tab/insert.vim` | The insert state of tablature mode: entering, keeping, leaving it, and `<Esc>`. |
 | `autoload/songwriter/tab/typing.vim` | Typing notes and separators: digits, `x` on a dash, separators after a note (`EnterNote`, `EnterSeparator`). |
 | `autoload/songwriter/tab/motion.vim` | Tablature-mode motions at the cursor (`w`/`b`/`e`/`ge`, `l`/`h`, `L`/`H`, `W`/`B`/`E`), and the slots the insert state opens on the way. |
-| `autoload/songwriter/tab/stops.vim` | Where motions stop and what string motions cover after an operator, pure (`Stops`, `Advance`, `BarStop`, `StringMotion`). |
+| `autoload/songwriter/tab/stops.vim` | Where motions stop and what string motions cover after an operator, pure (`Stops`, `Advance`, `BarStop`, `StringMotion`), and the insert state's positions and how `l`/`h` and the arrows step through them (`Step`). |
 | `autoload/songwriter/tab/carry.vim` | Carrying a note with the arrow keys in the insert state. |
 | `autoload/songwriter/tab/newtab.vim` | New tabs: `o`/`O` and `:SongwriterNewTab`. |
 | `autoload/songwriter/tab/state.vim` | Buffer state valid only while `b:changedtick` is unchanged (slot, insert state, digit being typed, carried note, `.`). |
@@ -265,10 +265,14 @@ text, and arrow keys would be needed).
   Pipes are not obstacles. With no stop that way, the cursor stays.
 - **`l`/`h` in the insert state (3.3.3)**: the gaps between notes are stops
   too. On a note column, `l` is `a` and `h` is `i`. On the open slot, they close
-  it and move on. The slot remembers which side of its note it was opened on
-  (`side`), and the move goes on from where the cursor was before it opened
-  (`from`): towards that note it lands back on it, away from it it goes to the
-  next stop. So from `3` in `3-5`, `l` `l` `l` gives slot, `5`, slot; each gap
+  it and move on. Where a slot is, is a *position* (`stops#Step`): a column,
+  the gap after or before a column (the side it was entered from), an empty
+  bar, a new bar. The arrows carry a note through the same positions (3.6), so
+  `l`/`h` and `<Right>`/`<Left>` go to the same places and open gaps the same
+  way, by construction. From a slot, the move goes on from its position:
+  towards the column it was opened from it lands back on it, away from it it
+  goes to the next stop. A slot that is part of a bigger edit (`c`, `o`) has no
+  position and goes on to the next stop. So from `3` in `3-5`, `l` `l` `l` gives slot, `5`, slot; each gap
   is visited once per direction, and a bar line needs no special case: from a
   bar's last note `l` opens a slot in that bar, then reaches the next bar's
   first note. Landing in an empty bar opens a slot in its middle
@@ -340,9 +344,11 @@ text, and arrow keys would be needed).
   belongs to the insert state, next to typing. The first arrow lifts the note
   as `x` erases it; the rest of the tab, the *base*, is kept with the carry
   state (tied to `b:changedtick`, so any other edit ends the carry). Each arrow
-  moves a position over the base (a column, a gap named after the column
-  before it, an empty bar, a new bar) along the insert-state stops of `l`/`h`,
-  and the tab is rendered again from the base with the note there. Rendering
+  moves a position over the base along the insert-state stops of `l`/`h`
+  (`stops#Step`, shared with them), and the tab is rendered again from the base
+  with the note there. A gap is opened from the side it is entered, as `a`
+  (`<Right>`) or `i` (`<Left>`) would; it is named after the column before it
+  only to recognise the start position. Rendering
   from the base rather than editing the last result is what puts back a note
   the carried one replaced and closes a gap it opened, with no bookkeeping of
   what was overwritten; the start position renders the original lines, so
