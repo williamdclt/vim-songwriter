@@ -1,0 +1,18 @@
+" Minimal Vim setup for the README recordings (see demo/*.tape).
+set nocompatible
+let &runtimepath = expand('<sfile>:p:h:h') . ',' . &runtimepath
+filetype plugin on
+syntax on
+set background=dark
+set laststatus=2 noshowmode noruler nonumber
+set statusline=\ %t
+set shortmess+=I
+set noswapfile viminfo=
+set ttimeout ttimeoutlen=20
+let g:loaded_matchparen = 1
+
+" Captions for the demo recording, shown in the tab line.
+let g:caption = ''
+set showtabline=2 tabline=%#songwriterDemoCaption#\ %{g:caption}%=
+highlight songwriterDemoCaption ctermfg=Black ctermbg=Yellow cterm=bold
+command! -nargs=1 Cap let g:caption = <q-args> | redraw!
