@@ -86,7 +86,8 @@ endfor
 unlet s:d
 
 " Spec 6.2.1 and 6.2.2 (string motions after an operator, `L`/`H` being
-" `l`/`h`, 3.3.5) and 6.8 (a doubled operator, `dd`, acts on the column). The
+" `l`/`h`, 3.3.5), 6.2.4 (`j`/`k`/`J`/`K` across strings) and 6.8 (a doubled
+" operator, `dd`, acts on the column). The
 " text objects are added to this table and the visual one below.
 let s:tabmode.o = {
       \ 'w': 'call songwriter#tab#operator#Motion("w")',
@@ -97,6 +98,10 @@ let s:tabmode.o = {
       \ 'h': 'call songwriter#tab#operator#Motion("h")',
       \ 'L': 'call songwriter#tab#operator#Motion("l")',
       \ 'H': 'call songwriter#tab#operator#Motion("h")',
+      \ 'j': 'call songwriter#tab#operator#Across("j")',
+      \ 'k': 'call songwriter#tab#operator#Across("k")',
+      \ 'J': 'call songwriter#tab#operator#Across("J")',
+      \ 'K': 'call songwriter#tab#operator#Across("K")',
       \ 'd': 'call songwriter#tab#operator#Doubled("d")',
       \ 'y': 'call songwriter#tab#operator#Doubled("y")',
       \ 'c': 'call songwriter#tab#operator#Doubled("c")',

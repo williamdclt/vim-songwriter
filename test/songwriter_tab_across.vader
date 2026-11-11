@@ -1,0 +1,160 @@
+" Spec [Tablature][[Editing]] 6.2.4: `j` / `k` (`J` / `K`) after an operator
+" act on the time column under the cursor, on the strings they cover only.
+" Typed end-to-end with `normal`.
+
+Before:
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_insert
+  let b:songwriter_tabmode = 1
+  call setreg('"', [])
+
+Given songwriter (6.2.4 dj on the e string erases the column's notes on e and B):
+  e|--0--|
+  B|--1--|
+  G|--2--|
+  D|--2--|
+  A|--0--|
+  E|-----|
+
+Execute (6.2.4 dj on the e string erases the column's notes on e and B):
+  call cursor(1, 5)
+  normal dj
+
+Expect songwriter (6.2.4 dj on the e string erases the column's notes on e and B):
+  e|-----|
+  B|-----|
+  G|--2--|
+  D|--2--|
+  A|--0--|
+  E|-----|
+
+Given songwriter (6.2.4 d2k on the G string erases those on G, B and e):
+  e|--0--|
+  B|--1--|
+  G|--2--|
+  D|--2--|
+  A|--0--|
+  E|-----|
+
+Execute (6.2.4 d2k on the G string erases those on G, B and e):
+  call cursor(3, 5)
+  normal d2k
+
+Expect songwriter (6.2.4 d2k on the G string erases those on G, B and e):
+  e|-----|
+  B|-----|
+  G|-----|
+  D|--2--|
+  A|--0--|
+  E|-----|
+
+Given songwriter (6.2.4 dJ on the D string of an open Am leaves its G, B and e notes):
+  e|--0--|
+  B|--1--|
+  G|--2--|
+  D|--2--|
+  A|--0--|
+  E|-----|
+
+Execute (6.2.4 dJ on the D string of an open Am leaves its G, B and e notes):
+  call cursor(4, 5)
+  normal dJ
+
+Expect songwriter (6.2.4 dJ on the D string of an open Am leaves its G, B and e notes):
+  e|--0--|
+  B|--1--|
+  G|--2--|
+  D|-----|
+  A|-----|
+  E|-----|
+
+Given songwriter (6.2.4 dK reaches the top string):
+  e|--0--|
+  B|--1--|
+  G|--2--|
+
+Execute (6.2.4 dK reaches the top string):
+  call cursor(2, 5)
+  normal dK
+
+Expect songwriter (6.2.4 dK reaches the top string):
+  e|-----|
+  B|-----|
+  G|--2--|
+
+Given songwriter (6.2.4 a column left with no note goes with its gap):
+  e|--3--5--|
+  B|--1-----|
+
+Execute (6.2.4 a column left with no note goes with its gap):
+  call cursor(1, 5)
+  normal dj
+
+Expect songwriter (6.2.4 a column left with no note goes with its gap):
+  e|--5--|
+  B|-----|
+
+Given songwriter (6.2.4 yj yanks the column's notes on those strings, the others as dashes):
+  e|--3--5--|
+  B|--1-----|
+  G|--2-----|
+
+Execute (6.2.4 yj yanks the column's notes on those strings, the others as dashes):
+  call cursor(1, 5)
+  normal yj
+  AssertEqual ['3--', '1--', '---'], getreg('"', 1, 1)
+  AssertEqual "\<C-V>3", getregtype('"')
+
+Expect songwriter (6.2.4 yj yanks the column's notes on those strings, the others as dashes):
+  e|--3--5--|
+  B|--1-----|
+  G|--2-----|
+
+Given songwriter (6.2.4 the register of dj pastes back what it erased):
+  e|--3--5--|
+  B|--1-----|
+
+Execute (6.2.4 the register of dj pastes back what it erased):
+  call cursor(1, 5)
+  normal djP
+
+Expect songwriter (6.2.4 the register of dj pastes back what it erased):
+  e|--3--5--|
+  B|--1-----|
+
+Given songwriter (6.2.4 cj erases, then opens a slot where the column went):
+  e|--3--5--|
+  B|--1-----|
+
+Execute (6.2.4 cj erases, then opens a slot where the column went):
+  call cursor(1, 5)
+  normal cj
+  Assert songwriter#tab#insert#Active()
+  normal 7
+
+Expect songwriter (6.2.4 cj erases, then opens a slot where the column went):
+  e|--7-5--|
+  B|-------|
+
+Given songwriter (6.2.4 dj on the bottom string does nothing):
+  e|--3--|
+  B|--1--|
+
+Execute (6.2.4 dj on the bottom string does nothing):
+  call cursor(2, 5)
+  normal dj
+
+Expect songwriter (6.2.4 dj on the bottom string does nothing):
+  e|--3--|
+  B|--1--|
+
+Given songwriter (6.2.4 . repeats dj):
+  e|--3--5--|
+  B|--1--2--|
+
+Execute (6.2.4 . repeats dj):
+  call cursor(1, 5)
+  normal dj.
+
+Expect songwriter (6.2.4 . repeats dj):
+  e|-----|
+  B|-----|
