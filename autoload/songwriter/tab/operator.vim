@@ -322,24 +322,27 @@ endfunction
 
 " Spec 6.5 / 6.3.2: `p` (before 0) / `P` (before 1) from register `reg`.
 function! songwriter#tab#operator#Put(before, count, reg) abort
+  let l:repeat = printf("songwriter#tab#operator#Put(%d, %%d, '%s')", a:before, a:reg)
+  if getregtype(a:reg) !=# 'V'
+    call songwriter#tab#edit#Do(function('s:put', [a:before, a:count, a:reg]),
+          \ {'repeat': l:repeat, 'count': a:count})
+    return
+  endif
   let l:block = songwriter#tab#edit#LintAndFollow(songwriter#tab#model#Read())
-  if empty(l:block)
-    return
-  endif
-  let l:rows = songwriter#tab#register#BlockRows(a:reg)
-  if getregtype(a:reg) ==# 'V'
+  if !empty(l:block)
     call s:put_lines(l:block, getreg(a:reg, 1, 1), a:before, a:count)
-  elseif !empty(l:rows)
-    let l:res = songwriter#tab#columns#Paste(l:block.lines, songwriter#tab#model#CursorLin(l:block),
-          \ col('.'), l:rows, songwriter#tab#register#Names(a:reg), a:before, a:count)
-    if empty(songwriter#tab#edit#Commit(l:block, l:res))
-      return
-    endif
-  else
-    call songwriter#tab#edit#Error('songwriter: cannot paste a character-wise register into a tab')
-    return
+    call songwriter#tab#repeat#Record(l:repeat, a:count)
   endif
-  call songwriter#tab#repeat#Record(printf("songwriter#tab#operator#Put(%d, %%d, '%s')", a:before, a:reg), a:count)
+endfunction
+
+" Spec 6.5: a blockwise register pasted at the cursor of `ctx`.
+function! s:put(before, count, reg, ctx) abort
+  let l:rows = songwriter#tab#register#BlockRows(a:reg)
+  if empty(l:rows)
+    return {'error': 'songwriter: cannot paste a character-wise register into a tab'}
+  endif
+  return songwriter#tab#columns#Paste(a:ctx.block.lines, a:ctx.lin, a:ctx.col, l:rows,
+        \ songwriter#tab#register#Names(a:reg), a:before, a:count)
 endfunction
 
 " A line-wise register goes after the tab (before it for `P`), never between
