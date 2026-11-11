@@ -9,6 +9,7 @@
 - Refactors must not change behaviour: the existing tests are the oracle. If a refactor would fix or change a behaviour, stop and check with the user first. Known bugs are listed in specification.song.txt under [[Bugs]]; do not fix them as a side effect.
 - Commit every time you make a successful change (tests green, enforced by the pre-commit hook).
 - A PLAN.md is a scratchpad for one task in progress. Delete it once the task is done; it must never describe finished work.
+- refactors.md lists the planned architecture changes, in order. When one lands, delete its entry there and record the resulting design in design.md.
 
 ## Architecture (see design.md for the why)
 - `autoload/songwriter/grammar.vim` is the single source of truth for the format's patterns (tab line, note, chord root...). Never write one of these regexes inline elsewhere.
