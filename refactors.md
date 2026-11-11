@@ -15,8 +15,7 @@ the per-feature tests: run `make test` after every step.
 - **6.2.4 (`dj`/`dk`)**: generalise `columns#EraseNotes` from "the notes of one
   line in a range" to a set of `(lin, col)` notes. `x`, `dl`, `dw`, `dan` and
   `dj` all become "pick the notes, erase each as `x` does", and 6.2.4 is mostly
-  picking the notes. Fix [[Bugs]] 1 (erasing a lone column merges or cuts
-  notes on other strings) in that erase first, since every caller shares it.
+  picking the notes.
 - **[[Rendering]] 4 (highlight the time column)**: needs a `CursorMoved`
   hook that reads the block on every move. Cache `model#Read` per
   `b:changedtick` and line range (as `tab/state.vim` does for state) so that

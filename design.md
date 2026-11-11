@@ -430,7 +430,12 @@ The spec items carry the behaviour; this records why, and how it is built.
   motion range and `x` on a lone note remove it with the note, so the
   previous note keeps its length and what follows moves earlier. Rests exist
   only where the user put them with `_`; erasing never creates one, except that
-  `x` on a shared column leaves the other strings' timing intact.
+  `x` on a shared column leaves the other strings' timing intact. Other
+  strings' music wins over the gap: `x` on a lone note removes only as much
+  of its gap as leaves every other string's notes and separators untouched and
+  apart (`columns.vim` `s:removable`), since a dash lost between `10` and `12`
+  would turn them into `1012`, which no lint can undo; with no room at all the
+  note becomes dashes, as on a shared column.
 - **The column is the tab's line.** A doubled operator acts on a line in text
   and on the time column in a tab: `dd`/`yy`/`cc` are `dac`/`yac`/`cac`, so
   `ddp` and `yyp` swap and duplicate columns as they do lines. The second key
