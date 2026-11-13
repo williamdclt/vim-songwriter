@@ -83,14 +83,18 @@ function! songwriter#tab#frets#IncrementIn(ranges, n) abort
       endif
     endfor
     let l:lines = l:block.lines
+    let l:map = []
     for [l:c, l:lin] in reverse(sort(l:targets, {a, b -> a[0] - b[0]}))
       let l:res = songwriter#tab#frets#Add(l:lines, l:lin, l:c, a:n)
       if !has_key(l:res, 'error')
         let l:lines = l:res.lines
+        let l:map = songwriter#tab#colmap#Then(l:map, l:res.map)
       endif
     endfor
     if l:lines !=# l:block.lines
-      call songwriter#tab#model#Write(l:block, songwriter#tab#lint#Lint(l:lines).lines)
+      let l:lint = songwriter#tab#lint#Lint(l:lines)
+      call songwriter#tab#edit#Write(l:block, {'lines': l:lint.lines,
+            \ 'map': songwriter#tab#colmap#Then(l:map, l:lint.map)})
     endif
   endfor
 endfunction

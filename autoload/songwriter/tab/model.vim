@@ -16,6 +16,10 @@
 "
 " All columns are 1-indexed byte columns (tab lines are ASCII), as col() gives.
 " Everything here is pure except Read() and Write(), the buffer edges.
+"
+" A snapshot is a block as Write puts it in the buffer, and as an edit that
+" gives a tab back as it was saves it (a slot, a carry): {'start': its first
+" buffer line, 'lines'}. Edits make them from drafts (tab/edit.vim).
 
 " The string name of a tab line.
 function! songwriter#tab#model#Name(line) abort
@@ -164,13 +168,19 @@ function! songwriter#tab#model#CursorLin(block) abort
   return line('.') - a:block.start
 endfunction
 
-" Write `lines` (one per block string) back over the block in the buffer.
-" Only the lines that differ are set, so writing what is already there makes
-" no change (no undo step, b:changedtick unchanged).
-function! songwriter#tab#model#Write(block, lines) abort
-  for l:i in range(len(a:lines))
-    if getline(a:block.start + l:i) !=# a:lines[l:i]
-      call setline(a:block.start + l:i, a:lines[l:i])
+" The snapshot of `block`.
+function! songwriter#tab#model#Snapshot(block) abort
+  return {'start': a:block.start, 'lines': copy(a:block.lines)}
+endfunction
+
+" Write `snapshot` over `block` in the buffer. Only the lines that differ are
+" set, so writing what is already there makes no change (no undo step,
+" b:changedtick unchanged).
+function! songwriter#tab#model#Write(block, snapshot) abort
+  let l:lines = a:snapshot.lines
+  for l:i in range(len(l:lines))
+    if getline(a:block.start + l:i) !=# l:lines[l:i]
+      call setline(a:block.start + l:i, l:lines[l:i])
     endif
   endfor
 endfunction

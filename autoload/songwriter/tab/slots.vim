@@ -142,24 +142,23 @@ function! songwriter#tab#slots#EmptyBar(lines, lin, col) abort
 endfunction
 
 " What closing a slot about to be opened by `a`/`i`, `l`/`h` or a new bar must
-" restore (spec 4.3): the block's lines, the cursor column (`from`), and the
-" buffer and undo versions, taken before anything (even the lint of 4.2) is
-" changed. `side`: +1 for a slot after a note, -1 before one, 0 in an empty
-" bar.
+" restore (spec 4.3): the block (`before`, a snapshot, model#Snapshot), the
+" cursor column (`from`), and the buffer and undo versions, taken before
+" anything (even the lint of 4.2) is changed. `side`: +1 for a slot after a
+" note, -1 before one, 0 in an empty bar.
 function! songwriter#tab#slots#Mark(side) abort
   let l:block = songwriter#tab#model#Read()
   return {'side': a:side, 'from': col('.'), 'tick': b:changedtick,
         \ 'seq': undotree().seq_cur,
-        \ 'start': empty(l:block) ? line('.') : l:block.start,
-        \ 'before': empty(l:block) ? [] : copy(l:block.lines)}
+        \ 'before': empty(l:block) ? {} : songwriter#tab#model#Snapshot(l:block)}
 endfunction
 
-" Record in `mark` (from Mark) the block's `lines` as linted before its slot
-" opens (4.2), with the cursor column `col` there, for a motion closing the
-" slot to keep (4.3.3).
-function! songwriter#tab#slots#Linted(mark, lines, col) abort
-  let a:mark.linted = copy(a:lines)
-  let a:mark.linted_col = a:col
+" Record in `mark` (from Mark) the block as linted before its slot opens
+" (4.2), `linted` being {'lines', 'map', 'col'} (the cursor column there), for
+" a motion closing the slot to keep (4.3.3).
+function! songwriter#tab#slots#Linted(mark, linted) abort
+  let a:mark.linted = songwriter#tab#edit#Derive(a:mark.before, a:linted.lines, a:linted.map)
+  let a:mark.linted_col = a:linted.col
 endfunction
 
 " Make `mark` (from Mark, with Linted) that of a slot in the middle of an empty
@@ -213,7 +212,7 @@ function! songwriter#tab#slots#Abandon(...) abort
       call s:revert(l:slot)
     endif
     if l:keep_lint && has_key(l:slot, 'linted') && l:slot.linted !=# l:slot.before
-      call setline(l:slot.start, l:slot.linted)
+      call songwriter#tab#model#Write(songwriter#tab#model#Read(l:slot.before.start), l:slot.linted)
       call cursor(l:lnum, l:slot.linted_col)
     else
       call cursor(l:lnum, l:slot.from)
@@ -227,20 +226,25 @@ function! songwriter#tab#slots#Abandon(...) abort
   return l:slot
 endfunction
 
-" Put back the lines a slot replaced. Undo, when the slot's change is the last
+" Put back the block a slot replaced. Undo, when the slot's change is the last
 " undo step and that step holds nothing else (a slot opened in a macro or
 " `:normal` shares its step with earlier changes): then no undo step is left.
-" Otherwise, or if undoing did not give the lines back, write them.
+" Otherwise, or if undoing did not give the block back, write it.
 function! s:revert(slot) abort
-  let l:last = a:slot.start + len(a:slot.before) - 1
   if a:slot.seq_after != a:slot.seq && undotree().seq_cur == a:slot.seq_after
     silent undo
-    if getline(a:slot.start, l:last) ==# a:slot.before
+    if s:holds(a:slot.before)
       return
     endif
     silent redo
   endif
-  call setline(a:slot.start, a:slot.before)
+  call songwriter#tab#model#Write(songwriter#tab#model#Read(a:slot.before.start), a:slot.before)
+endfunction
+
+" True when the buffer holds the block of `snapshot` as it is there.
+function! s:holds(snapshot) abort
+  let l:block = songwriter#tab#model#Read(a:snapshot.start)
+  return !empty(l:block) && songwriter#tab#model#Snapshot(l:block) ==# a:snapshot
 endfunction
 
 " Spec 6.6: open a slot at the cursor: before its note (side -1, as `i`),

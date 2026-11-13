@@ -149,7 +149,7 @@ function! songwriter#tab#carry#Move(key) abort
     return
   endif
   let l:carry = songwriter#tab#state#Get('carry')
-  let l:going = !empty(l:carry) && l:carry.start == l:block.start
+  let l:going = !empty(l:carry) && l:carry.saved.origin.start == l:block.start
         \ && l:carry.line == line('.') && l:carry.col == col('.')
   call songwriter#tab#edit#Do(function('s:move', [s:moves[a:key], l:going ? l:carry : {}]),
         \ {'join': l:going, 'prelint': 0, 'insert': 1})
@@ -193,7 +193,9 @@ function! s:duplicate(dir, ctx) abort
   if empty(l:carry)
     return {}
   endif
-  let l:carry.start = a:ctx.block.start
+  let l:origin = songwriter#tab#edit#Derive(songwriter#tab#model#Snapshot(a:ctx.block),
+        \ l:linted.lines, l:linted.map)
+  let l:carry.saved = {'origin': l:origin, 'base': l:origin}
   return s:move([a:dir, 0], l:carry, a:ctx)
 endfunction
 
@@ -215,7 +217,9 @@ function! songwriter#tab#carry#EndMove() abort
 endfunction
 
 " Pure. The move [string step, column direction] of the carry `carry` (or of
-" the note under the cursor of `ctx`, lifted, when it is {}).
+" the note under the cursor of `ctx`, lifted, when it is {}). The carry keeps
+" the snapshots of its origin and its base ('saved'), which the tab it renders
+" is made from (edit.vim's 'base').
 function! s:move(move, carry, ctx) abort
   let [l:dlin, l:dir] = a:move
   let l:carry = a:carry
@@ -224,7 +228,9 @@ function! s:move(move, carry, ctx) abort
     if empty(l:carry)
       return {}
     endif
-    let l:carry.start = a:ctx.block.start
+    let l:origin = songwriter#tab#model#Snapshot(a:ctx.block)
+    let l:carry.saved = {'origin': l:origin,
+          \ 'base': songwriter#tab#edit#Derive(l:origin, l:carry.base, l:carry.map)}
   endif
   let l:lin = l:carry.lin + l:dlin
   if l:lin < 0 || l:lin >= len(a:ctx.block.lines)
@@ -239,6 +245,8 @@ function! s:move(move, carry, ctx) abort
   if empty(l:res)
     return {}
   endif
-  return {'lines': l:res.lines, 'lin': l:lin, 'col': l:res.col,
+  let l:from = get(l:res, 'origin', 0) ? l:carry.saved.origin : l:carry.saved.base
+  return {'lines': l:res.lines, 'base': l:from, 'map': get(l:res, 'map', []),
+        \ 'lin': l:lin, 'col': l:res.col,
         \ 'state': {'carry': extend(copy(l:carry), {'pos': l:pos, 'lin': l:lin})}}
 endfunction

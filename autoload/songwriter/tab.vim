@@ -9,7 +9,8 @@ function! songwriter#tab#AddDashes() abort
   if empty(l:block)
     return
   endif
-  call songwriter#tab#model#Write(l:block, map(copy(l:block.lines), "v:val . '--'"))
+  call songwriter#tab#edit#Write(l:block, {'lines': map(copy(l:block.lines), "v:val . '--'"),
+        \ 'map': songwriter#tab#colmap#Insert(max(map(copy(l:block.lines), 'len(v:val)')), 2)})
 endfunction
 
 " Spec [Tablature][[Editing]] 2: insert a dash after the cursor column on
@@ -28,8 +29,8 @@ function! s:insert_after_cursor(char) abort
   if empty(l:block)
     return
   endif
-  call songwriter#tab#model#Write(l:block,
-        \ songwriter#tab#model#InsertColumns(l:block.lines, col('.'), 1, a:char).lines)
+  call songwriter#tab#edit#Write(l:block,
+        \ songwriter#tab#model#InsertColumns(l:block.lines, col('.'), 1, a:char))
 endfunction
 
 " Spec [Tablature][[Editing]] 1: lint the block around the cursor.
@@ -38,7 +39,7 @@ function! songwriter#tab#Lint() abort
   if empty(l:block)
     return
   endif
-  call songwriter#tab#model#Write(l:block, songwriter#tab#lint#Lint(l:block.lines).lines)
+  call songwriter#tab#edit#Write(l:block, songwriter#tab#lint#Lint(l:block.lines))
 endfunction
 
 " Insert `chord` on a new line above the block, aligned to the cursor column.

@@ -258,8 +258,9 @@ function! songwriter#tab#operator#ApplyLines(op, reg, l1, l2) abort
         let l:lnum += 1
         continue
       endif
-      let l:lines = songwriter#tab#columns#ClearNotes(l:block.lines)
-      call songwriter#tab#model#Write(l:block, songwriter#tab#lint#Lint(l:lines).lines)
+      " Clearing notes moves no column: the map is the lint's.
+      call songwriter#tab#edit#Write(l:block,
+            \ songwriter#tab#lint#Lint(songwriter#tab#columns#ClearNotes(l:block.lines)))
       let l:lnum = l:block.end + 1
     endwhile
     if !songwriter#grammar#IsTabLine(getline(l:cur))

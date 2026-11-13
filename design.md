@@ -17,8 +17,8 @@ never relies on concealing or rendering.
 |---|---|
 | `autoload/songwriter/grammar.vim` | The format's patterns (tab line, note, fret, separator, chain, chord, highlighting). The only place regexes for the format are written. |
 | `autoload/songwriter/tab/colmap.vim` | Column maps: where each column of a block went through an edit, pure. |
-| `autoload/songwriter/tab/model.vim` | Tab block model: parse, queries (notes, time columns, bars), `Splice`/`Blank` and the column-insertion primitive, and `Read`/`Write` (the buffer edges). |
-| `autoload/songwriter/tab/edit.vim` | The buffer side of a tablature edit: `Do` runs a whole edit at the cursor (slot, undo join, lints, one write, insert state, state for the next key, register, `.`); `Commit`, `LintAndFollow`, `Apply` and the pure `Linted` are its parts. |
+| `autoload/songwriter/tab/model.vim` | Tab block model: parse, queries (notes, time columns, bars), `Splice`/`Blank` and the column-insertion primitive, snapshots, and `Read`/`Write` (the buffer edges). |
+| `autoload/songwriter/tab/edit.vim` | The buffer side of a tablature edit: `Do` runs a whole edit at the cursor (slot, undo join, lints, one write, insert state, state for the next key, register, `.`); `Commit`, `LintAndFollow`, `Apply` and the pure `Linted` are its parts; `Write` is the one way a draft reaches the buffer. |
 | `autoload/songwriter/tab/slots.vim` | Slots: where a new note's room goes (pure), the buffer's one open slot with how to close it, and `a`/`i` and the new bar's slot (`AddNote`, `AddBarSlot`). |
 | `autoload/songwriter/tab/insert.vim` | The insert state of tablature mode: entering, keeping, leaving it, and `<Esc>`. |
 | `autoload/songwriter/tab/typing.vim` | Typing notes and separators: digits, `x` on a dash, separators after a note (`EnterNote`, `EnterSeparator`). |
@@ -59,9 +59,10 @@ An operation is a thin buffer entry point around pure logic:
 
 1. `songwriter#tab#model#Read()` parses the block around the cursor (or returns
    `{}` off a tab line, which every entry point treats as a no-op);
-2. a pure function computes the result: new lines and/or a cursor column
-   (`{'lines': [...], 'col': n}`, `{}` for "nothing to do"), and what to record
-   (`state`, `register`);
+2. a pure function computes the result: new lines with their column map
+   (see "Column maps") and/or a cursor column (`{'lines': [...], 'map': [...],
+   'col': n}`, `{}` for "nothing to do"), and what to record (`state`,
+   `register`);
 3. the result is written back.
 
 `edit#Do(Fn, opts)` is the whole sequence for an edit at the cursor, and the
@@ -77,6 +78,18 @@ leaves no undo step, and the undo join happens only on an actual write. Entry
 points that are not one edit at the cursor (operators, which run through
 `g@`; slots closed by motions) use its parts: `Commit` (lint, follow, write),
 `LintAndFollow`, `Apply` (write, no lint).
+
+**Drafts and snapshots.** What reaches the buffer is a draft: the block's new
+lines, and where each column of its base went in them (`{'lines', 'map',
+'base'}`). The base is the snapshot (`model#Snapshot`, the block as written:
+its first line and lines) the edit started from: by default the block being
+written; for a carry, the origin or the base it saved, since it renders from
+those rather than from what is in the buffer. `edit#Write` turns a draft into
+a snapshot (`edit#Derive`) and `model#Write` writes it; restoring a saved
+snapshot (a slot closed, 4.3) writes it as it is. A draft without a map is an
+error, thrown, so no write path can lose track of where the tab went; every
+part of a block other than its strings is kept in step in `Derive` and
+`model#Write`, and nowhere else.
 
 Pure functions are testable without buffer setup and composable: spec item 4
 (lint after an edit) is "edit, then lint, then follow the moved note", which is
@@ -433,14 +446,14 @@ Tablature-mode edits lint the block:
   - *A slot opened by moving, `a`/`i` or a new bar is undone*: closing it gives
     the tab back exactly as it was before, including the lint of 4.2, so that
     wandering in the insert state leaves no trace. `slots#Mark`, taken before
-    anything changes, records the block's lines, the cursor column and the undo
+    anything changes, records the block (a snapshot), the cursor column and the undo
     sequence number. Closing runs `:undo` when the slot's change is the last
     undo step and that step holds nothing else (its sequence number differs
     from the one before it). Then no undo step is left behind and a file saved
     before `a` is unmodified again. Inside `:normal`, a macro or a mapping,
     several keys share one undo step, and `:undo` would take earlier changes
-    with it: then (or if undoing did not give the lines back) the recorded
-    lines are written instead.
+    with it: then (or if undoing did not give the block back) the recorded
+    snapshot is written instead.
   - *A motion closing a slot keeps the lint (4.3.3)*: otherwise walking an
     unlinted tab with `l`/`h` would lint it at every slot and unlint it at
     every close, and the whole tab would jump at each step. `AddNote` and
