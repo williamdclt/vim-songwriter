@@ -13,6 +13,9 @@ let s:strum_ms = 15
 " Peak level, out of 32767: notes played together must not clip.
 let s:level = 9000.0
 let s:pi = 3.14159265358979
+" Vim 9 synthesises with compiled Vim9 script (sound9.vim), some 25 times
+" faster; Vim 8.2 and Neovim with the same loop in legacy script.
+let s:vim9 = v:version >= 900 && !has('nvim')
 
 let s:timers = []
 " The job sounding on each string (lin -> job): a note stops its string's
@@ -47,24 +50,37 @@ function! songwriter#sound#Wav(midi) abort
   " No DC: the damping would keep it forever.
   let l:mean = eval(join(l:buf, '+')) / l:p
   call map(l:buf, {_, v -> v - l:mean})
-  let l:n = float2nr(s:rate * s:seconds)
-  let l:fade = s:rate / 20
+  let l:ks = {'buf': l:buf, 'a': l:a, 'b': l:b, 'c': l:c,
+        \ 'n': float2nr(s:rate * s:seconds), 'fade': s:rate / 20, 'level': s:level}
+  let l:data = s:vim9 ? songwriter#sound9#Pluck(l:ks) : songwriter#sound#Pluck(l:ks)
+  return s:header(len(l:data)) + l:data
+endfunction
+
+" The samples of a plucked string, as 16-bit little-endian bytes: `ks.n`
+" turns of the delay line `ks.buf` (changed in place) through the lowpass
+" (`ks.a`, `ks.b`) and the allpass (`ks.c`), at `ks.level`, faded out over
+" the last `ks.fade` samples. songwriter#sound9#Pluck is the same, compiled.
+function! songwriter#sound#Pluck(ks) abort
+  let [l:buf, l:a, l:b, l:c, l:n, l:fade, l:level] =
+        \ [a:ks.buf, a:ks.a, a:ks.b, a:ks.c, a:ks.n, a:ks.fade, a:ks.level]
+  let l:p = len(l:buf)
   let l:data = []
   let [l:i, l:j, l:x1, l:y1] = [0, 0, 0.0, 0.0]
   while l:i < l:n
     let l:s = l:buf[l:j]
-    let l:x = l:a * l:s + l:b * l:buf[l:j + 1 < l:p ? l:j + 1 : 0]
+    let l:next = l:j + 1 < l:p ? l:j + 1 : 0
+    let l:x = l:a * l:s + l:b * l:buf[l:next]
     let l:y = l:c * l:x + l:x1 - l:c * l:y1
     let [l:x1, l:y1] = [l:x, l:y]
     let l:buf[l:j] = l:y
-    let l:j = l:j + 1 < l:p ? l:j + 1 : 0
-    let l:gain = l:i < l:n - l:fade ? s:level : s:level * (l:n - l:i) / l:fade
+    let l:j = l:next
+    let l:gain = l:i < l:n - l:fade ? l:level : l:level * (l:n - l:i) / l:fade
     let l:v = float2nr(l:s * l:gain)
     let l:v = l:v < 0 ? l:v + 65536 : l:v
     call extend(l:data, [and(l:v, 255), l:v / 256])
     let l:i += 1
   endwhile
-  return s:header(len(l:data)) + list2blob(l:data)
+  return list2blob(l:data)
 endfunction
 
 " How long a note at `f` Hz takes to die away (-60 dB), in seconds.
