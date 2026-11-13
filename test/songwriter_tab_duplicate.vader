@@ -232,6 +232,27 @@ Expect songwriter (3.7 <leader> alone ends the move, as <Esc> does):
   e|-----5-----|
   B|--3--5--7--|
 
+Given songwriter (3.7 a <Space> leader ends the move, leaving the cursor on the copy):
+  e|-----------|
+  B|--3--5--7--|
+
+Execute (3.7 a <Space> leader ends the move, leaving the cursor on the copy):
+  let g:mapleader = ' '
+  set filetype=songwriter
+  let b:songwriter_tabmode = 1
+  call cursor(2, 8)
+  call feedkeys(" k ", 'xt')
+  let pos = [line('.'), col('.')]
+  let mode = songwriter#keys#Mode()
+  unlet g:mapleader
+  set filetype=songwriter
+  AssertEqual [1, 8], pos
+  AssertEqual '', mode
+
+Expect songwriter (3.7 a <Space> leader ends the move, leaving the cursor on the copy):
+  e|-----5-----|
+  B|--3--5--7--|
+
 Given songwriter (3.7 <leader> alone does nothing outside a move):
   e|-----------|
   B|--3--5--7--|

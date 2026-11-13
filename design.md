@@ -377,7 +377,10 @@ text, and arrow keys would be needed).
   the copy (`carry#Moving`). It needs no state of its own to end: any edit,
   cursor move off the copy or leaving the insert state (`<Esc>`, or a lone
   `<leader>`, `carry#EndMove`) gives `hjkl` back. A lone `<leader>` map makes
-  Vim wait 'timeoutlen' after it, as any leader prefix already does.
+  Vim wait 'timeoutlen' after it, as any leader prefix already does. A leader
+  that is also a context key (`<Space>`, which is `l` in the insert state)
+  has only the context map, which replaces the `<leader>` one, so `Dispatch`
+  recognises the leader itself while a copy is moved.
 
 ### Linting after edits (spec [Tablature][[Editing]] 4)
 

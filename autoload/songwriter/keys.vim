@@ -182,8 +182,15 @@ function! songwriter#keys#Dispatch(key, ...) abort
   let l:mode = a:0 ? a:1 : 'n'
   if songwriter#grammar#IsTabLine(getline('.'))
     if songwriter#keys#InTabMode()
-      if has_key(s:moving[l:mode], a:key) && songwriter#tab#carry#Moving()
-        return s:action(s:moving[l:mode][a:key])
+      if songwriter#tab#carry#Moving()
+        if has_key(s:moving[l:mode], a:key)
+          return s:action(s:moving[l:mode][a:key])
+        endif
+        " Spec 3.7: a lone <leader> ends the move. Its own map is replaced
+        " by this one when the leader is a context key (a <Space> leader).
+        if l:mode ==# 'n' && s:key(a:key) ==# get(g:, 'mapleader', '\')
+          return s:action('call songwriter#tab#carry#EndMove()')
+        endif
       endif
       if has_key(s:typed[l:mode], a:key) && songwriter#tab#typing#JustTyped()
         return s:action(s:typed[l:mode][a:key])
@@ -199,6 +206,11 @@ function! songwriter#keys#Dispatch(key, ...) abort
       return s:action(s:tabline[l:mode][a:key])
     endif
   endif
+  return s:key(a:key)
+endfunction
+
+" The keys `key` stands for, from its <> notation ('<Esc>').
+function! s:key(key) abort
   return a:key =~# '^<.\+>$' ? eval('"\' . a:key . '"') : a:key
 endfunction
 
