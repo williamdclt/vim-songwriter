@@ -714,7 +714,9 @@ changes.
   both give the same bytes.
 - **Timing with timers, mixing by the OS.** Each note is its own player job,
   started by a timer at its step (a half beat at `g:songwriter_play_bpm`) plus
-  a 15 ms strum per string, so no mixing code is needed. A note stops the
+  a strum delay per string (40 ms by default, long enough to hear each note
+  of a chord, short enough for six strings to fit in a half beat), so no
+  mixing code is needed. A note stops the
   previous job on its string (a string sounds one note at a time), and a new
   play stops everything first. Spacing is not read as rhythm: it is only a
   loose indication (spec 6), so every column gets the same length.

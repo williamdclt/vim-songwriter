@@ -9,7 +9,7 @@ Before:
 
 After:
   call delete(g:songwriter_sound_cache, 'rf')
-  unlet! g:songwriter_player g:songwriter_sound_cache g:songwriter_play_bpm
+  unlet! g:songwriter_player g:songwriter_sound_cache g:songwriter_play_bpm g:songwriter_strum_ms
 
 Execute (A4 is 440 Hz):
   AssertEqual 440.0, songwriter#sound#Frequency(69)
@@ -47,11 +47,19 @@ Execute (12.5 sound off: the steps are kept, no file is written):
   Assert !isdirectory(g:songwriter_sound_cache)
 
 Execute (12.2 the start time of each note: a half beat per step, strummed up):
-  AssertEqual [[0, 0, 64], [1, 15, 59], [1, 250, 60]],
+  AssertEqual [[0, 0, 64], [1, 40, 59], [1, 250, 60]],
         \ songwriter#sound#Schedule([[{'lin': 0, 'midi': 64}, {'lin': 1, 'midi': 59}], [{'lin': 1, 'midi': 60}]])
   let g:songwriter_play_bpm = 60
   AssertEqual [[0, 0, 64], [0, 500, 65]],
         \ songwriter#sound#Schedule([[{'lin': 0, 'midi': 64}], [{'lin': 0, 'midi': 65}]])
+
+Execute (12.2 g:songwriter_strum_ms is the delay between the notes of a column):
+  let g:songwriter_strum_ms = 0
+  AssertEqual [[1, 0, 59], [0, 0, 64]],
+        \ songwriter#sound#Schedule([[{'lin': 1, 'midi': 59}, {'lin': 0, 'midi': 64}]])
+  let g:songwriter_strum_ms = 60
+  AssertEqual [[1, 0, 59], [0, 60, 64]],
+        \ songwriter#sound#Schedule([[{'lin': 1, 'midi': 59}, {'lin': 0, 'midi': 64}]])
 
 Execute (the compiled synthesis gives the same bytes as the legacy one):
   if v:version >= 900 && !has('nvim')
