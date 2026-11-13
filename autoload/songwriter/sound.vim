@@ -8,8 +8,6 @@ let s:rate = 22050
 let s:seconds = 1.2
 " Part of the file names, so that changing the synthesis makes new files.
 let s:synth = 'pluck1'
-" Delay between the notes of one step, lowest string first (a quick strum).
-let s:strum_ms = 15
 " Peak level, out of 32767: notes played together must not clip.
 let s:level = 9000.0
 let s:pi = 3.14159265358979
@@ -180,14 +178,16 @@ function! songwriter#sound#Player() abort
 endfunction
 
 " Spec 12.2: when each note of `steps` starts, as [lin, ms, midi]: a half beat
-" at g:songwriter_play_bpm per step, the notes of a step strummed in order.
+" at g:songwriter_play_bpm per step, the notes of a step strummed in order,
+" g:songwriter_strum_ms apart.
 function! songwriter#sound#Schedule(steps) abort
   let l:step_ms = 30000 / get(g:, 'songwriter_play_bpm', 120)
+  let l:strum_ms = get(g:, 'songwriter_strum_ms', 40)
   let l:res = []
   for l:i in range(len(a:steps))
     for l:k in range(len(a:steps[l:i]))
       let l:note = a:steps[l:i][l:k]
-      call add(l:res, [l:note.lin, l:i * l:step_ms + l:k * s:strum_ms, l:note.midi])
+      call add(l:res, [l:note.lin, l:i * l:step_ms + l:k * l:strum_ms, l:note.midi])
     endfor
   endfor
   return l:res
