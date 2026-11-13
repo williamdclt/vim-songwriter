@@ -230,3 +230,45 @@ function! songwriter#tab#annotations#FromRows(rows, col) abort
   endfor
   return l:put
 endfunction
+
+" Spec 6: annotation lines `above` with `text` written at column `col`: on the
+" last line (right above the strings) when it fits there, with a blank or the
+" line's end on each side, else on a new line under the others.
+function! songwriter#tab#annotations#Add(above, col, text) abort
+  let l:width = strdisplaywidth(a:text)
+  let l:last = empty(a:above) ? '' : a:above[-1]
+  let l:free = !empty(a:above) && empty(filter(songwriter#tab#annotations#Words(l:last),
+        \ {_, w -> w.col <= a:col + l:width && w.col + w.width - 1 >= a:col - 1}))
+  if !l:free
+    return a:above + [repeat(' ', a:col - 1) . a:text]
+  endif
+  let l:at = s:byte_at(l:last, a:col)
+  let l:line = l:at < 0 ? l:last . repeat(' ', a:col - 1 - strdisplaywidth(l:last)) . a:text
+        \ : strpart(l:last, 0, l:at) . a:text . strpart(l:last, l:at + l:width)
+  return a:above[: -2] + [l:line]
+endfunction
+
+" The byte index where display column `col` of `line` starts, -1 past its end.
+function! s:byte_at(line, col) abort
+  let l:vcol = 0
+  let l:byte = 0
+  for l:ch in split(a:line, '\zs')
+    if l:vcol + 1 >= a:col
+      return l:byte
+    endif
+    let l:vcol += strdisplaywidth(l:ch, l:vcol)
+    let l:byte += len(l:ch)
+  endfor
+  return -1
+endfunction
+
+" The bytes of display columns [col, col + width - 1] of `line`: [first byte
+" column (1-indexed), byte length], or [] when the line ends before `col`.
+function! songwriter#tab#annotations#Bytes(line, col, width) abort
+  let l:start = s:byte_at(a:line, a:col)
+  if l:start < 0
+    return []
+  endif
+  let l:end = s:byte_at(a:line, a:col + a:width)
+  return [l:start + 1, (l:end < 0 ? len(a:line) : l:end) - l:start]
+endfunction

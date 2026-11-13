@@ -1,6 +1,6 @@
 " autoload/songwriter/tab.vim - the tablature commands that work outside
 " tablature mode too: `_`, `||`, :SongwriterAddBar, :SongwriterAddDashes and
-" :SongwriterTabChord (spec [Tablature][[Editing]] 1, 2).
+" :SongwriterTabChord (spec [Tablature][[Editing]] 1, 2, [[Annotations]] 6).
 " Tablature mode's editing lives in tab/*.vim (see design.md "Modules").
 
 " Append `--` to every string of the block.
@@ -42,11 +42,16 @@ function! songwriter#tab#Lint() abort
   call songwriter#tab#edit#Write(l:block, songwriter#tab#lint#Lint(l:block.lines))
 endfunction
 
-" Insert `chord` on a new line above the block, aligned to the cursor column.
+" Spec [Tablature][[Annotations]] 6: write `chord` above the block, aligned
+" to the cursor column (past the string name and first pipe, so that it is an
+" annotation): on the annotation line right above the strings when it fits,
+" else on a new one.
 function! songwriter#tab#TabChord(chord) abort
   let l:block = songwriter#tab#model#Read()
   if empty(l:block)
     return
   endif
-  call append(l:block.start - 1, repeat(' ', col('.') - 1) . a:chord)
+  let l:col = max([col('.'), songwriter#tab#model#BodyOffset() + 1])
+  call songwriter#tab#model#Write(l:block, extend(songwriter#tab#model#Snapshot(l:block),
+        \ {'above': songwriter#tab#annotations#Add(l:block.above, l:col, a:chord)}))
 endfunction

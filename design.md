@@ -229,6 +229,11 @@ part of the tab, and follow its music through every edit.
   changed since (a native yank) has no annotation rows, and pastes as before.
   `gp` adds notes to a column that keeps its own annotations, so it leaves
   them out.
+- **`:SongwriterTabChord` and the highlight** use the same lines: a chord
+  goes on the annotation line closest to the strings when it fits there, and
+  the time column highlight covers the annotations, converting their display
+  columns to the bytes `matchaddpos` wants. Vim 8.2 takes at most 8 positions
+  per match, so the highlight is added 8 lines at a time.
 - **Display columns.** Annotations may hold any text; tab lines are ASCII, so
   a display column of an annotation is the byte column of the strings under
   it.
@@ -760,9 +765,9 @@ native key away, and the command takes the tuning as its argument.
 
 Column-wise operations act on the notes starting on the cursor's column, on
 every string, which the cursor alone does not show. `tab/highlight.vim` keeps
-a window match (`matchaddpos`, group `songwriterTimeColumn`, linked by default
-to `CursorColumn`) on that column, on every string of the tab, notes and
-dashes alike, as wide as its widest note: a full-height band shows the column
+window matches (`matchaddpos`, group `songwriterTimeColumn`, linked by default
+to `CursorColumn`) on that column, on every string of the tab and its
+annotation lines, notes and dashes alike, as wide as its widest note: a full-height band shows the column
 as one thing, and which strings are silent on it, where highlighting only its
 notes would leave scattered cells. The note under the cursor decides the
 column, so a cursor on the `2` of `12` still shows that note's column. On a

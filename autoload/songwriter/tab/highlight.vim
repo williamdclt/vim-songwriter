@@ -6,8 +6,9 @@
 " Pure. The positions [[lnum, col, len], ...] of the time column under the
 " cursor at column `col` of line `lin` of `block`: the column where the note
 " under the cursor starts (the cursor's column when it is on no note), on
-" every string, notes or dashes, as wide as its widest note. [] when no note
-" starts there on any string.
+" every string, notes or dashes, and on the annotation lines above them
+" ([[Annotations]] 7), as wide as its widest note. [] when no note starts there
+" on any string.
 function! songwriter#tab#highlight#Positions(block, lin, col) abort
   let l:note = songwriter#tab#model#NoteAt(a:block.lines[a:lin], a:col)
   let l:c = empty(l:note) ? a:col : l:note.col
@@ -15,7 +16,15 @@ function! songwriter#tab#highlight#Positions(block, lin, col) abort
     return []
   endif
   let l:width = songwriter#tab#model#ColumnEnd(a:block, l:c) - l:c + 1
-  return map(range(len(a:block.lines)), {i, _ -> [a:block.start + i, l:c, l:width]})
+  let l:pos = []
+  " Annotations are placed by display column: the bytes of that column there.
+  for l:i in range(len(get(a:block, 'above', [])))
+    let l:range = songwriter#tab#annotations#Bytes(a:block.above[l:i], l:c, l:width)
+    if !empty(l:range)
+      call add(l:pos, [a:block.top + l:i] + l:range)
+    endif
+  endfor
+  return l:pos + map(range(len(a:block.lines)), {i, _ -> [a:block.start + i, l:c, l:width]})
 endfunction
 
 " Highlight the time column under the cursor in the current window, or
@@ -34,15 +43,17 @@ function! songwriter#tab#highlight#Update() abort
   endif
   call songwriter#tab#highlight#Clear()
   if !empty(l:pos)
-    let w:songwriter_column_match = matchaddpos('songwriterTimeColumn', l:pos)
+    " Vim 8.2 takes at most 8 positions per match.
+    let w:songwriter_column_match = map(range(0, len(l:pos) - 1, 8),
+          \ {_, i -> matchaddpos('songwriterTimeColumn', l:pos[i : i + 7])})
     let w:songwriter_column_pos = l:pos
   endif
 endfunction
 
 " Remove the highlight from the current window.
 function! songwriter#tab#highlight#Clear() abort
-  if exists('w:songwriter_column_match')
-    silent! call matchdelete(w:songwriter_column_match)
-  endif
+  for l:id in get(w:, 'songwriter_column_match', [])
+    silent! call matchdelete(l:id)
+  endfor
   unlet! w:songwriter_column_match w:songwriter_column_pos
 endfunction
