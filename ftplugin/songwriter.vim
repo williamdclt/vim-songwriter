@@ -30,6 +30,7 @@ let s:plug_keys = {
       \ '<leader>p': 'songwriter-play',
       \ '<leader>P': 'songwriter-play-note',
       \ '<leader>?': 'songwriter-chord-name',
+      \ '<leader>a': 'songwriter-annotate',
       \ '\|\|': 'songwriter-lint',
       \ '_': 'songwriter-add-dash',
       \ }
@@ -69,6 +70,14 @@ augroup songwriter_column
   autocmd BufWinLeave,WinLeave <buffer> call songwriter#tab#highlight#Clear()
 augroup END
 let b:undo_ftplugin .= '| exe "autocmd! songwriter_column * <buffer>" | call songwriter#tab#highlight#Clear()'
+
+" Spec [Tablature][[Annotations]] 8: an annotation started with <leader>a is
+" tidied when insert mode is left.
+augroup songwriter_annotate
+  autocmd! * <buffer>
+  autocmd InsertLeave <buffer> call songwriter#tab#AnnotateLeave()
+augroup END
+let b:undo_ftplugin .= '| exe "autocmd! songwriter_annotate * <buffer>"'
 
 unlet s:mode s:lhs
 unlet s:key s:plug s:plug_keys

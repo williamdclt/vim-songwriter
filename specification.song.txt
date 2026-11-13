@@ -191,6 +191,7 @@ e|--0--0--0--|--0-------------|
     5.2 Pasting such a register (`p`, `P`, 6.5) puts its annotations above the pasted columns, adding annotation lines when the tab has fewer: `ddp` swaps two columns with their chord names. A register without annotations (a native `<C-v>` yank) pastes as before. `gp` (6.14) adds notes only: the column keeps its own annotations. ✓
 6. `:SongwriterTabChord {chord}` writes the chord above the cursor's column (never in the first two columns, so that it is an annotation): on the annotation line right above the strings when it fits there (a space or the line's end on each side), else on a new annotation line right above the strings. ✓
 7. In tablature mode, the time column highlight ([[Rendering]] 4) extends over the annotation lines. ✓
+8. `<leader>a` on a tab line starts typing an annotation above the cursor's column (never in the first two columns), in Vim's own insert mode, on the annotation line right above the strings, which is opened when there is none. Inside that line, typing replaces its spaces (Replace mode), so the words after it stay where they are; past its end, spaces are added up to the column. Leaving insert mode, spaces left at the end of the line are removed, and a line left empty is deleted. Opening the line and what is typed on it are one undo step. It works with tablature mode on or off; off a tab line, nothing happens. ✓
 
 [[Bugs]]
 These are known bugs that need fixing.
