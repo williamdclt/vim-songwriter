@@ -181,7 +181,7 @@ endfunction
 " at g:songwriter_play_bpm per step, the notes of a step strummed in order,
 " g:songwriter_strum_ms apart.
 function! songwriter#sound#Schedule(steps) abort
-  let l:step_ms = 60000 / get(g:, 'songwriter_play_bpm', 120)
+  let l:step_ms = 60000 / get(g:, 'songwriter_play_bpm', 100)
   let l:strum_ms = get(g:, 'songwriter_strum_ms', 80)
   let l:res = []
   for l:i in range(len(a:steps))
