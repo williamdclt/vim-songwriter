@@ -235,6 +235,12 @@ part of the tab, and follow its music through every edit.
   the time column highlight covers the annotations, converting their display
   columns to the bytes `matchaddpos` wants. Vim 8.2 takes at most 8 positions
   per match, so the highlight is added 8 lines at a time.
+- **`<leader>a` types, it does not set.** It returns keys (`O` or `A` and
+  the padding spaces, or `R` inside the line) rather than editing first and
+  then entering insert mode, so the new line and what is typed on it are one
+  undo step. Replace mode inside the line keeps the words after the column
+  aligned. An InsertLeave autocommand removes the padding left unused, and the
+  line if nothing was typed, joined to the same undo step.
 - **Display columns.** Annotations may hold any text; tab lines are ASCII, so
   a display column of an annotation is the byte column of the strings under
   it.
