@@ -766,6 +766,12 @@ voicings in their cycle order out) and `Place()`, and the entry points.
   also a fifthless `C6`. Every fitting chord is listed, since the same notes
   are often two chords (`C6`, `Am7/C`) and only the player knows which is
   meant. The one on the bass comes first; the rest go up from the bass.
+- **Rare qualities as a fallback.** `addb9`, `maddb9` and `13` name voicings
+  nothing common fits (`x6897x`), but checked alongside the others they
+  would add a second, unlikely reading to ordinary chords (`C C# E` would be
+  `Caddb9` too). So they are a second table, tried only when the first finds
+  nothing. A quality lists the intervals it may drop (`opt`): the fifth for
+  most, the fifth and ninth for `13`.
 - **Read-only**, like playing: no lint, no undo step, so it works outside
   tablature mode as well. The pure part is `chord#Identify` (pitches to
   names), independent of tabs, and `chordname#Message` (lines to message).
