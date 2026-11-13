@@ -6,6 +6,11 @@
 let s:string_name = '\a'
 let s:tab_line = '^' . s:string_name . '[|]'
 
+" An annotation line (spec [Tablature][[Annotations]] 1): its first two
+" columns, those of a tab line's string name and first pipe, are spaces, and it
+" holds something else. Right above a tab, it annotates the tab.
+let s:annotation_line = '^  .*\S'
+
 " A tab line whose last bar is closed: nothing but whitespace after its final
 " pipe (`e|--3--|`, not `e|--3--`).
 let s:closed_tab_line = '[|]\s*$'
@@ -89,6 +94,9 @@ function! songwriter#grammar#TabLine() abort
 endfunction
 function! songwriter#grammar#IsTabLine(line) abort
   return a:line =~# s:tab_line
+endfunction
+function! songwriter#grammar#IsAnnotationLine(line) abort
+  return a:line =~# s:annotation_line
 endfunction
 function! songwriter#grammar#IsClosedTabLine(line) abort
   return a:line =~# s:closed_tab_line

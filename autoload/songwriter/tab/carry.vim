@@ -149,7 +149,7 @@ function! songwriter#tab#carry#Move(key) abort
     return
   endif
   let l:carry = songwriter#tab#state#Get('carry')
-  let l:going = !empty(l:carry) && l:carry.saved.origin.start == l:block.start
+  let l:going = !empty(l:carry) && l:carry.saved.origin.top == l:block.top
         \ && l:carry.line == line('.') && l:carry.col == col('.')
   call songwriter#tab#edit#Do(function('s:move', [s:moves[a:key], l:going ? l:carry : {}]),
         \ {'join': l:going, 'prelint': 0, 'insert': 1})

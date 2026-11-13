@@ -170,10 +170,10 @@ Lines of free text right above a tab's strings annotate it: chord names, playing
     PM-----|    let ring~~~~
 e|--0--0--0--|--0-------------|
 
-1. An annotation line is a line whose first two columns are spaces and that holds something else, right above a tab's first string or right above another annotation line of that tab. A blank line, or a line that starts in its first two columns (prose, a section), ends the tab's annotations. ✗
-2. Annotation lines are part of their tab. ✗
-    2.1 Line-wise targets (6.3) cover them: `dap` / `yap` delete / yank a tab with its annotations, `cap` clears them with the notes, and a line-wise register goes above them (`P`, 6.3.2). `O` (8) opens the new tab above them; `:SongwriterNewTab` (9) on an annotation line goes under the tab. ✗
-    2.2 Annotations are plain text: in tablature mode, keys on an annotation line keep their usual meaning. ✗
+1. An annotation line is a line whose first two columns are spaces and that holds something else, right above a tab's first string or right above another annotation line of that tab. A blank line, or a line that starts in its first two columns (prose, a section), ends the tab's annotations. ✓
+2. Annotation lines are part of their tab. ✓
+    2.1 Line-wise targets (6.3) cover them: `dap` / `yap` delete / yank a tab with its annotations, `cap` clears them with the notes, and a line-wise register goes above them (`P`, 6.3.2). `O` (8) opens the new tab above them; `:SongwriterNewTab` (9) on an annotation line goes under the tab. ✓
+    2.2 Annotations are plain text: in tablature mode, keys on an annotation line keep their usual meaning. ✓
 3. An annotation line is made of words separated by spaces. In a word, a run of two or more of the same fill character (`-`, `~`, `.`, `=`) is an extender. A word with an extender is a span: it covers the time columns from its first to its last character (`PM-----|`, `~~~~`). Any other word is a label, which stands for the column under its first character (`Am`, `P.M.`, `x2`). Annotations are placed by display column, which on a tab line is its byte column. ✗
 4. Annotations follow the music: through every tablature-mode edit (lints included, 4) and the tab commands (`_`, `||`, `:SongwriterAddBar`, `:SongwriterAddDashes`), a label stays above the same time column, or at the same place in a gap (as the cursor does through a lint), and a span covers the same time columns. ✗
     4.1 Room opened inside a span widens it: a note typed in a slot opened inside `PM-----|` is palm muted too. Room opened right after a span's last column is outside it. ✗

@@ -212,7 +212,7 @@ function! songwriter#tab#slots#Abandon(...) abort
       call s:revert(l:slot)
     endif
     if l:keep_lint && has_key(l:slot, 'linted') && l:slot.linted !=# l:slot.before
-      call songwriter#tab#model#Write(songwriter#tab#model#Read(l:slot.before.start), l:slot.linted)
+      call songwriter#tab#model#Write(songwriter#tab#model#ReadTop(l:slot.before.top), l:slot.linted)
       call cursor(l:lnum, l:slot.linted_col)
     else
       call cursor(l:lnum, l:slot.from)
@@ -238,12 +238,12 @@ function! s:revert(slot) abort
     endif
     silent redo
   endif
-  call songwriter#tab#model#Write(songwriter#tab#model#Read(a:slot.before.start), a:slot.before)
+  call songwriter#tab#model#Write(songwriter#tab#model#ReadTop(a:slot.before.top), a:slot.before)
 endfunction
 
 " True when the buffer holds the block of `snapshot` as it is there.
 function! s:holds(snapshot) abort
-  let l:block = songwriter#tab#model#Read(a:snapshot.start)
+  let l:block = songwriter#tab#model#ReadTop(a:snapshot.top)
   return !empty(l:block) && songwriter#tab#model#Snapshot(l:block) ==# a:snapshot
 endfunction
 

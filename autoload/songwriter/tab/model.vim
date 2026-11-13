@@ -1,12 +1,17 @@
 " autoload/songwriter/tab/model.vim - the tablature block model.
 "
-" A block is the contiguous run of tab lines around a line. It is parsed once
-" into a dict, and features query it instead of re-scanning raw strings:
+" A block is the contiguous run of tab lines around a line, its strings, with
+" the annotation lines right above them (spec [Tablature][[Annotations]] 1).
+" It is parsed once into a dict, and features query it instead of re-scanning
+" raw strings:
 "
 "   block = {
-"     'start':   first buffer line number of the block,
+"     'top':     first buffer line number of the block, its first annotation
+"                line (its first string without annotations); Read only,
+"     'above':   the annotation lines; Read only,
+"     'start':   buffer line number of its first string,
 "     'end':     last buffer line number of the block,
-"     'lines':   the raw line strings,
+"     'lines':   the raw line strings of its strings,
 "     'strings': one entry per line: {
 "        'text':  the raw line,
 "        'notes': [{'col': 1-indexed start column, 'len': width, 'text': '12'}],
@@ -18,8 +23,10 @@
 " Everything here is pure except Read() and Write(), the buffer edges.
 "
 " A snapshot is a block as Write puts it in the buffer, and as an edit that
-" gives a tab back as it was saves it (a slot, a carry): {'start': its first
-" buffer line, 'lines'}. Edits make them from drafts (tab/edit.vim).
+" gives a tab back as it was saves it (a slot, a carry): {'top': its first
+" buffer line, 'above', 'lines'}. Edits make them from drafts (tab/edit.vim).
+" The top of a block stays where it is when its number of annotation lines
+" changes, so it is what identifies a block across edits.
 
 " The string name of a tab line.
 function! songwriter#tab#model#Name(line) abort
@@ -148,7 +155,39 @@ function! songwriter#tab#model#Read(...) abort
   while l:end < line('$') && songwriter#grammar#IsTabLine(getline(l:end + 1))
     let l:end += 1
   endwhile
-  return songwriter#tab#model#Parse(l:start, getline(l:start, l:end))
+  let l:top = l:start
+  while l:top > 1 && songwriter#grammar#IsAnnotationLine(getline(l:top - 1))
+    let l:top -= 1
+  endwhile
+  return extend(songwriter#tab#model#Parse(l:start, getline(l:start, l:end)),
+        \ {'top': l:top, 'above': l:top < l:start ? getline(l:top, l:start - 1) : []})
+endfunction
+
+" The block buffer line `lnum` belongs to: as Read, also from one of its
+" annotation lines. {} elsewhere.
+function! songwriter#tab#model#Around(lnum) abort
+  let l:lnum = a:lnum
+  while songwriter#grammar#IsAnnotationLine(getline(l:lnum)) && l:lnum < line('$')
+    let l:lnum += 1
+  endwhile
+  return songwriter#tab#model#Read(l:lnum)
+endfunction
+
+" The block whose top (first line) is buffer line `top`, or {}.
+function! songwriter#tab#model#ReadTop(top) abort
+  let l:block = songwriter#tab#model#Around(a:top)
+  return !empty(l:block) && l:block.top == a:top ? l:block : {}
+endfunction
+
+" True when `lines` start with a tab: a tab line, maybe after annotation
+" lines.
+function! songwriter#tab#model#StartsTab(lines) abort
+  for l:line in a:lines
+    if !songwriter#grammar#IsAnnotationLine(l:line)
+      return songwriter#grammar#IsTabLine(l:line)
+    endif
+  endfor
+  return 0
 endfunction
 
 " The cursor in `block` (default: the block around it): {'block', 'lin': its
@@ -168,21 +207,38 @@ function! songwriter#tab#model#CursorLin(block) abort
   return line('.') - a:block.start
 endfunction
 
-" The snapshot of `block`.
+" The snapshot of `block` (from Read).
 function! songwriter#tab#model#Snapshot(block) abort
-  return {'start': a:block.start, 'lines': copy(a:block.lines)}
+  return {'top': a:block.top, 'above': copy(a:block.above), 'lines': copy(a:block.lines)}
 endfunction
 
-" Write `snapshot` over `block` in the buffer. Only the lines that differ are
+" The block of `snapshot`, parsed, as Read would give it once written.
+function! songwriter#tab#model#FromSnapshot(snapshot) abort
+  let l:start = a:snapshot.top + len(a:snapshot.above)
+  return extend(songwriter#tab#model#Parse(l:start, a:snapshot.lines),
+        \ {'top': a:snapshot.top, 'above': copy(a:snapshot.above)})
+endfunction
+
+" Write `snapshot` over `block` (from Read) in the buffer, annotation lines
+" and strings, and return the block written. Only the lines that differ are
 " set, so writing what is already there makes no change (no undo step,
-" b:changedtick unchanged).
+" b:changedtick unchanged). When the number of annotation lines changes, they
+" are added or deleted at the block's top, so the cursor, on a string, stays
+" on its string.
 function! songwriter#tab#model#Write(block, snapshot) abort
-  let l:lines = a:snapshot.lines
+  let l:extra = len(a:snapshot.above) - len(a:block.above)
+  if l:extra > 0
+    call append(a:block.top - 1, repeat([''], l:extra))
+  elseif l:extra < 0
+    call deletebufline('%', a:block.top, a:block.top - l:extra - 1)
+  endif
+  let l:lines = a:snapshot.above + a:snapshot.lines
   for l:i in range(len(l:lines))
-    if getline(a:block.start + l:i) !=# l:lines[l:i]
-      call setline(a:block.start + l:i, l:lines[l:i])
+    if getline(a:block.top + l:i) !=# l:lines[l:i]
+      call setline(a:block.top + l:i, l:lines[l:i])
     endif
   endfor
+  return songwriter#tab#model#FromSnapshot(extend(copy(a:snapshot), {'top': a:block.top}))
 endfunction
 
 " Start columns of every note on any string of the block, sorted, unique.

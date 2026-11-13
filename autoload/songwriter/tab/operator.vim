@@ -225,8 +225,9 @@ function! s:slot_anchor(lines, lin, s) abort
   return !empty(l:next) ? [l:next[0], -1] : !empty(l:prev) ? [l:prev[-1], 1] : [l:left, 0]
 endfunction
 
-" Spec 6.3: line-wise targets cover every tab they touch, whole. `play`
-" plays them one after the other (12.1).
+" Spec 6.3: line-wise targets cover every tab they touch, whole, annotations
+" included ([[Annotations]] 2.1). `play` plays them one after the other
+" (12.1).
 function! songwriter#tab#operator#ApplyLines(op, reg, l1, l2) abort
   if a:op ==# 'play'
     call songwriter#tab#play#Play(s:tabs_in(a:l1, a:l2))
@@ -235,7 +236,7 @@ function! songwriter#tab#operator#ApplyLines(op, reg, l1, l2) abort
   let l:l1 = a:l1
   let l:l2 = a:l2
   if songwriter#grammar#IsTabLine(getline(l:l1))
-    let l:l1 = songwriter#tab#model#Read(l:l1).start
+    let l:l1 = songwriter#tab#model#Read(l:l1).top
   endif
   if songwriter#grammar#IsTabLine(getline(l:l2))
     let l:b = songwriter#tab#model#Read(l:l2)
@@ -248,9 +249,11 @@ function! songwriter#tab#operator#ApplyLines(op, reg, l1, l2) abort
     call deletebufline('%', l:l1, l:l2)
     call cursor(min([l:l1, line('$')]), 1)
   else
-    " 6.3.1: clear every note of each tab, open a slot. Lint then drops the
-    " emptied bars at the end (1.4), leaving the first one.
+    " 6.3.1: clear every note of each tab, and its annotations ([[Annotations]]
+    " 2.1), open a slot. Lint then drops the emptied bars at the end (1.4),
+    " leaving the first one. The cursor stays on its string.
     let l:cur = line('.')
+    let l:first = 0
     let l:lnum = l:l1
     while l:lnum <= l:l2
       let l:block = songwriter#tab#model#Read(l:lnum)
@@ -258,13 +261,17 @@ function! songwriter#tab#operator#ApplyLines(op, reg, l1, l2) abort
         let l:lnum += 1
         continue
       endif
-      " Clearing notes moves no column: the map is the lint's.
-      call songwriter#tab#edit#Write(l:block,
-            \ songwriter#tab#lint#Lint(songwriter#tab#columns#ClearNotes(l:block.lines)))
-      let l:lnum = l:block.end + 1
+      let l:lines = songwriter#tab#lint#Lint(songwriter#tab#columns#ClearNotes(l:block.lines)).lines
+      let l:new = songwriter#tab#model#Write(l:block, {'top': l:block.top, 'above': [], 'lines': l:lines})
+      let l:shift = l:new.end - l:block.end
+      if l:cur >= l:block.start
+        let l:cur += l:shift
+      endif
+      let l:first = l:first ? l:first : l:new.start
+      let [l:l2, l:lnum] = [l:l2 + l:shift, l:new.end + 1]
     endwhile
     if !songwriter#grammar#IsTabLine(getline(l:cur))
-      let l:cur = l:l1
+      let l:cur = l:first ? l:first : l:l1
     endif
     call cursor(l:cur, songwriter#tab#model#BodyOffset() + 1)
     call songwriter#tab#slots#OpenHere(0)
@@ -452,8 +459,9 @@ function! s:put(before, count, reg, ctx) abort
         \ songwriter#tab#register#Names(a:reg), a:before, a:count)
 endfunction
 
-" A line-wise register goes after the tab (before it for `P`), never between
-" its strings; a blank line keeps pasted tab lines from joining the tab.
+" A line-wise register goes after the tab (before it and its annotations for
+" `P`), never between its strings; a blank line keeps a pasted tab from joining
+" the tab.
 function! s:put_lines(block, rows, before, count) abort
   let l:rows = []
   for l:i in range(max([a:count, 1]))
@@ -466,10 +474,10 @@ function! s:put_lines(block, rows, before, count) abort
     if songwriter#grammar#IsTabLine(l:rows[-1])
       call add(l:rows, '')
     endif
-    let l:at = a:block.start - 1
+    let l:at = a:block.top - 1
     let l:first = l:at + 1
   else
-    if songwriter#grammar#IsTabLine(l:rows[0])
+    if songwriter#tab#model#StartsTab(l:rows)
       call insert(l:rows, '')
     endif
     let l:at = a:block.end
