@@ -180,7 +180,7 @@ takes the same targets as `d` and `y`, and never changes the file:
 | `<leader>pap`        | the whole tab                                 |
 | `<leader>p` (visual) | the selection                                 |
 
-Columns play one after the other, a half beat each at 120 bpm
+Columns play one after the other, a beat each at 120 bpm
 (`g:songwriter_play_bpm`), whatever the spacing; the notes of a column are
 strummed from the lowest string up. `:SongwriterStop` stops.
 
@@ -236,8 +236,7 @@ Remap the default keys through their `<Plug>` mappings:
 | `_`         | `<Plug>(songwriter-add-dash)`           |
 
 - `g:songwriter_max_fret` (default 24): the highest fret a two-digit note can be.
-- `g:songwriter_play_bpm` (default 120): playing speed, a time column per half
-  beat.
+- `g:songwriter_play_bpm` (default 120): playing speed, a time column per beat.
 - `g:songwriter_strum_ms` (default 80): delay between the notes of a column,
   lowest string first (`0` plays them at once).
 - `g:songwriter_player`: the command that plays a sound file, as a list (the
