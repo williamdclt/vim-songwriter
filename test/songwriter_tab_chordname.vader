@@ -1,0 +1,178 @@
+" Spec [Tablature][[Editing]] 13: `<leader>?` names the chord on a time
+" column. Pure cases call songwriter#chord#Identify(midis) (the chord names
+" for a list of MIDI pitches, in the order of 13.3); key cases type `\?` and
+" read the message.
+
+Before:
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing
+  unlet! b:songwriter_insert b:songwriter_voicing
+  let b:songwriter_tabmode = 1
+
+" --- 13.2 / 13.3 naming pitches ---
+
+Execute (13.2 an open C chord):
+  AssertEqual ['C'], songwriter#chord#Identify([48, 52, 55, 60, 64])
+
+Execute (13.3 the chord rooted on the bass first, then the others over it):
+  AssertEqual ['C6', 'Am7/C'], songwriter#chord#Identify([48, 52, 57, 60, 67])
+  AssertEqual ['Am7', 'C6/A'], songwriter#chord#Identify([45, 52, 55, 60, 64])
+
+Execute (13.2 a 6 chord keeps its fifth, so an open Am is only Am):
+  AssertEqual ['Am'], songwriter#chord#Identify([45, 52, 57, 60, 64])
+
+Execute (13.2 a power chord):
+  AssertEqual ['E5'], songwriter#chord#Identify([40, 47, 52])
+
+Execute (13.2 a slash chord, spelled with sharps):
+  AssertEqual ['D/F#'], songwriter#chord#Identify([42, 50, 57, 62, 66])
+
+Execute (13.2 the order of the pitches does not matter, the lowest is the bass):
+  AssertEqual ['D/F#'], songwriter#chord#Identify([66, 62, 57, 50, 42])
+
+Execute (13.2 sus2 is also sus4 of its fifth):
+  AssertEqual ['Csus2', 'Gsus4/C'], songwriter#chord#Identify([48, 50, 55, 60, 67])
+
+Execute (13.2 the open G7 shape):
+  AssertEqual ['G7'], songwriter#chord#Identify([43, 47, 50, 55, 59, 65])
+
+Execute (13.2 a fifth left out, where it may be):
+  AssertEqual ['C7'], songwriter#chord#Identify([48, 52, 58])
+  AssertEqual ['C'], songwriter#chord#Identify([48, 52])
+
+Execute (13.2 the fifth is never left out of sus, dim, aug):
+  AssertEqual [], songwriter#chord#Identify([48, 50])
+
+Execute (13.3 the others by root, going up from the bass):
+  AssertEqual ['Cdim7', 'D#dim7/C', 'F#dim7/C', 'Adim7/C'],
+        \ songwriter#chord#Identify([48, 51, 54, 57])
+  AssertEqual ['Caug', 'Eaug/C', 'G#aug/C'], songwriter#chord#Identify([48, 52, 56])
+
+Execute (13.2 every quality, in its order):
+  let q = ['', 'm', '5', '6', 'm6', '7', 'maj7', 'm7', 'mmaj7', '9', 'maj9', 'm9',
+        \ 'add9', 'madd9', 'sus2', 'sus4', '7sus4', 'dim', 'dim7', 'aug', 'm7b5']
+  let iv = [[0, 4, 7], [0, 3, 7], [0, 7], [0, 4, 7, 9], [0, 3, 7, 9], [0, 4, 7, 10],
+        \ [0, 4, 7, 11], [0, 3, 7, 10], [0, 3, 7, 11], [0, 4, 7, 10, 14], [0, 4, 7, 11, 14],
+        \ [0, 3, 7, 10, 14], [0, 4, 7, 14], [0, 3, 7, 14], [0, 2, 7], [0, 5, 7],
+        \ [0, 5, 7, 10], [0, 3, 6], [0, 3, 6, 9], [0, 4, 8], [0, 3, 6, 10]]
+  for k in range(len(q))
+    let names = songwriter#chord#Identify(map(copy(iv[k]), '48 + v:val'))
+    AssertEqual 'C' . q[k], names[0]
+    Assert !empty(songwriter#grammar#ParseChord(names[0])), names[0]
+  endfor
+
+Execute (13.4 nothing fits):
+  AssertEqual [], songwriter#chord#Identify([48, 49, 50])
+
+" --- 13 / 13.1 the key ---
+
+Given songwriter (13 a C6):
+  e|--3--|
+  B|--1--|
+  G|--2--|
+  D|--2--|
+  A|--3--|
+  E|--x--|
+
+Execute (13 the message lists the chords, and the tab is unchanged):
+  call cursor(5, 5)
+  let g:tick = b:changedtick
+  redir => g:messages
+  silent execute "normal \\?"
+  redir END
+  Assert g:messages =~# 'C6 | Am7/C', g:messages
+  AssertEqual g:tick, b:changedtick
+  AssertEqual [5, 5], getpos('.')[1:2]
+
+Expect songwriter (13 unchanged):
+  e|--3--|
+  B|--1--|
+  G|--2--|
+  D|--2--|
+  A|--3--|
+  E|--x--|
+
+Given songwriter (13.1 a two-digit fret, cursor on its second digit):
+  e|--12--|
+  B|--13--|
+  G|--14--|
+  D|--14--|
+  A|------|
+  E|------|
+
+Execute (13.1 the column of the note under the cursor):
+  call cursor(1, 6)
+  redir => g:messages
+  silent execute "normal \\?"
+  redir END
+  Assert g:messages =~# 'Am/E', g:messages
+
+Given songwriter (13.1 any tuning: drop D):
+  e|-----|
+  B|-----|
+  G|-----|
+  D|--0--|
+  A|--0--|
+  D|--0--|
+
+Execute (13.1 any tuning: drop D):
+  call cursor(6, 5)
+  redir => g:messages
+  silent execute "normal \\?"
+  redir END
+  Assert g:messages =~# 'D5', g:messages
+
+Given songwriter (13 outside tablature mode):
+  e|--0--|
+  B|--0--|
+  G|--1--|
+  D|--2--|
+  A|--2--|
+  E|--0--|
+
+Execute (13 outside tablature mode):
+  let b:songwriter_tabmode = 0
+  call cursor(1, 5)
+  redir => g:messages
+  silent execute "normal \\?"
+  redir END
+  Assert g:messages =~# '\<E\>', g:messages
+
+Given songwriter (13.4 one note, notes that fit no chord, no note):
+  e|--0-----|
+  B|-----0--|
+  G|-----1--|
+  D|--------|
+  A|-----3--|
+  E|--0-----|
+
+Execute (13.4 a single pitch class):
+  call cursor(1, 5)
+  redir => g:messages
+  silent execute "normal \\?"
+  redir END
+  Assert g:messages =~# 'songwriter: one note, E', g:messages
+
+Execute (13.4 notes that fit no chord):
+  call cursor(2, 8)
+  redir => g:messages
+  silent execute "normal \\?"
+  redir END
+  Assert g:messages =~# 'songwriter: no chord for C G# B', g:messages
+
+Execute (13.4 no fretted note):
+  call cursor(4, 6)
+  redir => g:messages
+  silent execute "normal \\?"
+  redir END
+  Assert g:messages =~# 'songwriter: no note on this time column', g:messages
+
+Given songwriter (13.4 a string name that is not a note):
+  e|--3--|
+  X|--5--|
+
+Execute (13.4 a string name that is not a note):
+  call cursor(1, 5)
+  redir => g:messages
+  silent execute "normal \\?"
+  redir END
+  Assert g:messages =~# 'string name X is not a note', g:messages

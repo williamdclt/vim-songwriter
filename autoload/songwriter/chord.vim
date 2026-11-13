@@ -219,3 +219,46 @@ function! s:toggle_minor(chord) abort
   let l:q = empty(l:minor) ? 'm' . a:chord.quality : strpart(a:chord.quality, len(l:minor))
   return s:chord_build(a:chord.root, l:q, a:chord.bass)
 endfunction
+
+" === Naming the chord of some pitches ===
+
+" Spec [Tablature][[Editing]] 13.2: the qualities a chord is named with, in
+" order, each with the intervals (semitones above the root, octaves aside) it
+" needs and, for `omit`, its fifth may be left out.
+let s:named = [
+      \ {'q': '', 'iv': [0, 4, 7], 'omit': 1}, {'q': 'm', 'iv': [0, 3, 7], 'omit': 1},
+      \ {'q': '5', 'iv': [0, 7], 'omit': 0}, {'q': '6', 'iv': [0, 4, 7, 9], 'omit': 0},
+      \ {'q': 'm6', 'iv': [0, 3, 7, 9], 'omit': 0}, {'q': '7', 'iv': [0, 4, 7, 10], 'omit': 1},
+      \ {'q': 'maj7', 'iv': [0, 4, 7, 11], 'omit': 1}, {'q': 'm7', 'iv': [0, 3, 7, 10], 'omit': 1},
+      \ {'q': 'mmaj7', 'iv': [0, 3, 7, 11], 'omit': 1}, {'q': '9', 'iv': [0, 2, 4, 7, 10], 'omit': 1},
+      \ {'q': 'maj9', 'iv': [0, 2, 4, 7, 11], 'omit': 1}, {'q': 'm9', 'iv': [0, 2, 3, 7, 10], 'omit': 1},
+      \ {'q': 'add9', 'iv': [0, 2, 4, 7], 'omit': 1}, {'q': 'madd9', 'iv': [0, 2, 3, 7], 'omit': 1},
+      \ {'q': 'sus2', 'iv': [0, 2, 7], 'omit': 0}, {'q': 'sus4', 'iv': [0, 5, 7], 'omit': 0},
+      \ {'q': '7sus4', 'iv': [0, 5, 7, 10], 'omit': 0}, {'q': 'dim', 'iv': [0, 3, 6], 'omit': 0},
+      \ {'q': 'dim7', 'iv': [0, 3, 6, 9], 'omit': 0}, {'q': 'aug', 'iv': [0, 4, 8], 'omit': 0},
+      \ {'q': 'm7b5', 'iv': [0, 3, 6, 10], 'omit': 0},
+      \ ]
+
+" Spec [Tablature][[Editing]] 13.2, 13.3: every chord the MIDI pitches
+" `midis` can be, the one rooted on the bass (the lowest pitch) first, then by
+" root going up from the bass, then in the order of s:named. A chord not
+" rooted on the bass is written over it (`Am7/C`). [] when none fits.
+function! songwriter#chord#Identify(midis) abort
+  if empty(a:midis)
+    return []
+  endif
+  let l:bass = min(a:midis) % 12
+  let l:pcs = uniq(sort(map(copy(a:midis), 'v:val % 12'), 'n'))
+  let l:roots = sort(copy(l:pcs), {a, b -> (a - l:bass + 12) % 12 - (b - l:bass + 12) % 12})
+  let l:names = []
+  for l:root in l:roots
+    let l:iv = sort(map(copy(l:pcs), '(v:val - l:root + 12) % 12'), 'n')
+    for l:chord in s:named
+      if l:iv ==# l:chord.iv || (l:chord.omit && l:iv ==# filter(copy(l:chord.iv), 'v:val != 7'))
+        call add(l:names, s:chord_build(songwriter#pitch#Name(l:root), l:chord.q,
+              \ l:root == l:bass ? '' : songwriter#pitch#Name(l:bass)))
+      endif
+    endfor
+  endfor
+  return l:names
+endfunction

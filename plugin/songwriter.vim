@@ -40,6 +40,7 @@ nnoremap <Plug>(songwriter-duplicate-up) <Cmd>call songwriter#tab#carry#Duplicat
 nnoremap <Plug>(songwriter-duplicate-down) <Cmd>call songwriter#tab#carry#Duplicate(1)<CR>
 nnoremap <Plug>(songwriter-end-move) <Cmd>call songwriter#tab#carry#EndMove()<CR>
 nnoremap <Plug>(songwriter-toggle-tabmode) <Cmd>call songwriter#keys#ToggleTabMode()<CR>
+nnoremap <Plug>(songwriter-chord-name) <Cmd>call songwriter#tab#chordname#Show()<CR>
 " Spec [Tablature][[Editing]] 12.1: the play operator, the note under the
 " cursor, the selection.
 nnoremap <expr> <Plug>(songwriter-play) songwriter#tab#operator#Start('play')

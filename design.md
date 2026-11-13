@@ -38,11 +38,12 @@ never relies on concealing or rendering.
 | `autoload/songwriter/tab/register.vim` | Blockwise tab registers and the string names of their source tab. |
 | `autoload/songwriter/tab/repeat.vim` | `.` for actions that are not operators. |
 | `autoload/songwriter/tab/voicings.vim` | Whole chords on a time column: voicings of a chord name in their cycle order, placing one (pure), and `=`/`==`. |
+| `autoload/songwriter/tab/chordname.vim` | Naming the chord on a time column (`<leader>?`): the column's pitches, named by `chord#Identify`. |
 | `autoload/songwriter/tab/strings.vim` | Moving notes and time columns to another string, keeping the fret or the pitch: pure `Move()` and its entry point. |
 | `autoload/songwriter/tab/play.vim` | Playing a tab: open string pitches, the steps a target plays (pure), handed to `sound.vim`. |
 | `autoload/songwriter/sound.vim` | Plucked-string synthesis into cached WAV files, the player command, and the timers and jobs that play steps. |
 | `autoload/songwriter/sound9.vim` | The synthesis loop in compiled Vim9 script, used on Vim 9. |
-| `autoload/songwriter/chord.vim` | Chord model and chord editing. |
+| `autoload/songwriter/chord.vim` | Chord model, chord editing, and naming the chord of some pitches (`Identify`). |
 | `autoload/songwriter/pitch.vim` | Pitch classes: note names to semitones and back (sharp spelling). Shared by chords and tab string intervals. |
 | `autoload/songwriter/keys.vim` | Context-dependent keys: tables and `Dispatch()`, tablature-mode flag and state (`Mode()`), tab-line `w`/`b`/`W`/`B`. |
 | `plugin/songwriter.vim` | `:Songwriter*` commands and `<Plug>(songwriter-*)` maps. |
@@ -647,6 +648,26 @@ voicings in their cycle order out) and `Place()`, and the entry points.
   (`typing.chord`): a digit after it opens the next slot even when it would
   extend the root's fret (`1` then `2` is not `12`), and separators are not
   typed after it.
+
+### Naming a column's chord (`<leader>?`, spec [Tablature][[Editing]] 13)
+
+- **Computed from pitches, not looked up in the shapes.** The column's notes
+  become MIDI pitches through the string names (`play#OpenPitches`, as for
+  playing), so any tuning and any fingering is named, not only the CAGED
+  voicings `=` writes. Matching the shapes first would add nothing: every
+  shape is a root-position chord whose notes are exactly its quality's, so it
+  is already the first name. Naming offline also keeps the plugin free of any
+  network dependency.
+- **Exact pitch-class sets, every root tried.** A chord fits when the
+  column's pitch classes, seen from one of them, are exactly a quality's
+  intervals; the fifth alone may be missing, and only from qualities where it
+  says nothing (not `5`, `6`, `sus`, `dim`, `aug`), so `C E A` is `Am/C`, not
+  also a fifthless `C6`. Every fitting chord is listed, since the same notes
+  are often two chords (`C6`, `Am7/C`) and only the player knows which is
+  meant. The one on the bass comes first; the rest go up from the bass.
+- **Read-only**, like playing: no lint, no undo step, so it works outside
+  tablature mode as well. The pure part is `chord#Identify` (pitches to
+  names), independent of tabs, and `chordname#Message` (lines to message).
 
 ### New tab (`o`/`O`, `:SongwriterNewTab`, spec [Tablature][[Editing]] 8, 9)
 
