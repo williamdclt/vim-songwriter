@@ -305,3 +305,36 @@ function! songwriter#tab#annotations#Retype(prefix, rest, col, width, typed) abo
   endif
   return substitute(l:line, '\s*$', '', '')
 endfunction
+
+" Spec [Tablature][[Editing]] 10.9: the chord label of column `col` in
+" annotation lines `above`: the first label, looking up from the line right
+" above the strings, that starts on that column and is a chord. {'i' (its
+" line in `above`), 'word'}, or {}.
+function! songwriter#tab#annotations#ChordLabel(above, col) abort
+  for l:i in range(len(a:above) - 1, 0, -1)
+    for l:w in songwriter#tab#annotations#Words(a:above[l:i])
+      if l:w.col == a:col && !l:w.span && !empty(songwriter#grammar#ParseChord(l:w.text))
+        return {'i': l:i, 'word': l:w}
+      endif
+    endfor
+  endfor
+  return {}
+endfunction
+
+" Spec [Tablature][[Editing]] 10.9, [[Annotations]] 6: annotation lines
+" `above` with `text` as the chord label of column `col`: in place of the
+" column's chord label, the next word staying where it is unless `text` runs
+" into it (Retype), else, when `add` is set, written as Add does. Unchanged
+" when there is no chord label and `add` is not set.
+function! songwriter#tab#annotations#Label(above, col, text, add) abort
+  let l:label = songwriter#tab#annotations#ChordLabel(a:above, a:col)
+  if empty(l:label)
+    return a:add ? songwriter#tab#annotations#Add(a:above, a:col, a:text) : a:above
+  endif
+  let l:line = a:above[l:label.i]
+  let [l:byte, l:len] = songwriter#tab#annotations#Bytes(l:line, l:label.word.col, l:label.word.width)
+  let l:above = copy(a:above)
+  let l:above[l:label.i] = songwriter#tab#annotations#Retype(strpart(l:line, 0, l:byte - 1),
+        \ strpart(l:line, l:byte - 1 + l:len), l:label.word.col, l:label.word.width, a:text)
+  return l:above
+endfunction

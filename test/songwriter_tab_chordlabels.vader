@@ -1,0 +1,417 @@
+" Chord labels: the chord's name above its column, kept in step with the
+" notes by the chord keys (spec [Tablature][[Editing]] 10.9, 10.10), and
+" voicings written from a label ([[Annotations]] 10).
+
+Before:
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing
+  unlet! b:songwriter_insert b:songwriter_voicing b:songwriter_naming b:songwriter_repeat
+  let b:songwriter_tabmode = 1
+
+" --- [[Editing]] 10.9 `=` writes the chord label ---
+
+Given songwriter (10.9 =Am writes its label):
+  e|-----|
+  B|-----|
+  G|-----|
+  D|-----|
+  A|-----|
+  E|-----|
+
+Execute (10.9 =Am writes its label):
+  call cursor(5, 5)
+  execute "normal =Am\<CR>"
+  AssertEqual [6, 5], [line('.'), col('.')]
+
+Expect songwriter (10.9 =Am writes its label):
+      Am
+  e|--0--|
+  B|--1--|
+  G|--2--|
+  D|--2--|
+  A|--0--|
+  E|-----|
+
+Given songwriter (10.9 =Am replaces the column's chord label):
+      G
+  e|-----|
+  B|-----|
+  G|-----|
+  D|-----|
+  A|-----|
+  E|-----|
+
+Execute (10.9 =Am replaces the column's chord label):
+  call cursor(6, 5)
+  execute "normal =Am\<CR>"
+
+Expect songwriter (10.9 =Am replaces the column's chord label):
+      Am
+  e|--0--|
+  B|--1--|
+  G|--2--|
+  D|--2--|
+  A|--0--|
+  E|-----|
+
+Given songwriter (10.9 a span is not a chord label):
+      PM---
+  e|-----|
+  B|-----|
+  G|-----|
+  D|-----|
+  A|-----|
+  E|-----|
+
+Execute (10.9 a span is not a chord label):
+  call cursor(6, 5)
+  execute "normal =Am\<CR>"
+
+Expect songwriter (10.9 a span is not a chord label):
+      PM---
+      Am
+  e|--0--|
+  B|--1--|
+  G|--2--|
+  D|--2--|
+  A|--0--|
+  E|-----|
+
+Given songwriter (10.9 a longer name pushes the next word right):
+      G  C
+  e|-----3--|
+  B|--------|
+  G|--------|
+  D|--------|
+  A|--------|
+  E|--------|
+
+Execute (10.9 a longer name pushes the next word right):
+  call cursor(6, 5)
+  execute "normal =Am7\<CR>"
+
+Expect songwriter (10.9 a longer name pushes the next word right):
+      Am7 C
+  e|--0--3--|
+  B|--1-----|
+  G|--0-----|
+  D|--2-----|
+  A|--0-----|
+  E|--------|
+
+Given songwriter (10.9 == keeps the label):
+  e|-----|
+  B|-----|
+  G|-----|
+  D|-----|
+  A|-----|
+  E|-----|
+
+Execute (10.9 == keeps the label):
+  call cursor(5, 5)
+  execute "normal =A\<CR>"
+  normal ==
+
+Expect songwriter (10.9 == keeps the label):
+      A
+  e|--5--|
+  B|--5--|
+  G|--6--|
+  D|--7--|
+  A|--7--|
+  E|--5--|
+
+Given songwriter (10.9 a quality alone updates the label):
+      E
+  e|--0--|
+  B|--0--|
+  G|--1--|
+  D|--2--|
+  A|--2--|
+  E|--0--|
+
+Execute (10.9 a quality alone updates the label):
+  call cursor(7, 5)
+  execute "normal =m7\<CR>"
+
+Expect songwriter (10.9 a quality alone updates the label):
+      Em7
+  e|--0--|
+  B|--0--|
+  G|--0--|
+  D|--0--|
+  A|--2--|
+  E|--0--|
+
+Given songwriter (10.9 + adds no label):
+  e|-----|
+  B|-----|
+  G|-----|
+  D|-----|
+  A|--0--|
+  E|-----|
+
+Execute (10.9 + adds no label):
+  call cursor(5, 5)
+  normal +
+
+Expect songwriter (10.9 + adds no label):
+  e|-----|
+  B|-----|
+  G|--2--|
+  D|--2--|
+  A|--0--|
+  E|-----|
+
+Given songwriter (10.9 + updates a label already there):
+      A5
+  e|-----|
+  B|-----|
+  G|--2--|
+  D|--2--|
+  A|--0--|
+  E|-----|
+
+Execute (10.9 + updates a label already there):
+  call cursor(6, 5)
+  normal +
+
+Expect songwriter (10.9 + updates a label already there):
+      A
+  e|--0--|
+  B|--2--|
+  G|--2--|
+  D|--2--|
+  A|--0--|
+  E|-----|
+
+Given songwriter (10.9 the label is in the chord's undo step):
+  e|-----|
+  B|-----|
+  G|-----|
+  D|-----|
+  A|-----|
+  E|-----|
+
+Execute (10.9 the label is in the chord's undo step):
+  call cursor(5, 5)
+  execute "normal =Am\<CR>"
+  normal u
+
+Expect songwriter (10.9 the label is in the chord's undo step):
+  e|-----|
+  B|-----|
+  G|-----|
+  D|-----|
+  A|-----|
+  E|-----|
+
+" --- [[Editing]] 10.10 `=<CR>` names the column ---
+
+Given songwriter (10.10 =<CR> writes the column's name):
+  e|--3--|
+  B|--1--|
+  G|--2--|
+  D|--2--|
+  A|--3--|
+  E|-----|
+
+Execute (10.10 =<CR> writes the column's name):
+  call cursor(5, 5)
+  let g:tab = getline(1, '$')
+  redir => g:messages
+  silent execute "normal =\<CR>"
+  redir END
+  Assert g:messages =~# '\[C6\] | Am7/C', g:messages
+  AssertEqual ['    C6'] + g:tab, getline(1, '$')
+  AssertEqual [6, 5], [line('.'), col('.')]
+
+Execute (10.10 == cycles through the names, in one undo step):
+  call cursor(5, 5)
+  execute "normal =\<CR>"
+  redir => g:messages
+  silent normal ==
+  redir END
+  Assert g:messages =~# 'C6 | \[Am7/C\]', g:messages
+  AssertEqual '    Am7/C', getline(1)
+  normal ==
+  AssertEqual '    C6', getline(1)
+  normal u
+  AssertEqual 'e|--3--|', getline(1)
+
+Given songwriter (10.10 =<CR> replaces the chord label):
+      Am
+  e|--3--|
+  B|--1--|
+  G|--2--|
+  D|--2--|
+  A|--3--|
+  E|-----|
+
+Execute (10.10 =<CR> replaces the chord label):
+  call cursor(6, 5)
+  execute "normal =\<CR>"
+  AssertEqual '    C6', getline(1)
+  AssertEqual 7, line('$')
+
+Given songwriter (10.10 refused when no chord fits):
+  e|--0--|
+  B|-----|
+  G|-----|
+  D|-----|
+  A|-----|
+  E|--0--|
+
+Execute (10.10 refused when no chord fits):
+  call cursor(1, 5)
+  redir => g:messages
+  silent execute "normal =\<CR>"
+  redir END
+  Assert g:messages =~# 'songwriter: one note, E', g:messages
+  AssertEqual 'e|--0--|', getline(1)
+
+" --- [[Annotations]] 10 `=` on a chord label ---
+
+Given songwriter (A10.1 =<CR> on a label writes its voicing):
+      Am
+  e|-----|
+  B|-----|
+  G|-----|
+  D|-----|
+  A|-----|
+  E|-----|
+
+Execute (A10.1 =<CR> on a label writes its voicing):
+  call cursor(1, 6)
+  execute "normal =\<CR>"
+  AssertEqual [1, 6], [line('.'), col('.')]
+
+Expect songwriter (A10.1 =<CR> on a label writes its voicing):
+      Am
+  e|--0--|
+  B|--1--|
+  G|--2--|
+  D|--2--|
+  A|--0--|
+  E|-----|
+
+Execute (A10.1 the voicing lowest on the neck):
+  for [chord, frets] in [['C', ['0', '1', '0', '2', '3', '-']], ['G', ['3', '0', '0', '0', '2', '3']],
+        \ ['D', ['2', '3', '2', '0', '-', '-']], ['F', ['1', '1', '2', '3', '3', '1']]]
+    %delete _
+    call setline(1, ['    ' . chord] + map(['e', 'B', 'G', 'D', 'A', 'E'], 'v:val . "|-----|"'))
+    call cursor(1, 5)
+    execute "normal =\<CR>"
+    AssertEqual frets, map(getline(2, 7), 'v:val[4]'), chord
+  endfor
+
+Given songwriter (A10.1 w and . go through a progression):
+      Am       F
+  e|--------------|
+  B|--------------|
+  G|--------------|
+  D|--------------|
+  A|--------------|
+  E|--------------|
+
+Execute (A10.1 w and . go through a progression):
+  call cursor(1, 5)
+  execute "normal =\<CR>"
+  normal w.
+  AssertEqual [1, 14], [line('.'), col('.')]
+
+Expect songwriter (A10.1 w and . go through a progression):
+      Am       F
+  e|--0--------1--|
+  B|--1--------1--|
+  G|--2--------2--|
+  D|--2--------3--|
+  A|--0--------3--|
+  E|-----------1--|
+
+Given songwriter (A10.3 == on a label, the next voicing):
+      Am
+  e|-----|
+  B|-----|
+  G|-----|
+  D|-----|
+  A|-----|
+  E|-----|
+
+Execute (A10.3 == on a label, the next voicing):
+  call cursor(1, 5)
+  execute "normal =\<CR>"
+  normal ==
+  AssertEqual [1, 5], [line('.'), col('.')]
+
+Expect songwriter (A10.3 == on a label, the next voicing):
+      Am
+  e|--5--|
+  B|--5--|
+  G|--5--|
+  D|--7--|
+  A|--7--|
+  E|--5--|
+
+Given songwriter (A10.2 =Am on a label replaces it):
+      G
+  e|-----|
+  B|-----|
+  G|-----|
+  D|-----|
+  A|-----|
+  E|-----|
+
+Execute (A10.2 =Am on a label replaces it):
+  call cursor(1, 5)
+  execute "normal =Am\<CR>"
+
+Expect songwriter (A10.2 =Am on a label replaces it):
+      Am
+  e|--0--|
+  B|--1--|
+  G|--2--|
+  D|--2--|
+  A|--0--|
+  E|-----|
+
+Given songwriter (A10.2 a quality alone keeps the label's root):
+      A
+  e|-----|
+  B|-----|
+  G|-----|
+  D|-----|
+  A|-----|
+  E|-----|
+
+Execute (A10.2 a quality alone keeps the label's root):
+  call cursor(1, 5)
+  execute "normal =m7\<CR>"
+
+Expect songwriter (A10.2 a quality alone keeps the label's root):
+      Am7
+  e|--0--|
+  B|--1--|
+  G|--0--|
+  D|--2--|
+  A|--0--|
+  E|-----|
+
+Given songwriter (A10.5 refused off a chord label):
+      PM---  riff         Am
+  e|-----------|
+  B|-----------|
+  G|-----------|
+  D|-----------|
+  A|-----------|
+  E|-----------|
+
+Execute (A10.5 refused off a chord label):
+  let g:tab = getline(1, '$')
+  for col in [5, 12, 10, 25]
+    call cursor(1, col)
+    redir => g:messages
+    silent execute "normal =\<CR>"
+    redir END
+    Assert g:messages =~# 'songwriter: ', g:messages
+    AssertEqual g:tab, getline(1, '$')
+  endfor

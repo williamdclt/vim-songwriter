@@ -164,11 +164,14 @@ for [s:key, s:around] in [['ia', 0], ['aa', 1]]
   let s:tabmode.x[s:key] = printf('call songwriter#tab#annotate#Select(%d)', s:around)
 endfor
 unlet s:key s:around
-" [[Annotations]] 9: between the strings and the annotation lines.
+" [[Annotations]] 9: between the strings and the annotation lines; 10: `=`
+" writes the chord labelled under the cursor, `.` repeats it.
 let s:tabmode.n.gk = 'call songwriter#tab#annotate#Up()'
 let s:annotation.n = {
       \ 'gk': 'call songwriter#tab#annotate#Up()',
       \ 'gj': 'call songwriter#tab#annotate#Down()',
+      \ '=': 'call songwriter#tab#voicings#Prompt()',
+      \ '.': '=songwriter#tab#repeat#Repeat()',
       \ }
 
 " Spec [Tablature][[Motions]].

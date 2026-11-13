@@ -44,8 +44,8 @@ endfunction
 
 " Spec [Tablature][[Annotations]] 6: write `chord` above the block, aligned
 " to the cursor column (past the string name and first pipe, so that it is an
-" annotation): on the annotation line right above the strings when it fits,
-" else on a new one.
+" annotation): in place of the column's chord label, else on the annotation
+" line right above the strings when it fits, else on a new one.
 function! songwriter#tab#TabChord(chord) abort
   let l:block = songwriter#tab#model#Read()
   if empty(l:block)
@@ -53,5 +53,5 @@ function! songwriter#tab#TabChord(chord) abort
   endif
   let l:col = max([col('.'), songwriter#tab#model#BodyOffset() + 1])
   call songwriter#tab#model#Write(l:block, extend(songwriter#tab#model#Snapshot(l:block),
-        \ {'above': songwriter#tab#annotations#Add(l:block.above, l:col, a:chord)}))
+        \ {'above': songwriter#tab#annotations#Label(l:block.above, l:col, a:chord, 1)}))
 endfunction
