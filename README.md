@@ -120,9 +120,12 @@ slide.
 | `==`                 | Right after: cycle to the next voicing of that chord    |
 | `=M7<Enter>`         | Change the quality of the chord on the column           |
 | `+`                  | Build a chord up from the note: power, major, minor     |
+| `<leader>?`          | Name the chord on the column (`C6 \| Am7/C`)            |
 
 Shapes cover major, `m`, `7`, `m7`, `maj7`, `sus2` and `sus4` in standard
 tuning. Power chords (`=E5`) follow any tuning.
+`<leader>?` names any column, in any tuning, listing every chord its notes
+can be; it works outside tablature mode too.
 
 ### Moving
 
@@ -251,6 +254,7 @@ Remap the default keys through their `<Plug>` mappings:
 | `<leader>t` | `<Plug>(songwriter-toggle-tabmode)`     |
 | `<leader>p` | `<Plug>(songwriter-play)` (normal and visual) |
 | `<leader>P` | `<Plug>(songwriter-play-note)`          |
+| `<leader>?` | `<Plug>(songwriter-chord-name)`         |
 | `\|\|`       | `<Plug>(songwriter-lint)`               |
 | `_`         | `<Plug>(songwriter-add-dash)`           |
 

@@ -29,6 +29,7 @@ let s:plug_keys = {
       \ '<leader>t': 'songwriter-toggle-tabmode',
       \ '<leader>p': 'songwriter-play',
       \ '<leader>P': 'songwriter-play-note',
+      \ '<leader>?': 'songwriter-chord-name',
       \ '\|\|': 'songwriter-lint',
       \ '_': 'songwriter-add-dash',
       \ }
