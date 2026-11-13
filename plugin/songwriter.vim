@@ -26,6 +26,7 @@ command! -nargs=1 SongwriterChordQuality call songwriter#chord#ChordQuality(<q-a
 command! -nargs=1 SongwriterTransposeChord call songwriter#chord#TransposeChord(<q-args>)
 command! -nargs=0 SongwriterToggleMinorMajor call songwriter#chord#ToggleMinorMajor()
 command! -nargs=0 SongwriterToggleTabMode call songwriter#keys#ToggleTabMode()
+command! -nargs=0 SongwriterStop call songwriter#sound#Stop()
 
 " === <Plug> maps (bound to default keys in ftplugin/songwriter.vim) ===
 nnoremap <Plug>(songwriter-lint) <Cmd>call songwriter#tab#Lint()<CR>
@@ -39,3 +40,8 @@ nnoremap <Plug>(songwriter-duplicate-up) <Cmd>call songwriter#tab#carry#Duplicat
 nnoremap <Plug>(songwriter-duplicate-down) <Cmd>call songwriter#tab#carry#Duplicate(1)<CR>
 nnoremap <Plug>(songwriter-end-move) <Cmd>call songwriter#tab#carry#EndMove()<CR>
 nnoremap <Plug>(songwriter-toggle-tabmode) <Cmd>call songwriter#keys#ToggleTabMode()<CR>
+" Spec [Tablature][[Editing]] 12.1: the play operator, the note under the
+" cursor, the selection.
+nnoremap <expr> <Plug>(songwriter-play) songwriter#tab#operator#Start('play')
+nnoremap <expr> <Plug>(songwriter-play-note) songwriter#tab#operator#StartOn('play', 'note')
+xnoremap <Plug>(songwriter-play) <Cmd>call songwriter#tab#visual#Op('play', v:register)<CR>

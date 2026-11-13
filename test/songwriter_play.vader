@@ -55,3 +55,115 @@ Execute (12.2 only the strings and columns given):
 Execute (12.2 two-digit frets):
   AssertEqual [[{'lin': 0, 'midi': 76}]],
         \ songwriter#tab#play#Steps(['e|--12--|'], [64], [0], 1, 8)
+
+" === The operator (12.1) ===
+" The C chord on the first column, lowest string first.
+
+Given songwriter (12.1 <leader>pp plays the time column, as yy):
+  e|--0--3h5--|--7--|
+  B|--1-------|-----|
+  G|--0-------|-----|
+  D|--2-------|-----|
+  A|--3-------|-----|
+  E|----------|-----|
+
+Execute (12.1 <leader>pp plays the time column, as yy):
+  call songwriter#sound#Play([])
+  call cursor(1, 5)
+  execute "normal \\pp"
+Then:
+  AssertEqual [[{'lin': 4, 'midi': 48}, {'lin': 3, 'midi': 52}, {'lin': 2, 'midi': 55},
+        \ {'lin': 1, 'midi': 60}, {'lin': 0, 'midi': 64}]], songwriter#sound#Last()
+
+Expect songwriter (12.1 <leader>pp plays the time column, as yy):
+  e|--0--3h5--|--7--|
+  B|--1-------|-----|
+  G|--0-------|-----|
+  D|--2-------|-----|
+  A|--3-------|-----|
+  E|----------|-----|
+
+Given songwriter (12.1 targets):
+  e|--0--3h5--|--7--|
+  B|--1-------|-----|
+  G|--0-------|-----|
+  D|--2-------|-----|
+  A|--3-------|-----|
+  E|----------|-----|
+
+Execute (12.1 targets):
+  let g:c = [{'lin': 4, 'midi': 48}, {'lin': 3, 'midi': 52}, {'lin': 2, 'midi': 55},
+        \ {'lin': 1, 'midi': 60}, {'lin': 0, 'midi': 64}]
+  let g:tests = [
+        \ [[1, 8], "\\P", [[{'lin': 0, 'midi': 67}]]],
+        \ [[1, 5], "\\pin", [[{'lin': 0, 'midi': 64}]]],
+        \ [[1, 8], "\\piw", [[{'lin': 0, 'midi': 67}], [{'lin': 0, 'midi': 69}]]],
+        \ [[1, 8], "\\pw", [[{'lin': 0, 'midi': 67}], [{'lin': 0, 'midi': 69}]]],
+        \ [[1, 5], "\\pi|", [g:c, [{'lin': 0, 'midi': 67}], [{'lin': 0, 'midi': 69}]]],
+        \ [[1, 5], "\\p2ic", [g:c, [{'lin': 0, 'midi': 67}]]],
+        \ [[1, 5], "\\pj", [[{'lin': 1, 'midi': 60}, {'lin': 0, 'midi': 64}]]],
+        \ [[1, 5], "\\pap", [g:c, [{'lin': 0, 'midi': 67}], [{'lin': 0, 'midi': 69}],
+        \   [{'lin': 0, 'midi': 71}]]],
+        \ [[1, 5], "V\\p", [g:c]],
+        \ [[1, 8], "vl\\p", [[{'lin': 0, 'midi': 67}], [{'lin': 0, 'midi': 69}]]],
+        \ ]
+  for [g:pos, g:keys, g:expected] in g:tests
+    call songwriter#sound#Play([])
+    call cursor(g:pos)
+    execute 'normal ' . g:keys
+    AssertEqual g:expected, songwriter#sound#Last(), g:keys
+  endfor
+
+Expect songwriter (12.1 targets):
+  e|--0--3h5--|--7--|
+  B|--1-------|-----|
+  G|--0-------|-----|
+  D|--2-------|-----|
+  A|--3-------|-----|
+  E|----------|-----|
+
+Given songwriter (12 playing never changes the file, not even a lint):
+  e|-3---5|
+  B|-------
+
+Execute (12 playing never changes the file, not even a lint):
+  call songwriter#sound#Play([])
+  let g:tick = b:changedtick
+  call cursor(1, 3)
+  execute "normal \\pp"
+  execute "normal \\pap"
+  AssertEqual g:tick, b:changedtick
+  AssertEqual [[{'lin': 0, 'midi': 43}], [{'lin': 0, 'midi': 45}]], songwriter#sound#Last()
+
+Expect songwriter (12 playing never changes the file, not even a lint):
+  e|-3---5|
+  B|-------
+
+Given songwriter (12.3 a string name that is not a note refuses playing):
+  e|--3--|
+  X|--5--|
+
+Execute (12.3 a string name that is not a note refuses playing):
+  call songwriter#sound#Play([])
+  call cursor(1, 5)
+  redir => g:messages
+  silent execute "normal \\pp"
+  redir END
+  AssertEqual [], songwriter#sound#Last()
+  Assert g:messages =~# 'string name X is not a note', g:messages
+
+Given songwriter (12.1 outside tablature mode, Vim's own targets):
+  e|--0--3--|
+  B|--1--1--|
+
+Execute (12.1 outside tablature mode, Vim's own targets):
+  let b:songwriter_tabmode = 0
+  call songwriter#sound#Play([])
+  call cursor(1, 5)
+  execute "normal \\pap"
+  AssertEqual [[{'lin': 1, 'midi': 36}, {'lin': 0, 'midi': 40}], [{'lin': 1, 'midi': 36}, {'lin': 0, 'midi': 43}]],
+        \ songwriter#sound#Last()
+
+Expect songwriter (12.1 outside tablature mode, Vim's own targets):
+  e|--0--3--|
+  B|--1--1--|

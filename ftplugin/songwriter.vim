@@ -27,6 +27,8 @@ let s:plug_keys = {
       \ '<leader>': 'songwriter-end-move',
       \ '<leader>m': 'songwriter-toggle-minor-major',
       \ '<leader>t': 'songwriter-toggle-tabmode',
+      \ '<leader>p': 'songwriter-play',
+      \ '<leader>P': 'songwriter-play-note',
       \ '\|\|': 'songwriter-lint',
       \ '_': 'songwriter-add-dash',
       \ }
@@ -35,8 +37,8 @@ for [s:key, s:plug] in items(s:plug_keys)
   let b:undo_ftplugin .= '| silent! nunmap <buffer> ' . s:key
 endfor
 " Visual-mode keys (spec [Chords][[Editing]]: visual <Ctrl-A>/<Ctrl-X>, and
-" `]`/`[`).
-for s:key in ['<C-A>', '<C-X>', ']', '[']
+" `]`/`[`; [Tablature][[Editing]] 12.1: `<leader>p` plays the selection).
+for s:key in ['<C-A>', '<C-X>', ']', '[', '<leader>p']
   execute 'xmap <buffer> ' . s:key . ' <Plug>(' . s:plug_keys[s:key] . ')'
   let b:undo_ftplugin .= '| silent! xunmap <buffer> ' . s:key
 endfor

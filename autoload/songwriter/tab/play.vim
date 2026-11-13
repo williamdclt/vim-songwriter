@@ -45,3 +45,18 @@ function! songwriter#tab#play#Steps(lines, open, lins, s, e) abort
   return map(sort(map(keys(l:by_col), 'str2nr(v:val)'), 'n'),
         \ {_, c -> sort(l:by_col[c], {a, b -> b.lin - a.lin})})
 endfunction
+
+" Spec 12: play `parts`, one after the other: each [lines, lins, s, e], the
+" notes of a tab's `lines` starting in columns [s, e] on the strings `lins`.
+" A string name that is not a note refuses it all, with a message.
+function! songwriter#tab#play#Play(parts) abort
+  let l:steps = []
+  for [l:lines, l:lins, l:s, l:e] in a:parts
+    let l:open = songwriter#tab#play#OpenPitches(songwriter#tab#model#Names(l:lines))
+    if has_key(l:open, 'error')
+      return songwriter#tab#edit#Error(l:open.error)
+    endif
+    call extend(l:steps, songwriter#tab#play#Steps(l:lines, l:open.midi, l:lins, l:s, l:e))
+  endfor
+  call songwriter#sound#Play(l:steps)
+endfunction
