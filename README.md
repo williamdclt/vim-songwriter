@@ -238,7 +238,7 @@ Remap the default keys through their `<Plug>` mappings:
 - `g:songwriter_max_fret` (default 24): the highest fret a two-digit note can be.
 - `g:songwriter_play_bpm` (default 120): playing speed, a time column per half
   beat.
-- `g:songwriter_strum_ms` (default 40): delay between the notes of a column,
+- `g:songwriter_strum_ms` (default 80): delay between the notes of a column,
   lowest string first (`0` plays them at once).
 - `g:songwriter_player`: the command that plays a sound file, as a list (the
   file is appended), e.g. `['paplay']`. `[]` turns sound off.
