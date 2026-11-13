@@ -718,7 +718,7 @@ changes.
   heard distinctly), so no mixing code is needed. The strum does not push
   the next column back: steps stay evenly spaced, and at fast tempos a wide
   chord's last notes may overlap the next column (a six-string strum takes
-  400 ms of a 500 ms beat at 120 bpm). A note stops the
+  400 ms of a 600 ms beat at 100 bpm). A note stops the
   previous job on its string (a string sounds one note at a time), and a new
   play stops everything first. Spacing is not read as rhythm: it is only a
   loose indication (spec 6), so every column gets the same length.
