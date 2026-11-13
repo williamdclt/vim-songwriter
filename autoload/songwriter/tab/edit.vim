@@ -4,6 +4,13 @@
 " tab/slots.vim...) returning a result; this module does the rest. A result is
 " a dict with any of
 "   'lines': the block's new lines,
+"   'map':   where each column of the lines the edit was given went
+"            (tab/colmap.vim), required with 'lines',
+"   'base':  with 'lines' and 'map', a snapshot (model#Snapshot) the edit
+"            started from instead of the block it was given (a carry renders
+"            from the tab it saved),
+"   'put':   with 'lines', annotation words the edit brings along, at columns
+"            of its lines (annotations#Follow),
 "   'col':   the cursor column,
 "   'lin':   the cursor's 0-indexed line in the block (with 'col'; default:
 "            stays),
@@ -11,8 +18,8 @@
 "   'error': a refusal to show; nothing else is applied,
 "   'state': {name: value} to record in tab/state.vim once written, each value
 "            completed with the cursor's 'line' and 'col' (Do only),
-"   'register': {'name', 'rows', 'type', 'names'} to set once written
-"            (register#Set; Do only),
+"   'register': {'name', 'rows', 'type', 'names', 'above' (optional)} to set
+"            once written (register#Set; Do only),
 "   'side':  0 for an edit that opens a slot in an empty bar whatever
 "            opts.open says (slots#InBar; Do only).
 " {} means nothing to do.
@@ -21,6 +28,35 @@
 " joins, the lints before and after (spec [Tablature][[Editing]] 4), the
 " insert state, the state for the next key, and `.`. The rest are its parts,
 " for the entry points that are not one edit at the cursor.
+"
+" What an edit writes is a draft: {'lines', 'map', 'base' (optional), 'put'
+" (optional)}, the block's new lines and where each column of `base` went in
+" them; `base` is the snapshot the edit started from, by default the block
+" being written; `put` are annotation words the edit brings along
+" (annotations#Follow). Write() is the one way a draft reaches the buffer.
+
+" Pure. The snapshot of `lines`, made from the snapshot `base` by an edit
+" whose column map is `map`: the annotations follow the music
+" (annotations#Follow), with the words `put` (optional) added.
+function! songwriter#tab#edit#Derive(base, lines, map, ...) abort
+  return {'top': a:base.top, 'lines': copy(a:lines),
+        \ 'above': songwriter#tab#annotations#Follow(a:base.above, a:map, a:0 ? a:1 : [])}
+endfunction
+
+" Pure. The snapshot `draft` makes of `block`.
+function! s:snapshot(block, draft) abort
+  if !has_key(a:draft, 'map')
+    throw 'songwriter: a draft needs a map (tab/colmap.vim)'
+  endif
+  return songwriter#tab#edit#Derive(get(a:draft, 'base', songwriter#tab#model#Snapshot(a:block)),
+        \ a:draft.lines, a:draft.map, get(a:draft, 'put', []))
+endfunction
+
+" Write `draft` over `block` and return the block written (model#Write). A
+" draft without a map is an error: every edit says where the tab went.
+function! songwriter#tab#edit#Write(block, draft) abort
+  return songwriter#tab#model#Write(a:block, s:snapshot(a:block, a:draft))
+endfunction
 
 " Show a refusal.
 function! songwriter#tab#edit#Error(msg) abort
@@ -31,13 +67,13 @@ endfunction
 
 " Pure. `lines` linted, with column `col` of line `lin` (0-indexed) followed
 " through the lint so that it stays on the same note, or in the same gap
-" between notes (lint#FollowColumn): {'lines', 'col'}. A `lin` outside the
-" block keeps its column.
+" between notes (lint#FollowColumn): {'lines', 'col', 'map'}. A `lin` outside
+" the block keeps its column.
 function! songwriter#tab#edit#Linted(lines, lin, col) abort
   let l:result = songwriter#tab#lint#Lint(a:lines)
   let l:col = a:lin >= 0 && a:lin < len(a:lines)
         \ ? songwriter#tab#lint#FollowColumn(a:lines, l:result, a:lin, a:col) : a:col
-  return {'lines': l:result.lines, 'col': l:col}
+  return {'lines': l:result.lines, 'col': l:col, 'map': l:result.map}
 endfunction
 
 " Lint `block`, write it back and keep the cursor on the same note (or in the
@@ -49,26 +85,29 @@ function! songwriter#tab#edit#LintAndFollow(block) abort
   endif
   let l:lin = songwriter#tab#model#CursorLin(a:block)
   let l:linted = songwriter#tab#edit#Linted(a:block.lines, l:lin, col('.'))
-  call songwriter#tab#model#Write(a:block, l:linted.lines)
+  let l:block = songwriter#tab#edit#Write(a:block, l:linted)
   if l:lin >= 0 && l:lin < len(a:block.lines)
-    call cursor(line('.'), l:linted.col)
+    call cursor(l:block.start + l:lin, l:linted.col)
   endif
-  return songwriter#tab#model#Read(a:block.start)
+  return songwriter#tab#model#ReadTop(a:block.top)
 endfunction
 
 " Write a result's lines and move the cursor, without linting.
 function! songwriter#tab#edit#Apply(block, result) abort
+  let l:block = a:block
   if has_key(a:result, 'lines')
-    call songwriter#tab#model#Write(a:block, a:result.lines)
+    let l:block = songwriter#tab#edit#Write(a:block, a:result)
   endif
   if has_key(a:result, 'col')
-    call cursor(has_key(a:result, 'lin') ? a:block.start + a:result.lin : line('.'), a:result.col)
+    call cursor(has_key(a:result, 'lin') ? l:block.start + a:result.lin
+          \ : line('.') + l:block.start - a:block.start, a:result.col)
   endif
 endfunction
 
 " Pure. Where `result` takes `lines`, the cursor being on line `lin` (0-indexed)
-" at column `col`: {'lines', 'lin', 'col'}, linted with the cursor following the
-" music when `lint` is set.
+" at column `col`: {'lines', 'lin', 'col', 'map'}, linted with the cursor
+" following the music when `lint` is set. The map is from `lines`, or from the
+" result's base, also given ('base'), when it has one.
 function! s:resolve(lines, lin, col, result, lint) abort
   let l:lin = a:lin
   let l:col = a:col
@@ -77,6 +116,10 @@ function! s:resolve(lines, lin, col, result, lint) abort
     let l:col = a:result.col
   endif
   let l:lines = get(a:result, 'lines', a:lines)
+  if has_key(a:result, 'lines') && !has_key(a:result, 'map')
+    throw 'songwriter: an edit result with lines needs a map (tab/colmap.vim)'
+  endif
+  let l:map = get(a:result, 'map', [])
   if l:lin >= 0 && l:lin < len(l:lines)
     " As the cursor would be once there: on the line, at most on its end.
     let l:col = max([1, min([l:col, len(l:lines[l:lin])])])
@@ -84,21 +127,35 @@ function! s:resolve(lines, lin, col, result, lint) abort
   if a:lint
     let l:linted = songwriter#tab#edit#Linted(l:lines, l:lin, l:col)
     let [l:lines, l:col] = [l:linted.lines, l:linted.col]
+    let l:map = songwriter#tab#colmap#Then(l:map, l:linted.map)
   endif
-  return {'lines': l:lines, 'lin': l:lin, 'col': l:col}
+  let l:r = {'lines': l:lines, 'lin': l:lin, 'col': l:col, 'map': l:map}
+  if has_key(a:result, 'base')
+    let l:r.base = a:result.base
+  endif
+  if has_key(a:result, 'put')
+    " The words' columns follow the lint, as the rest of the tab.
+    let l:lint = a:lint ? l:linted.map : []
+    let l:r.put = map(copy(a:result.put), {_, p -> extend(copy(p),
+          \ {'col': songwriter#tab#colmap#At(l:lint, p.col)})})
+  endif
+  return l:r
 endfunction
 
-" Write `lines` over `block` and put the cursor on line `lin` of the block
-" (the cursor's line when outside it), column `col`. `join`: the write is
-" joined to the previous undo step.
-function! s:write(block, lines, lin, col, join) abort
-  if a:lines !=# a:block.lines
+" Write `draft` over `block` and put the cursor on line `lin` of the block
+" (the cursor's line when outside it), column `col`. `join`: the write, if
+" anything changes, is joined to the previous undo step.
+function! s:write(block, draft, lin, col, join) abort
+  let l:snapshot = s:snapshot(a:block, a:draft)
+  let l:block = a:block
+  if l:snapshot !=# songwriter#tab#model#Snapshot(a:block)
     if a:join
       silent! undojoin
     endif
-    call songwriter#tab#model#Write(a:block, a:lines)
+    let l:block = songwriter#tab#model#Write(a:block, l:snapshot)
   endif
-  call cursor(a:lin >= 0 && a:lin < len(a:lines) ? a:block.start + a:lin : line('.'), a:col)
+  call cursor(a:lin >= 0 && a:lin < len(a:draft.lines) ? l:block.start + a:lin
+        \ : line('.') + l:block.start - a:block.start, a:col)
 endfunction
 
 " Apply a result to `block`, linted with the cursor kept on the music, in one
@@ -113,16 +170,17 @@ function! songwriter#tab#edit#Commit(block, result) abort
     return {}
   endif
   let l:r = s:resolve(a:block.lines, songwriter#tab#model#CursorLin(a:block), col('.'), a:result, 1)
-  call s:write(a:block, l:r.lines, l:r.lin, l:r.col, 0)
+  call s:write(a:block, l:r, l:r.lin, l:r.col, 0)
   if !empty(get(a:result, 'msg', ''))
     echo a:result.msg
   endif
-  return songwriter#tab#model#Read(a:block.start)
+  return songwriter#tab#model#ReadTop(a:block.top)
 endfunction
 
 " A whole edit at the cursor, written once: the block is linted (in memory),
 " Fn(ctx) gives a result for it (see the top), and the result is linted again
-" and written. ctx is {'block' (the linted block), 'lin', 'col', 'line' (as
+" and written. ctx is {'block' (the linted block, as Read gives it), 'lin',
+" 'col', 'line' (as
 " model#Cursor), 'insert' (whether the insert state is on)}. A refusal or an
 " empty result still writes the first lint, except for an edit that opens a
 " slot: the lint is part of opening it (spec 4.2), so with no slot nothing
@@ -164,14 +222,20 @@ function! songwriter#tab#edit#Do(Fn, ...) abort
   let l:pre = s:resolve(l:block.lines, songwriter#tab#model#CursorLin(l:block), col('.'), {},
         \ get(l:opts, 'prelint', 1))
   if has_key(l:opts, 'open')
-    call songwriter#tab#slots#Linted(l:mark, l:pre.lines, l:pre.col)
+    call songwriter#tab#slots#Linted(l:mark, l:pre)
   endif
-  let l:result = a:Fn({'block': songwriter#tab#model#Parse(l:block.start, l:pre.lines),
+  let l:result = a:Fn({'block': songwriter#tab#model#FromSnapshot(s:snapshot(l:block, l:pre)),
         \ 'lin': l:pre.lin, 'col': l:pre.col, 'line': l:pre.lines[l:pre.lin], 'insert': l:insert})
   let l:done = !empty(l:result) && !has_key(l:result, 'error')
-  let l:post = l:done ? s:resolve(l:pre.lines, l:pre.lin, l:pre.col, l:result, get(l:opts, 'lint', 1)) : l:pre
+  let l:post = l:pre
+  if l:done
+    let l:post = s:resolve(l:pre.lines, l:pre.lin, l:pre.col, l:result, get(l:opts, 'lint', 1))
+    if !has_key(l:post, 'base')
+      let l:post.map = songwriter#tab#colmap#Then(l:pre.map, l:post.map)
+    endif
+  endif
   if l:done || !has_key(l:opts, 'open')
-    call s:write(l:block, l:post.lines, l:post.lin, l:post.col, l:join)
+    call s:write(l:block, l:post, l:post.lin, l:post.col, l:join)
   endif
   if has_key(l:result, 'error')
     call songwriter#tab#edit#Error(l:result.error)
@@ -187,7 +251,7 @@ function! songwriter#tab#edit#Do(Fn, ...) abort
     endfor
     if has_key(l:result, 'register')
       let l:r = l:result.register
-      call songwriter#tab#register#Set(l:r.name, l:r.rows, l:r.type, l:r.names)
+      call songwriter#tab#register#Set(l:r.name, l:r.rows, l:r.type, l:r.names, get(l:r, 'above', 0))
     endif
     if has_key(l:opts, 'open')
       if get(l:result, 'side', l:mark.side) == 0
@@ -202,5 +266,5 @@ function! songwriter#tab#edit#Do(Fn, ...) abort
   if l:insert && get(l:opts, 'insert', 0) && !has_key(l:opts, 'open')
     call songwriter#tab#insert#Keep()
   endif
-  return l:done ? songwriter#tab#model#Read(l:block.start) : {}
+  return l:done ? songwriter#tab#model#ReadTop(l:block.top) : {}
 endfunction

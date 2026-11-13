@@ -1,0 +1,87 @@
+" The column maps the pure edits return (tab/colmap.vim): where each column of
+" the lines they were given went. Composite edits are checked over the corpus
+" by test/songwriter_invariants_maps.vader.
+
+Before:
+  let At = {res, cols -> map(copy(cols), {_, c -> songwriter#tab#colmap#At(res.map, c)})}
+
+Execute (InsertColumns: the columns after the offset move by the inserted width):
+  let res = songwriter#tab#model#InsertColumns(['e|--3--5--|'], 5, 2, '-')
+  AssertEqual ['e|--3----5--|'], res.lines
+  AssertEqual [5, 10, 12], At(res, [5, 8, 10])
+
+Execute (DeleteRange: the removed columns are deleted):
+  let res = songwriter#tab#columns#DeleteRange(['e|--3--5--7--|'], 8, 10)
+  AssertEqual ['e|--3--7--|'], res.lines
+  AssertEqual [5, 0, 0, 8, 10], At(res, [5, 8, 10, 11, 13])
+
+Execute (DeleteRange: a pipe put back where the range started is new):
+  let res = songwriter#tab#columns#DeleteRange(['e|--3--5--|--7--|'], 8, 17)
+  AssertEqual ['e|--3--|'], res.lines
+  AssertEqual [5, 0, 0, 0, 10], At(res, [5, 8, 11, 17, 19])
+
+Execute (AppendBar: text past the end keeps its distance from the last pipe):
+  let res = songwriter#tab#slots#AppendBar(songwriter#tab#model#Parse(0, ['e|--3--|']))
+  AssertEqual ['e|--3--|-----|'], res.lines
+  AssertEqual [5, 8, 16], At(res, [5, 8, 10])
+
+Execute (EmptyBar: what was in the bar keeps its offset from its left pipe):
+  let res = songwriter#tab#slots#EmptyBar(['e|--3--|--|--1--|'], 0, 10)
+  AssertEqual ['e|--3--|-----|--1--|'], res.lines
+  AssertEqual [9, 10, 14, 17], At(res, [9, 10, 11, 14])
+
+Execute (Paste: the pasted columns are new, the rest moves after them):
+  let res = songwriter#tab#paste#Paste(['e|--3--7--|'], 0, 5, ['5--'], [], 0, 1)
+  AssertEqual ['e|--3--5--7--|'], res.lines
+  AssertEqual [5, 7, 11], At(res, [5, 7, 8])
+
+Execute (Lint: notes go where lint puts them, the gaps keep their distance, clamped):
+  let res = songwriter#tab#lint#Lint(['e|-3-5-|'])
+  AssertEqual ['e|--3-5--|'], res.lines
+  AssertEqual [1, 2, 4, 5, 6, 7, 8, 10, 12], At(res, [1, 2, 3, 4, 5, 6, 7, 8, 10])
+
+Execute (Lint: an empty bar dropped at the end is deleted, text past the end follows the last pipe):
+  let res = songwriter#tab#lint#Lint(['e|--3--|-----|'])
+  AssertEqual ['e|--3--|'], res.lines
+  AssertEqual [8, 0, 0, 10], At(res, [8, 10, 14, 16])
+
+Execute (Lint: a time column pushed off another string's note goes with its notes):
+  let res = songwriter#tab#lint#Lint(['e|--12--|', 'B|---3--|'])
+  AssertEqual ['e|--12----|', 'B|-----3--|'], res.lines
+  AssertEqual [5, 8], At(res, [5, 6])
+
+Execute (SetNote: a wider note makes room after it on every string):
+  let res = songwriter#tab#columns#SetNote(['e|--9-7--|', 'B|--9-7--|'], 0, 5, '10')
+  AssertEqual ['e|--10-7--|', 'B|--9--7--|'], res.lines
+  AssertEqual [5, 8, 11], At(res, [5, 7, 10])
+
+Execute (SetNote: a narrower note moves no time column):
+  let res = songwriter#tab#columns#SetNote(['e|--10-7--|'], 0, 5, '9')
+  AssertEqual ['e|--9--7--|'], res.lines
+  AssertEqual [5, 8], At(res, [5, 8])
+
+Execute (EraseNote: a note alone in its column goes with its gap):
+  let res = songwriter#tab#columns#EraseNote(['e|--3----5--7--|'], 0, 10)
+  AssertEqual ['e|--3----7--|'], res.lines
+  AssertEqual [5, 0, 0, 0, 10], At(res, [5, 10, 11, 12, 13])
+
+Execute (EraseNote: on a shared column nothing moves):
+  let res = songwriter#tab#columns#EraseNote(['e|--3--5--|', 'B|-----5--|'], 0, 8)
+  AssertEqual [5, 8, 11], At(res, [5, 8, 11])
+
+Execute (ShiftColumn: a dash before the column, inserted or removed):
+  let res = songwriter#tab#columns#ShiftColumn(['e|--3--5--|'], 0, 8, 1)
+  AssertEqual ['e|--3---5--|'], res.lines
+  AssertEqual [5, 9], At(res, [5, 8])
+  let res = songwriter#tab#columns#ShiftColumn(['e|--3---5--|'], 0, 9, -1)
+  AssertEqual ['e|--3--5--|'], res.lines
+  AssertEqual [5, 8], At(res, [5, 9])
+
+Execute (Append and Prepend: the slot's room is new):
+  let block = songwriter#tab#model#Parse(0, ['e|--3-5--|'])
+  let res = songwriter#tab#slots#Append(block, 0, 5)
+  AssertEqual ['e|--3---5--|'], res.lines
+  AssertEqual [5, 9], At(res, [5, 7])
+  let res = songwriter#tab#slots#Prepend(block, 0, 7)
+  AssertEqual ['e|--3---5--|'], res.lines
+  AssertEqual [5, 9], At(res, [5, 7])

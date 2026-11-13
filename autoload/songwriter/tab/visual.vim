@@ -173,8 +173,12 @@ function! songwriter#tab#visual#Put(reg) abort
   if !l:exact || l:note
     let [l:s, l:e] = songwriter#tab#objects#Snap(l:block.lines, l:lnum - l:block.start, l:s, l:e)
   endif
-  let l:lines = songwriter#tab#columns#DeleteRange(l:block.lines, l:s, l:e).lines
-  let l:res = songwriter#tab#paste#PasteAt(l:lines, l:s - 1, l:rows, l:names)
+  let l:reg = songwriter#tab#register#Split(a:reg)
+  let l:del = songwriter#tab#columns#DeleteRange(l:block.lines, l:s, l:e)
+  let l:res = songwriter#tab#paste#PasteAt(l:del.lines, l:s - 1, l:reg.rows, l:names, l:reg.above)
+  if has_key(l:res, 'map')
+    let l:res.map = songwriter#tab#colmap#Then(l:del.map, l:res.map)
+  endif
   let l:res.lin = l:lnum - l:block.start
   call songwriter#tab#edit#Commit(l:block, l:res)
 endfunction

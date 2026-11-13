@@ -16,8 +16,8 @@ endfunction
 
 " Spec 11: the note starting at column `c` of line `lin`, `n` frets up (n > 0)
 " or down, every note keeping its time column (11.2, columns#SetNote). Returns
-" {'lines', 'lin', 'col'} (the cursor on the note), or {'error': message}
-" (11.3).
+" {'lines', 'lin', 'col' (the cursor on the note), 'map'}, or {'error':
+" message} (11.3).
 function! songwriter#tab#frets#Add(lines, lin, c, n) abort
   let l:note = songwriter#tab#model#NoteAt(a:lines[a:lin], a:c)
   let l:fret = str2nr(l:note.text, 10) + a:n
@@ -83,14 +83,18 @@ function! songwriter#tab#frets#IncrementIn(ranges, n) abort
       endif
     endfor
     let l:lines = l:block.lines
+    let l:map = []
     for [l:c, l:lin] in reverse(sort(l:targets, {a, b -> a[0] - b[0]}))
       let l:res = songwriter#tab#frets#Add(l:lines, l:lin, l:c, a:n)
       if !has_key(l:res, 'error')
         let l:lines = l:res.lines
+        let l:map = songwriter#tab#colmap#Then(l:map, l:res.map)
       endif
     endfor
     if l:lines !=# l:block.lines
-      call songwriter#tab#model#Write(l:block, songwriter#tab#lint#Lint(l:lines).lines)
+      let l:lint = songwriter#tab#lint#Lint(l:lines)
+      call songwriter#tab#edit#Write(l:block, {'lines': l:lint.lines,
+            \ 'map': songwriter#tab#colmap#Then(l:map, l:lint.map)})
     endif
   endfor
 endfunction

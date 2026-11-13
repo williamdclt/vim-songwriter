@@ -17,8 +17,8 @@ endfunction
 
 " Spec 6.2.2 / 6.1.4: erase every note of line `lin` that lies in [s, e], each
 " as `x` does (EraseSet). {'lines', 'rows' (what `x` writes for each note, left
-" to right), 'col' (the first erased note), 'removed' (a column went)}, or {}
-" when there is no note there.
+" to right), 'col' (the first erased note), 'removed' (a column went), 'map'},
+" or {} when there is no note there.
 function! songwriter#tab#columns#EraseNotes(lines, lin, s, e) abort
   let l:notes = filter(songwriter#tab#model#Notes(a:lines[a:lin]),
         \ 'v:val.col <= a:e && a:s < v:val.col + v:val.len')
@@ -31,7 +31,8 @@ function! songwriter#tab#columns#EraseNotes(lines, lin, s, e) abort
   for l:r in l:res.rows
     let l:rows = map(l:rows, 'v:val . l:r[v:key]')
   endfor
-  return {'lines': l:res.lines, 'rows': l:rows, 'col': l:res.col, 'removed': l:res.removed}
+  return {'lines': l:res.lines, 'rows': l:rows, 'col': l:res.col, 'removed': l:res.removed,
+        \ 'map': l:res.map}
 endfunction
 
 " Erase the notes `notes` ([{'lin', 'col'}], any column of each note, on any
@@ -39,20 +40,22 @@ endfunction
 " column does not shift the next ones; on one column, the last note erased
 " takes the column with it when it goes (6.7.2). {'lines', 'rows' (what `x`
 " writes for each note, left to right), 'col' (the leftmost note's start),
-" 'removed' (a column went)}.
+" 'removed' (a column went), 'map'}.
 function! songwriter#tab#columns#EraseSet(lines, notes) abort
   let l:notes = map(copy(a:notes), {_, n -> extend(copy(n),
         \ {'col': songwriter#tab#model#NoteAt(a:lines[n.lin], n.col).col})})
   call sort(l:notes, {a, b -> a.col != b.col ? b.col - a.col : a.lin - b.lin})
   let l:lines = a:lines
+  let l:map = []
   let l:rows = []
   for l:n in l:notes
     let l:res = songwriter#tab#columns#EraseNote(l:lines, l:n.lin, l:n.col)
     call insert(l:rows, l:res.rows)
     let l:lines = l:res.lines
+    let l:map = songwriter#tab#colmap#Then(l:map, l:res.map)
   endfor
   return {'lines': l:lines, 'rows': l:rows, 'col': l:notes[-1].col,
-        \ 'removed': len(l:lines[0]) < len(a:lines[0])}
+        \ 'removed': len(l:lines[0]) < len(a:lines[0]), 'map': l:map}
 endfunction
 
 " The columns [s, e] of every line (short lines padded with dashes).
@@ -62,20 +65,23 @@ endfunction
 
 " Remove columns [s, e] from every line. When the range holds a bar line and
 " does not start right after one, a pipe is put back at s: the bar where the
-" range starts is closed there. Returns {'lines', 'rows'} (rows: what was
-" removed, one per line).
+" range starts is closed there. Returns {'lines', 'rows' (what was removed,
+" one per line), 'map'}: the range is deleted, a pipe put back is new.
 function! songwriter#tab#columns#DeleteRange(lines, s, e) abort
   let l:rows = songwriter#tab#columns#Extract(a:lines, a:s, a:e)
   let l:out = []
+  let l:map = songwriter#tab#colmap#Delete(a:s, a:e)
+  let l:pipe = []
   for l:i in range(len(a:lines))
     let l:l = songwriter#tab#model#Pad(a:lines[l:i], a:e)
     let l:keep = strpart(l:l, 0, a:s - 1)
     if stridx(l:rows[l:i], '|') >= 0 && l:keep[-1:] !=# '|'
       let l:keep .= '|'
+      let l:pipe = songwriter#tab#colmap#Insert(a:s - 1, 1)
     endif
     call add(l:out, l:keep . strpart(l:l, a:e))
   endfor
-  return {'lines': l:out, 'rows': l:rows}
+  return {'lines': l:out, 'rows': l:rows, 'map': songwriter#tab#colmap#Then(l:map, l:pipe)}
 endfunction
 
 " Spec 6.3.1: every note becomes dashes; bars and pipes are kept.
@@ -91,8 +97,8 @@ endfunction
 " removed range comes back until no other string loses a note or separator
 " there, nor has two of its notes or chains joined. When not even the note's
 " own columns can go, the note becomes dashes, as on a shared column. Returns
-" {'lines', 'col', 'rows'} where rows is what `ac` would yank with the other
-" strings as dashes (6.7.3), or {} off a note.
+" {'lines', 'col', 'rows', 'map'} where rows is what `ac` would yank with the
+" other strings as dashes (6.7.3), or {} off a note.
 function! songwriter#tab#columns#EraseNote(lines, lin, col) abort
   let l:note = songwriter#tab#model#NoteAt(a:lines[a:lin], a:col)
   if empty(l:note)
@@ -117,10 +123,12 @@ function! songwriter#tab#columns#EraseNote(lines, lin, col) abort
   if l:shared || l:end < songwriter#tab#model#NoteEnd(l:note)
     let l:out = copy(a:lines)
     let l:out[a:lin] = songwriter#tab#model#Blank(a:lines[a:lin], l:note)
+    let l:map = []
   else
-    let l:out = songwriter#tab#columns#DeleteRange(a:lines, l:c, l:end).lines
+    let l:del = songwriter#tab#columns#DeleteRange(a:lines, l:c, l:end)
+    let [l:out, l:map] = [l:del.lines, l:del.map]
   endif
-  return {'lines': l:out, 'col': l:c, 'rows': l:rows}
+  return {'lines': l:out, 'col': l:c, 'rows': l:rows, 'map': l:map}
 endfunction
 
 " True when columns [s, e] can be removed from every line but `lin` without
@@ -143,8 +151,9 @@ endfunction
 " Spec 6.13: move the time column at `col` of line `lin` one dash later (dir
 " +1: a dash inserted before it on every string) or earlier (dir -1: a column
 " of dashes before it removed, keeping at least one dash after the previous note
-" on any string; a separator is never removed). Returns {'lines', 'col'}, or {} when nothing changes, including on
-" a bar's first column (lint keeps two dashes after the pipe there).
+" on any string; a separator is never removed). Returns {'lines', 'col',
+" 'map'}, or {} when nothing changes, including on a bar's first column (lint
+" keeps two dashes after the pipe there).
 function! songwriter#tab#columns#ShiftColumn(lines, lin, col, dir) abort
   if songwriter#tab#columns#OnPipeOrName(a:lines[a:lin], a:col)
     return {}
@@ -156,7 +165,7 @@ function! songwriter#tab#columns#ShiftColumn(lines, lin, col, dir) abort
     return {}
   endif
   if a:dir > 0
-    return {'lines': songwriter#tab#model#InsertColumns(a:lines, l:c - 1, 1, '-'), 'col': l:c + 1}
+    return extend(songwriter#tab#model#InsertColumns(a:lines, l:c - 1, 1, '-'), {'col': l:c + 1})
   endif
   let l:prev_end = 0
   for l:a in songwriter#tab#model#BarNotes(l:tab, l:bc.bar)
@@ -174,7 +183,8 @@ function! songwriter#tab#columns#ShiftColumn(lines, lin, col, dir) abort
   if l:o <= l:prev_end
     return {}
   endif
-  return {'lines': songwriter#tab#columns#DeleteRange(a:lines, l:o, l:o).lines, 'col': l:c - 1}
+  let l:del = songwriter#tab#columns#DeleteRange(a:lines, l:o, l:o)
+  return {'lines': l:del.lines, 'col': l:c - 1, 'map': l:del.map}
 endfunction
 
 " True when column `col` holds a dash (or nothing) on every line.
@@ -185,10 +195,11 @@ endfunction
 " Make room on line `to` for a note of width `len` at column `c` (spec 7.5, 10.5):
 " a dash before the column when a note ends right before it, dashes after it
 " when the note would touch the next note (a 1-dash gap is kept) or the pipe.
-" Dashes are inserted on every line. Returns {'lines', 'col'} (the column may
-" move right by one), or {'error'}.
+" Dashes are inserted on every line. Returns {'lines', 'col' (the column may
+" move right by one), 'map'}, or {'error'}.
 function! songwriter#tab#columns#MakeRoom(lines, to, c, len) abort
   let l:lines = a:lines
+  let l:map = []
   let l:c = a:c
   let l:t = l:lines[a:to]
   if s:in_chain(l:t, l:c)
@@ -198,19 +209,21 @@ function! songwriter#tab#columns#MakeRoom(lines, to, c, len) abort
     if s:splits(l:lines, l:c - 1)
       return {'error': printf('no room on string %s', songwriter#tab#model#Name(l:lines[a:to]))}
     endif
-    let l:lines = songwriter#tab#model#InsertColumns(l:lines, l:c - 1, 1, '-')
+    let l:ins = songwriter#tab#model#InsertColumns(l:lines, l:c - 1, 1, '-')
+    let [l:lines, l:map] = [l:ins.lines, l:ins.map]
     let l:c += 1
     let l:t = l:lines[a:to]
   endif
   let l:free = len(matchstr(l:t, songwriter#grammar#DashRun(), l:c - 1))
   let l:next = l:t[l:c - 1 + l:free : l:c - 1 + l:free]
   if l:next ==# ''
+    let l:lines = copy(l:lines)
     let l:lines[a:to] = l:t . repeat('-', l:c - 1 + a:len - len(l:t))
-    return {'lines': l:lines, 'col': l:c}
+    return {'lines': l:lines, 'col': l:c, 'map': l:map}
   endif
   let l:k = a:len + (l:next ==# '|' ? 0 : 1) - l:free
   if l:k <= 0
-    return {'lines': l:lines, 'col': l:c}
+    return {'lines': l:lines, 'col': l:c, 'map': l:map}
   endif
   " Insert after the latest offset in the dash run that splits no note.
   let l:o = l:c - 1 + l:free
@@ -220,11 +233,13 @@ function! songwriter#tab#columns#MakeRoom(lines, to, c, len) abort
   if l:o < l:c
     return {'error': printf('no room on string %s', songwriter#tab#model#Name(l:lines[a:to]))}
   endif
-  return {'lines': songwriter#tab#model#InsertColumns(l:lines, l:o, l:k, '-'), 'col': l:c}
+  let l:ins = songwriter#tab#model#InsertColumns(l:lines, l:o, l:k, '-')
+  return {'lines': l:ins.lines, 'col': l:c, 'map': songwriter#tab#colmap#Then(l:map, l:ins.map)}
 endfunction
 
 " Write `text`, a note, at column `c` of line `to`, room made for it as
-" MakeRoom does. Returns {'lines', 'col'} (where it went), or {'error'}.
+" MakeRoom does. Returns {'lines', 'col' (where it went), 'map'}, or
+" {'error'}.
 function! songwriter#tab#columns#PutNote(lines, to, c, text) abort
   let l:room = songwriter#tab#columns#MakeRoom(a:lines, a:to, a:c, len(a:text))
   if has_key(l:room, 'error')
@@ -243,8 +258,9 @@ endfunction
 " it covers no other string's time column; the rest of the room is dashes
 " inserted on every string between the note and the next time column, so all
 " that follows moves together. A separator right after the note stays attached
-" to it. Returns {'lines', 'col'} (the note's column), or {'error'} when the
-" room would cut a note in two on another string.
+" to it. Returns {'lines', 'col' (the note's column), 'map'}, or {'error'}
+" when the room would cut a note in two on another string. Only the room
+" inserted moves time columns: the note and its chain stay on theirs.
 function! songwriter#tab#columns#SetNote(lines, lin, c, text) abort
   let l:lines = copy(a:lines)
   let l:t = l:lines[a:lin]
@@ -256,7 +272,7 @@ function! songwriter#tab#columns#SetNote(lines, lin, c, text) abort
     let l:rest = strpart(l:t, l:end, songwriter#tab#model#NoteEnd(l:chain) - l:end)
     let l:lines[a:lin] = songwriter#tab#model#Splice(l:t, a:c, l:old.len + len(l:rest),
           \ a:text . l:rest . repeat('-', l:old.len - l:w))
-    return {'lines': l:lines, 'col': a:c}
+    return {'lines': l:lines, 'col': a:c, 'map': []}
   endif
   let l:free = len(matchstr(l:t, songwriter#grammar#DashRun(), l:end))
   let l:next = l:t[l:end + l:free : l:end + l:free]
@@ -265,6 +281,7 @@ function! songwriter#tab#columns#SetNote(lines, lin, c, text) abort
   let l:later = filter(songwriter#tab#model#NoteColumns(songwriter#tab#model#Parse(1, l:lines)),
         \ 'v:val > a:c')
   let l:last = l:end + l:free
+  let l:map = []
   if !empty(l:later)
     let l:k = max([l:k, a:c + l:w - l:later[0]])
     let l:last = min([l:last, l:later[0] - 1])
@@ -279,11 +296,12 @@ function! songwriter#tab#columns#SetNote(lines, lin, c, text) abort
     if l:o < l:end
       return {'error': printf('no room on string %s', songwriter#tab#model#Name(l:t))}
     endif
-    let l:lines = songwriter#tab#model#InsertColumns(l:lines, l:o, l:k, '-')
+    let l:ins = songwriter#tab#model#InsertColumns(l:lines, l:o, l:k, '-')
+    let [l:lines, l:map] = [l:ins.lines, l:ins.map]
   endif
   let l:t = songwriter#tab#model#Pad(l:lines[a:lin], a:c + l:w - 1)
   let l:lines[a:lin] = songwriter#tab#model#Splice(l:t, a:c, l:w, a:text)
-  return {'lines': l:lines, 'col': a:c}
+  return {'lines': l:lines, 'col': a:c, 'map': l:map}
 endfunction
 
 " `lines` without line `lin`.

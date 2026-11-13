@@ -241,3 +241,14 @@ Then:
   AssertEqual 5, col('.')
 Expect:
   e|--4--|
+
+Given songwriter (a tab):
+  e|--3--5--|
+
+Execute (a draft without a map is refused: every edit says where the tab went):
+  let block = songwriter#tab#model#Read(1)
+  AssertThrows call songwriter#tab#edit#Write(g:block, {'lines': ['e|--3--7--|']})
+  call songwriter#tab#edit#Write(block, {'lines': ['e|--3--7--|'], 'map': []})
+
+Expect songwriter (the draft with a map is written):
+  e|--3--7--|

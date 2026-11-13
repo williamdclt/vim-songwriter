@@ -1,0 +1,178 @@
+" Spec [Tablature][[Annotations]] 1, 2: annotation lines above a tab are part
+" of it.
+
+Before:
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_insert b:songwriter_carry b:songwriter_repeat
+  let b:songwriter_tabmode = 1
+
+" --- 1. What an annotation line is ---
+
+Given songwriter (annotation lines right above the strings):
+  Intro riff:
+    Am    C
+    PM--|
+  e|--0--3--|
+  B|--1--0--|
+
+Execute (1 the block holds its annotation lines, from its top):
+  let block = songwriter#tab#model#Read(5)
+  AssertEqual 2, block.top
+  AssertEqual 4, block.start
+  AssertEqual ['  Am    C', '  PM--|'], block.above
+  AssertEqual ['e|--0--3--|', 'B|--1--0--|'], block.lines
+
+Execute (1 a line is an annotation line when its first two columns are spaces and it holds something else):
+  Assert songwriter#grammar#IsAnnotationLine('  Am')
+  Assert songwriter#grammar#IsAnnotationLine('     ~~~~')
+  Assert !songwriter#grammar#IsAnnotationLine(' Am')
+  Assert !songwriter#grammar#IsAnnotationLine('Am')
+  Assert !songwriter#grammar#IsAnnotationLine('    ')
+  Assert !songwriter#grammar#IsAnnotationLine('')
+
+Given songwriter (a blank line ends the annotations):
+    Am
+
+    C
+  e|--0--|
+
+Execute (1 a blank line ends the annotations):
+  AssertEqual ['  C'], songwriter#tab#model#Read(4).above
+  AssertEqual 3, songwriter#tab#model#Read(4).top
+
+Given songwriter (a tab with no annotation):
+  [Intro]
+  e|--0--|
+
+Execute (1 a tab with no annotation starts at its first string):
+  let block = songwriter#tab#model#Read(2)
+  AssertEqual [], block.above
+  AssertEqual 2, block.top
+
+Given songwriter (a tab with annotations):
+    Am
+  e|--0--|
+  B|--1--|
+
+Execute (1 from an annotation line, Around finds the tab, Read does not):
+  AssertEqual {}, songwriter#tab#model#Read(1)
+  AssertEqual 2, songwriter#tab#model#Around(1).start
+  AssertEqual 2, songwriter#tab#model#Around(3).start
+
+" --- 2.1 Line-wise targets and new tabs ---
+
+Given songwriter (a tab with annotations between prose):
+  intro
+    Am
+  e|--0--|
+  B|--1--|
+  outro
+
+Do (2.1 cap clears the annotations with the notes):
+  jjcap\<Esc>
+
+Expect songwriter:
+  intro
+  e|-----|
+  B|-----|
+  outro
+
+Given songwriter (a tab with annotations after a blank line):
+  intro
+
+    Am
+  e|--0--|
+
+Execute (2.1 P puts a line-wise register above the annotations):
+  call setreg('"', ['  C', 'e|--3--|'], 'l')
+  call cursor(4, 5)
+  normal P
+
+Expect songwriter:
+  intro
+
+    C
+  e|--3--|
+
+    Am
+  e|--0--|
+
+Given songwriter (a tab with annotations):
+  intro
+    Am
+  e|--0--|
+
+Execute (2.1 p puts a line-wise register starting with annotations apart from the tab):
+  call setreg('"', ['  C', 'e|--3--|'], 'l')
+  call cursor(3, 5)
+  normal p
+
+Expect songwriter:
+  intro
+    Am
+  e|--0--|
+
+    C
+  e|--3--|
+
+Given songwriter (a tab with annotations):
+  intro
+    Am
+  e|--0--|
+  B|--1--|
+
+Execute (2.1 O opens the new tab above the annotations):
+  call cursor(4, 5)
+  normal O
+
+Expect songwriter:
+  intro
+  e|-----|
+  B|-----|
+
+    Am
+  e|--0--|
+  B|--1--|
+
+Given songwriter (a tab with annotations):
+    Am
+  e|--0--|
+
+Execute (2.1 :SongwriterNewTab on an annotation line goes under the tab):
+  call cursor(1, 3)
+  SongwriterNewTab eB
+
+Expect songwriter:
+    Am
+  e|--0--|
+
+  e|-----|
+  B|-----|
+
+Given songwriter (prose right above a tab's annotations):
+  intro
+    Am
+  e|--0--|
+
+Execute (9 :SongwriterNewTab under a line followed by a tab's annotations keeps a blank line before them):
+  call cursor(1, 1)
+  SongwriterNewTab e
+
+Expect songwriter:
+  intro
+  e|-----|
+
+    Am
+  e|--0--|
+
+" --- 2.2 Annotations are plain text ---
+
+Given songwriter (a tab with annotations):
+    Am
+  e|--0--|
+
+Do (2.2 keys on an annotation line keep their usual meaning):
+  0fAx
+
+Expect songwriter:
+    m
+  e|--0--|

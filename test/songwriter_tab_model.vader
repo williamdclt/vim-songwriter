@@ -23,7 +23,7 @@ Execute (InBar):
   Assert songwriter#tab#model#InBar(9, {'start': 2, 'end': 0})
 
 Execute (InsertColumns: pads short lines with dashes, then inserts on every line):
-  AssertEqual ['e|--4---|', 'B|-----'], songwriter#tab#model#InsertColumns(['e|--4-|', 'B|'], 5, 2, '-')
+  AssertEqual ['e|--4---|', 'B|-----'], songwriter#tab#model#InsertColumns(['e|--4-|', 'B|'], 5, 2, '-').lines
 
 Execute (Lint reports where each note moved):
   let r = songwriter#tab#lint#Lint(['e|-----4---|--1|', 'B|-------5-|---|'])

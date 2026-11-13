@@ -62,6 +62,7 @@ Above a lyric line, write chord names (`Am      F`). With the cursor on one,
 | Section       | `[Chorus]`, `[[Bridge]]`      |
 | Chord         | `Am`, `F#sus4`, `D/F#`        |
 | Tab line      | `e\|--3--5h7--x--\|`          |
+| Annotation    | `  PM-----\|`, right above a tab |
 | Anything else | lyrics, notes                 |
 
 In a tab, a note is a fret number (`12`) or `x` (muted). Anything else between
@@ -189,6 +190,24 @@ command: `afplay` (macOS), `paplay` or `aplay` (Linux). Without one, nothing
 else is affected. Pitches follow the string names (standard tuning is E2 to
 E4).
 
+### Annotations
+
+Lines right above a tab that start with two spaces annotate it: chord names,
+`PM-----|` for palm mute, `let ring~~~~`, anything.
+
+```
+    Am          C
+    PM-----|    let ring~~~~
+e|--0--0--0--|--0-------------|
+```
+
+They are typed as plain text, and they follow the music while the tab is
+edited: a word stays above its time column, and a run of `-`, `~`, `.` or `=`
+stretches and shrinks with the columns under it. Deleting a column deletes
+the words above it, and they go in the register with it: `ddp` swaps two
+columns with their chord names. `:SongwriterTabChord Am` writes a chord name
+above the cursor.
+
 ## Chords in lyrics
 
 | Key                 | Action                                                 |
@@ -209,7 +228,7 @@ Off a chord, `<C-A>` / `<C-X>` (and `]` / `[`) increment numbers as usual.
 | `:SongwriterAddDashes`              | Append `--` to every string                    |
 | `:SongwriterAddBar`                 | Insert a bar line after the cursor             |
 | `:SongwriterChordAbove {chord}`     | Write a chord above the cursor, aligned        |
-| `:SongwriterTabChord {chord}`       | Write a chord name above the tab, at the cursor |
+| `:SongwriterTabChord {chord}`       | Write a chord name above the tab, at the cursor, on its annotation line |
 | `:SongwriterChordQuality {quality}` | Change the chord's quality (`sus4`, `m7`…)     |
 | `:SongwriterTransposeChord {n}`     | Transpose the chord by `n` semitones           |
 | `:SongwriterToggleMinorMajor`       | Toggle minor / major                           |

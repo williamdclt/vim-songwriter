@@ -56,3 +56,14 @@ Execute (Rendering 4 the highlight follows the cursor through autocommands):
   Assert exists('#songwriter_column#CursorMoved#<buffer>')
   Assert exists('#songwriter_column#WinLeave#<buffer>')
   AssertEqual 'CursorColumn', synIDattr(synIDtrans(hlID('songwriterTimeColumn')), 'name')
+
+Given songwriter (Annotations 7 a tab with annotations):
+      Am
+  e|--0--3--|
+  B|--1-----|
+
+Execute (Annotations 7 the highlight extends over the annotation lines):
+  call cursor(2, 5)
+  call songwriter#tab#highlight#Update()
+  let m = filter(getmatches(), 'v:val.group ==# "songwriterTimeColumn"')
+  AssertEqual [[1, 5, 1], [2, 5, 1], [3, 5, 1]], [m[0].pos1, m[0].pos2, m[0].pos3]

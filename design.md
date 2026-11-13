@@ -16,8 +16,10 @@ never relies on concealing or rendering.
 | File | Role |
 |---|---|
 | `autoload/songwriter/grammar.vim` | The format's patterns (tab line, note, fret, separator, chain, chord, highlighting). The only place regexes for the format are written. |
-| `autoload/songwriter/tab/model.vim` | Tab block model: parse, queries (notes, time columns, bars), `Splice`/`Blank` and the column-insertion primitive, and `Read`/`Write` (the buffer edges). |
-| `autoload/songwriter/tab/edit.vim` | The buffer side of a tablature edit: `Do` runs a whole edit at the cursor (slot, undo join, lints, one write, insert state, state for the next key, register, `.`); `Commit`, `LintAndFollow`, `Apply` and the pure `Linted` are its parts. |
+| `autoload/songwriter/tab/colmap.vim` | Column maps: where each column of a block went through an edit, pure. |
+| `autoload/songwriter/tab/annotations.vim` | Annotation lines: their words, and how they follow an edit through its column map, pure. |
+| `autoload/songwriter/tab/model.vim` | Tab block model: parse, queries (notes, time columns, bars), `Splice`/`Blank` and the column-insertion primitive, snapshots, and `Read`/`Write` (the buffer edges). |
+| `autoload/songwriter/tab/edit.vim` | The buffer side of a tablature edit: `Do` runs a whole edit at the cursor (slot, undo join, lints, one write, insert state, state for the next key, register, `.`); `Commit`, `LintAndFollow`, `Apply` and the pure `Linted` are its parts; `Write` is the one way a draft reaches the buffer. |
 | `autoload/songwriter/tab/slots.vim` | Slots: where a new note's room goes (pure), the buffer's one open slot with how to close it, and `a`/`i` and the new bar's slot (`AddNote`, `AddBarSlot`). |
 | `autoload/songwriter/tab/insert.vim` | The insert state of tablature mode: entering, keeping, leaving it, and `<Esc>`. |
 | `autoload/songwriter/tab/typing.vim` | Typing notes and separators: digits, `x` on a dash, separators after a note (`EnterNote`, `EnterSeparator`). |
@@ -58,9 +60,10 @@ An operation is a thin buffer entry point around pure logic:
 
 1. `songwriter#tab#model#Read()` parses the block around the cursor (or returns
    `{}` off a tab line, which every entry point treats as a no-op);
-2. a pure function computes the result: new lines and/or a cursor column
-   (`{'lines': [...], 'col': n}`, `{}` for "nothing to do"), and what to record
-   (`state`, `register`);
+2. a pure function computes the result: new lines with their column map
+   (see "Column maps") and/or a cursor column (`{'lines': [...], 'map': [...],
+   'col': n}`, `{}` for "nothing to do"), and what to record (`state`,
+   `register`);
 3. the result is written back.
 
 `edit#Do(Fn, opts)` is the whole sequence for an edit at the cursor, and the
@@ -76,6 +79,18 @@ leaves no undo step, and the undo join happens only on an actual write. Entry
 points that are not one edit at the cursor (operators, which run through
 `g@`; slots closed by motions) use its parts: `Commit` (lint, follow, write),
 `LintAndFollow`, `Apply` (write, no lint).
+
+**Drafts and snapshots.** What reaches the buffer is a draft: the block's new
+lines, and where each column of its base went in them (`{'lines', 'map',
+'base'}`). The base is the snapshot (`model#Snapshot`, the block as written:
+its first line and lines) the edit started from: by default the block being
+written; for a carry, the origin or the base it saved, since it renders from
+those rather than from what is in the buffer. `edit#Write` turns a draft into
+a snapshot (`edit#Derive`) and `model#Write` writes it; restoring a saved
+snapshot (a slot closed, 4.3) writes it as it is. A draft without a map is an
+error, thrown, so no write path can lose track of where the tab went; every
+part of a block other than its strings is kept in step in `Derive` and
+`model#Write`, and nowhere else.
 
 Pure functions are testable without buffer setup and composable: spec item 4
 (lint after an edit) is "edit, then lint, then follow the moved note", which is
@@ -142,6 +157,86 @@ the single mutation primitive across strings is
 `InsertColumns(lines, offset, n, char)`: pad every line with dashes up to
 `offset`, then insert `n` copies of `char` after it, on every string, so pipes
 and notes stay vertically aligned.
+
+### Column maps
+
+Every pure edit that returns `lines` also returns `map`: where each column of
+the lines it was given is in the lines it returns, or 0 when the edit deleted
+it (`tab/colmap.vim`). Anything placed by time column outside the strings
+follows an edit through it, exactly, rather than guessing from a diff (which
+cannot tell which of the columns of a repeated riff `dd` deleted).
+
+- **A map is a list of steps**, so composing is concatenating (`Then`) and the
+  identity is `[]`: `Insert` (columns inserted after an offset), `Delete` (a
+  range removed), `Resize` (a region given a new width, each column keeping its
+  offset, clamped: an empty bar filled to five dashes, whose content is not
+  deleted), `Func` (a re-flow, looked up only when asked, so an edit nobody
+  follows costs nothing). Columns past the end follow the steps too, so text
+  after a tab's last pipe keeps its distance from it.
+- **The primitives make the steps** (`model#InsertColumns`,
+  `columns#DeleteRange`, the row insertion of `paste.vim`, `slots#AppendBar`,
+  `slots#EmptyBar`, `lint#Lint`); everything else composes the maps of what it
+  calls. Splicing one string (`Splice`, `Blank`, a note rewritten by
+  `SetNote`, a short line padded) moves no time column, so it adds no step.
+- **Lint's map shares the cursor's rule.** A time column goes where its notes
+  went, a pipe of the top string where that pipe went, any other column of a
+  bar as `FollowColumn` moves the cursor there (the same distance from the
+  nearest note starting at or before it, clamped before the next one and
+  inside the bar: `s:in_bar`, used by both); a trailing empty bar lint drops
+  is deleted. The top string stands for the block's pipes, which are aligned
+  in any tab lint has seen once.
+- `carry#Lift` maps the tab to the base, and `carry#Render` the base to the
+  rendered tab, except back at the origin, which is the origin itself.
+
+### Annotations (spec [Tablature][[Annotations]])
+
+Lines of free text right above a tab's strings (chord names, `PM-----|`) are
+part of the tab, and follow its music through every edit.
+
+- **Two leading spaces make an annotation line.** Prose and sections start in
+  the first column; anything about time columns is indented past the string
+  name and first pipe anyway, so the rule tells them apart without markup. A
+  blank line ends the annotations, as it ends a tab.
+- **Part of the block, not of its strings.** `Read` gives a block's `top` and
+  `above`; `lines`, `lin` and every pure edit stay about strings only, so no
+  edit had to learn about annotations. A block is identified by its `top`,
+  which stays put when annotation lines come and go (a slot's revert, the
+  carry). Line-wise targets (`dap`, `cap`), `P` and `O` go by the top.
+- **Words, labels and spans.** A run of two or more of the same fill
+  character is an extender, which stretches; everything else is rigid. A
+  label is anchored on its first column, so `Am7` never splits; a span covers
+  its columns, its rigid parts at its ends (`PM`, `|`). One fill character is
+  not an extender, so `P.M.` and `1-2` are labels.
+- **Following is the column map applied to words** (`annotations#Follow`, in
+  `edit#Derive`, so every write path has it): a label goes where its column
+  goes and is deleted with it (a label stands for its column, as `x` deletes
+  a note's gap with it); a span's ends go to the first and last columns it
+  still covers. Words are then laid out left to right with a space between
+  them, never in the first two columns, so that a line stays an annotation
+  line. A line none of whose words moved is kept byte for byte, whitespace
+  included: an edit that does not touch it leaves no trace in it.
+- **Exact restores stay exact.** A slot's mark and a carry's origin are
+  snapshots, annotations included, so giving the tab back gives them back. A
+  carry renders from its base snapshot, whose annotations followed the lift;
+  the words the lift deleted (those of a note alone in its column,
+  `annotations#Cut`) travel with the note as words of the draft (`put`), at
+  the note's new column.
+- **Registers carry the words a deletion takes.** A column or bar register
+  has the annotations deleted with it (for a yank, those a deletion would
+  delete) as rows above the strings' rows, so it stays a plain blockwise
+  register, and `register.vim` records how many rows are annotations. A paste
+  puts them back as words of its draft (`put`), above each copy. A register
+  changed since (a native yank) has no annotation rows, and pastes as before.
+  `gp` adds notes to a column that keeps its own annotations, so it leaves
+  them out.
+- **`:SongwriterTabChord` and the highlight** use the same lines: a chord
+  goes on the annotation line closest to the strings when it fits there, and
+  the time column highlight covers the annotations, converting their display
+  columns to the bytes `matchaddpos` wants. Vim 8.2 takes at most 8 positions
+  per match, so the highlight is added 8 lines at a time.
+- **Display columns.** Annotations may hold any text; tab lines are ASCII, so
+  a display column of an annotation is the byte column of the strings under
+  it.
 
 ### Column insertion (`_`, `:SongwriterAddBar`)
 
@@ -402,14 +497,14 @@ Tablature-mode edits lint the block:
   - *A slot opened by moving, `a`/`i` or a new bar is undone*: closing it gives
     the tab back exactly as it was before, including the lint of 4.2, so that
     wandering in the insert state leaves no trace. `slots#Mark`, taken before
-    anything changes, records the block's lines, the cursor column and the undo
+    anything changes, records the block (a snapshot), the cursor column and the undo
     sequence number. Closing runs `:undo` when the slot's change is the last
     undo step and that step holds nothing else (its sequence number differs
     from the one before it). Then no undo step is left behind and a file saved
     before `a` is unmodified again. Inside `:normal`, a macro or a mapping,
     several keys share one undo step, and `:undo` would take earlier changes
-    with it: then (or if undoing did not give the lines back) the recorded
-    lines are written instead.
+    with it: then (or if undoing did not give the block back) the recorded
+    snapshot is written instead.
   - *A motion closing a slot keeps the lint (4.3.3)*: otherwise walking an
     unlinted tab with `l`/`h` would lint it at every slot and unlint it at
     every close, and the whole tab would jump at each step. `AddNote` and
@@ -670,9 +765,9 @@ native key away, and the command takes the tuning as its argument.
 
 Column-wise operations act on the notes starting on the cursor's column, on
 every string, which the cursor alone does not show. `tab/highlight.vim` keeps
-a window match (`matchaddpos`, group `songwriterTimeColumn`, linked by default
-to `CursorColumn`) on that column, on every string of the tab, notes and
-dashes alike, as wide as its widest note: a full-height band shows the column
+window matches (`matchaddpos`, group `songwriterTimeColumn`, linked by default
+to `CursorColumn`) on that column, on every string of the tab and its
+annotation lines, notes and dashes alike, as wide as its widest note: a full-height band shows the column
 as one thing, and which strings are silent on it, where highlighting only its
 notes would leave scattered cells. The note under the cursor decides the
 column, so a cursor on the `2` of `12` still shows that note's column. On a
@@ -796,7 +891,9 @@ Highlighting stays permissive and accepts false positives such as the word "A"
   idempotent and keeps each string's notes, the normal state never edits, an
   abandoned slot and a carried-back note leave no trace, each edit is one
   undo step and leaves the tab linted, a rewritten note leaves every note on
-  its time column. They catch the interactions between
+  its time column, a pure edit's map puts every note it did not rewrite
+  where it now is, and a label above a time column stays above the notes it
+  was above. They catch the interactions between
   features that hand-written cases miss. The main corpus is linted, so an
   edit's own lint shows no difference; unlinted tabs go only where the
   invariant must hold for them too (lint, 4.3). Keys are typed with

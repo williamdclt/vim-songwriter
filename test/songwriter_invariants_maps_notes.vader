@@ -1,0 +1,15 @@
+" Invariants of column maps, the edits on a note (see invariants/setup.vader and
+" invariants/maps.vader, tab/colmap.vim).
+
+Include: invariants/setup.vader
+
+Execute (the edits checked here):
+  let g:inv_map_kinds = ['note']
+  " Spec [[Bugs]] 1: deleting a column joins notes of another string.
+  let g:inv_known = [
+        \ 'two-digit frets, 1:9, DeleteRange ac: note 1:8 -> 8, note 1:11 -> 9',
+        \ 'two-digit frets, 2:20, DeleteRange ac: note 0:18 -> 18, note 0:21 -> 20',
+        \ 'separators, 2:8, DeleteRange ac: note 0:7 -> 7, note 0:10 -> 8',
+        \ ]
+
+Include: invariants/maps.vader

@@ -116,28 +116,36 @@ function! songwriter#tab#operator#ApplyRange(op, reg, block, s, e, note) abort
 endfunction
 
 function! s:columnwise(op, reg, block, s, e) abort
-  let l:names = songwriter#tab#model#Names(a:block.lines)
-  if a:op ==# 'y'
-    call songwriter#tab#register#Set(a:reg, songwriter#tab#columns#Extract(a:block.lines, a:s, a:e), 'b', l:names)
-    return
-  endif
   let l:res = songwriter#tab#columns#DeleteRange(a:block.lines, a:s, a:e)
-  call songwriter#tab#register#Set(a:reg, l:res.rows, 'b', l:names)
-  call s:write_deleted(a:op, a:block, l:res.lines, a:s)
+  call s:set_register(a:reg, a:block, l:res.rows, l:res.map, a:s)
+  if a:op !=# 'y'
+    call s:write_deleted(a:op, a:block, l:res, a:s)
+  endif
 endfunction
 
-" Write `lines`, from which columns were removed at `s`, lint, then for `c`
-" open a slot where they were (6.6), else go to the next note column (6.11).
-function! s:write_deleted(op, block, lines, s) abort
-  let l:anchor = s:slot_anchor(a:lines, songwriter#tab#model#CursorLin(a:block), a:s)
+" Set register `reg` to the column rows `rows` taken from `block` from column
+" `col`, with the annotations above them ([[Annotations]] 5.1): those that the
+" edit of map `map` deletes (or, for a yank, would delete).
+function! s:set_register(reg, block, rows, map, col) abort
+  let l:above = songwriter#tab#annotations#Rows(songwriter#tab#annotations#Cut(a:block.above, a:map), a:col)
+  call songwriter#tab#register#Set(a:reg, l:above + a:rows, 'b',
+        \ songwriter#tab#model#Names(a:block.lines), len(l:above))
+endfunction
+
+" Write `res` ({'lines', 'map'}), from which columns were removed at `s`,
+" lint, then for `c` open a slot where they were (6.6), else go to the next
+" note column (6.11).
+function! s:write_deleted(op, block, res, s) abort
+  let l:anchor = s:slot_anchor(a:res.lines, songwriter#tab#model#CursorLin(a:block), a:s)
+  let l:res = {'lines': a:res.lines, 'map': a:res.map}
   if a:op ==# 'c'
-    call songwriter#tab#edit#Commit(a:block, {'lines': a:lines, 'col': l:anchor[0]})
+    call songwriter#tab#edit#Commit(a:block, extend(l:res, {'col': l:anchor[0]}))
     if l:anchor[1] == 0
       call cursor(line('.'), col('.') + 1)
     endif
     call songwriter#tab#slots#OpenHere(l:anchor[1])
   else
-    call songwriter#tab#edit#Commit(a:block, {'lines': a:lines})
+    call songwriter#tab#edit#Commit(a:block, l:res)
     call s:to_next_column()
   endif
 endfunction
@@ -159,15 +167,15 @@ function! s:noteop(op, reg, block, s, e, exact) abort
   else
     let l:rows = l:res.rows
   endif
-  call songwriter#tab#register#Set(a:reg, l:rows, 'b', songwriter#tab#model#Names(a:block.lines))
+  call s:set_register(a:reg, a:block, l:rows, l:res.map, a:s)
   if a:op ==# 'y'
     return
   endif
   call cursor(line('.'), l:res.col)
   if l:res.removed
-    call s:write_deleted(a:op, a:block, l:res.lines, l:res.col)
+    call s:write_deleted(a:op, a:block, l:res, l:res.col)
   else
-    call songwriter#tab#edit#Commit(a:block, {'lines': l:res.lines})
+    call songwriter#tab#edit#Commit(a:block, {'lines': l:res.lines, 'map': l:res.map})
   endif
 endfunction
 
@@ -195,16 +203,16 @@ function! s:across(op, reg, block, a) abort
   let l:lins = map(copy(l:notes), 'v:val.lin')
   let l:rows = map(songwriter#tab#columns#Extract(a:block.lines, a:a.col, l:e),
         \ {i, r -> index(l:lins, i) >= 0 ? r : repeat('-', len(r))})
-  call songwriter#tab#register#Set(a:reg, l:rows, 'b', songwriter#tab#model#Names(a:block.lines))
+  let l:res = songwriter#tab#columns#EraseSet(a:block.lines, l:notes)
+  call s:set_register(a:reg, a:block, l:rows, l:res.map, a:a.col)
   if a:op ==# 'y'
     return
   endif
-  let l:res = songwriter#tab#columns#EraseSet(a:block.lines, l:notes)
   call cursor(line('.'), l:res.col)
   if l:res.removed
-    call s:write_deleted(a:op, a:block, l:res.lines, l:res.col)
+    call s:write_deleted(a:op, a:block, l:res, l:res.col)
   else
-    call songwriter#tab#edit#Commit(a:block, {'lines': l:res.lines})
+    call songwriter#tab#edit#Commit(a:block, {'lines': l:res.lines, 'map': l:res.map})
   endif
 endfunction
 
@@ -223,8 +231,9 @@ function! s:slot_anchor(lines, lin, s) abort
   return !empty(l:next) ? [l:next[0], -1] : !empty(l:prev) ? [l:prev[-1], 1] : [l:left, 0]
 endfunction
 
-" Spec 6.3: line-wise targets cover every tab they touch, whole. `play`
-" plays them one after the other (12.1).
+" Spec 6.3: line-wise targets cover every tab they touch, whole, annotations
+" included ([[Annotations]] 2.1). `play` plays them one after the other
+" (12.1).
 function! songwriter#tab#operator#ApplyLines(op, reg, l1, l2) abort
   if a:op ==# 'play'
     call songwriter#tab#play#Play(s:tabs_in(a:l1, a:l2))
@@ -233,7 +242,7 @@ function! songwriter#tab#operator#ApplyLines(op, reg, l1, l2) abort
   let l:l1 = a:l1
   let l:l2 = a:l2
   if songwriter#grammar#IsTabLine(getline(l:l1))
-    let l:l1 = songwriter#tab#model#Read(l:l1).start
+    let l:l1 = songwriter#tab#model#Read(l:l1).top
   endif
   if songwriter#grammar#IsTabLine(getline(l:l2))
     let l:b = songwriter#tab#model#Read(l:l2)
@@ -246,9 +255,11 @@ function! songwriter#tab#operator#ApplyLines(op, reg, l1, l2) abort
     call deletebufline('%', l:l1, l:l2)
     call cursor(min([l:l1, line('$')]), 1)
   else
-    " 6.3.1: clear every note of each tab, open a slot. Lint then drops the
-    " emptied bars at the end (1.4), leaving the first one.
+    " 6.3.1: clear every note of each tab, and its annotations ([[Annotations]]
+    " 2.1), open a slot. Lint then drops the emptied bars at the end (1.4),
+    " leaving the first one. The cursor stays on its string.
     let l:cur = line('.')
+    let l:first = 0
     let l:lnum = l:l1
     while l:lnum <= l:l2
       let l:block = songwriter#tab#model#Read(l:lnum)
@@ -256,12 +267,17 @@ function! songwriter#tab#operator#ApplyLines(op, reg, l1, l2) abort
         let l:lnum += 1
         continue
       endif
-      let l:lines = songwriter#tab#columns#ClearNotes(l:block.lines)
-      call songwriter#tab#model#Write(l:block, songwriter#tab#lint#Lint(l:lines).lines)
-      let l:lnum = l:block.end + 1
+      let l:lines = songwriter#tab#lint#Lint(songwriter#tab#columns#ClearNotes(l:block.lines)).lines
+      let l:new = songwriter#tab#model#Write(l:block, {'top': l:block.top, 'above': [], 'lines': l:lines})
+      let l:shift = l:new.end - l:block.end
+      if l:cur >= l:block.start
+        let l:cur += l:shift
+      endif
+      let l:first = l:first ? l:first : l:new.start
+      let [l:l2, l:lnum] = [l:l2 + l:shift, l:new.end + 1]
     endwhile
     if !songwriter#grammar#IsTabLine(getline(l:cur))
-      let l:cur = l:l1
+      let l:cur = l:first ? l:first : l:l1
     endif
     call cursor(l:cur, songwriter#tab#model#BodyOffset() + 1)
     call songwriter#tab#slots#OpenHere(0)
@@ -393,8 +409,13 @@ endfunction
 
 function! s:erase(count, reg, ctx) abort
   let l:lines = a:ctx.block.lines
+  let l:map = []
   let l:col = a:ctx.col
   let l:rows = []
+  " The annotations erased with the notes ([[Annotations]] 5.1), at their
+  " offsets in the register's rows.
+  let l:above = a:ctx.block.above
+  let l:words = []
   let l:lone = 0
   for l:i in range(max([a:count, 1]))
     if l:i > 0 && empty(songwriter#tab#model#NoteAt(l:lines[a:ctx.lin], l:col))
@@ -409,17 +430,25 @@ function! s:erase(count, reg, ctx) abort
       break
     endif
     let l:lone = len(l:res.lines[a:ctx.lin]) < len(l:lines[a:ctx.lin])
+    let l:width = empty(l:rows) ? 0 : len(l:rows[0])
+    for l:w in songwriter#tab#annotations#Cut(l:above, l:res.map)
+      call add(l:words, extend(l:w, {'col': l:w.col - l:res.col + 1 + l:width}))
+    endfor
     let l:rows = empty(l:rows) ? l:res.rows : map(l:rows, 'v:val . l:res.rows[v:key]')
     let l:linted = songwriter#tab#edit#Linted(l:res.lines, a:ctx.lin,
           \ max([1, min([l:res.col, len(l:res.lines[a:ctx.lin])])]))
     let [l:lines, l:col] = [l:linted.lines, l:linted.col]
+    let l:step = songwriter#tab#colmap#Then(l:res.map, l:linted.map)
+    let l:above = songwriter#tab#annotations#Follow(l:above, l:step)
+    let l:map = songwriter#tab#colmap#Then(l:map, l:step)
   endfor
   if empty(l:rows)
     return {}
   endif
-  return {'lines': l:lines, 'col': l:lone ? s:next_column(l:lines, l:col) : l:col,
-        \ 'register': {'name': a:reg, 'rows': l:rows, 'type': 'b',
-        \   'names': songwriter#tab#model#Names(l:lines)}}
+  let l:annotations = songwriter#tab#annotations#Rows(l:words, 1)
+  return {'lines': l:lines, 'map': l:map, 'col': l:lone ? s:next_column(l:lines, l:col) : l:col,
+        \ 'register': {'name': a:reg, 'rows': l:annotations + l:rows, 'type': 'b',
+        \   'names': songwriter#tab#model#Names(l:lines), 'above': len(l:annotations)}}
 endfunction
 
 " Spec 6.5 / 6.3.2: `p` (before 0) / `P` (before 1) from register `reg`.
@@ -443,12 +472,14 @@ function! s:put(before, count, reg, ctx) abort
   if empty(l:rows)
     return {'error': 'songwriter: cannot paste a character-wise register into a tab'}
   endif
-  return songwriter#tab#paste#Paste(a:ctx.block.lines, a:ctx.lin, a:ctx.col, l:rows,
-        \ songwriter#tab#register#Names(a:reg), a:before, a:count)
+  let l:reg = songwriter#tab#register#Split(a:reg)
+  return songwriter#tab#paste#Paste(a:ctx.block.lines, a:ctx.lin, a:ctx.col, l:reg.rows,
+        \ songwriter#tab#register#Names(a:reg), a:before, a:count, l:reg.above)
 endfunction
 
-" A line-wise register goes after the tab (before it for `P`), never between
-" its strings; a blank line keeps pasted tab lines from joining the tab.
+" A line-wise register goes after the tab (before it and its annotations for
+" `P`), never between its strings; a blank line keeps a pasted tab from joining
+" the tab.
 function! s:put_lines(block, rows, before, count) abort
   let l:rows = []
   for l:i in range(max([a:count, 1]))
@@ -461,10 +492,10 @@ function! s:put_lines(block, rows, before, count) abort
     if songwriter#grammar#IsTabLine(l:rows[-1])
       call add(l:rows, '')
     endif
-    let l:at = a:block.start - 1
+    let l:at = a:block.top - 1
     let l:first = l:at + 1
   else
-    if songwriter#grammar#IsTabLine(l:rows[0])
+    if songwriter#tab#model#StartsTab(l:rows)
       call insert(l:rows, '')
     endif
     let l:at = a:block.end
@@ -482,6 +513,7 @@ endfunction
 
 function! s:shift(dir, count, ctx) abort
   let l:lines = a:ctx.block.lines
+  let l:map = []
   let l:col = a:ctx.col
   let l:done = 0
   for l:i in range(max([a:count, 1]))
@@ -491,9 +523,10 @@ function! s:shift(dir, count, ctx) abort
     endif
     let l:linted = songwriter#tab#edit#Linted(l:res.lines, a:ctx.lin, l:res.col)
     let [l:lines, l:col] = [l:linted.lines, l:linted.col]
+    let l:map = songwriter#tab#colmap#Then(l:map, songwriter#tab#colmap#Then(l:res.map, l:linted.map))
     let l:done = 1
   endfor
-  return l:done ? {'lines': l:lines, 'col': l:col} : {}
+  return l:done ? {'lines': l:lines, 'col': l:col, 'map': l:map} : {}
 endfunction
 
 " Spec 6.14: `gp`, overlay a column register onto the cursor's column.
@@ -506,7 +539,8 @@ function! s:overlay(reg, ctx) abort
   if empty(l:rows)
     return {'error': 'songwriter: gp pastes a column register'}
   endif
+  " The notes only: the column keeps its own annotations.
   return songwriter#tab#paste#Overlay(a:ctx.block.lines, a:ctx.lin, a:ctx.col,
-        \ l:rows, songwriter#tab#register#Names(a:reg))
+        \ songwriter#tab#register#Split(a:reg).rows, songwriter#tab#register#Names(a:reg))
 endfunction
 

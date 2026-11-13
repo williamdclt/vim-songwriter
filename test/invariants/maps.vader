@@ -1,0 +1,106 @@
+" Shared body of the column map invariants
+" (test/songwriter_invariants_maps_*.vader), split across files so that they
+" run in parallel. Each file sets g:inv_map_kinds, the edits it checks: 'note'
+" (edits on every note), 'dash' (on every note and dash after a note), 'lint';
+" and g:inv_known, the cases that fail because of a bug of the spec's [[Bugs]].
+
+" === Every pure edit says where the tab went ===
+
+Execute (a pure edit's map puts every note it did not rewrite where it is now):
+  " What is wrong with `res` (a result with 'lines' and 'map') as an edit of
+  " `old` that rewrote only the notes `skip`: every other note must be at its
+  " mapped column on its string, with the same text, and every pipe of the top
+  " string that the map keeps must be a pipe there.
+  function! InvMapErrors(old, res, skip) abort
+    let l:errors = []
+    if !has_key(a:res, 'map')
+      return ['no map']
+    endif
+    for l:lin in range(len(a:old))
+      for l:n in songwriter#tab#model#Notes(a:old[l:lin])
+        if index(a:skip, [l:lin, l:n.col]) >= 0
+          continue
+        endif
+        let l:m = songwriter#tab#colmap#At(a:res.map, l:n.col)
+        let l:new = l:m > 0 ? songwriter#tab#model#NoteAt(a:res.lines[l:lin], l:m) : {}
+        if empty(l:new) || l:new.col != l:m || l:new.text !=# l:n.text
+          call add(l:errors, printf('note %d:%d -> %d', l:lin, l:n.col, l:m))
+        endif
+      endfor
+    endfor
+    for l:p in songwriter#tab#model#Pipes(a:old[0])
+      let l:m = songwriter#tab#colmap#At(a:res.map, l:p)
+      if l:m > 0 && a:res.lines[0][l:m - 1] !=# '|'
+        call add(l:errors, printf('pipe %d -> %d', l:p, l:m))
+      endif
+    endfor
+    return l:errors
+  endfunction
+  let g:InvColumnRows = {lines -> map(range(len(lines)), {i, _ -> i == 0 ? '5--' : '---'})}
+  let g:InvBarRows = {lines -> map(range(len(lines)), {i, _ -> i == 0 ? '--7--|' : '-----|'})}
+  let g:InvStart = {l, i, c -> songwriter#tab#model#NoteAt(l[i], c).col}
+  " Edits run on every note start, [name, Fn(lines, lin, col)].
+  let g:inv_note_edits = [
+        \ ['EraseNote', {l, i, c -> songwriter#tab#columns#EraseNote(l, i, c)}],
+        \ ['SetNote 10', {l, i, c -> songwriter#tab#columns#SetNote(l, i, g:InvStart(l, i, c), '10')}],
+        \ ['SetNote 7', {l, i, c -> songwriter#tab#columns#SetNote(l, i, g:InvStart(l, i, c), '7')}],
+        \ ['frets Add 5', {l, i, c -> songwriter#tab#frets#Add(l, i, g:InvStart(l, i, c), 5)}],
+        \ ['Move sk', {l, i, c -> songwriter#tab#strings#Move(l, i, c, -1, 0, 0)}],
+        \ ['Move Sj', {l, i, c -> songwriter#tab#strings#Move(l, i, c, 1, 1, 0)}],
+        \ ['Move sJ', {l, i, c -> songwriter#tab#strings#Move(l, i, c, 1, 0, 1)}],
+        \ ['DeleteRange ac', {l, i, c -> call('songwriter#tab#columns#DeleteRange',
+        \   [l] + songwriter#tab#objects#Object('c', l, i, c, 1, 1))}],
+        \ ['EraseNotes aw', {l, i, c -> call('songwriter#tab#columns#EraseNotes',
+        \   [l, i] + songwriter#tab#objects#StringObject('w', l, i, c, 1))}],
+        \ ['EraseSet column', {l, i, c -> songwriter#tab#columns#EraseSet(l,
+        \   map(filter(range(len(l)), {_, j -> get(songwriter#tab#model#NoteAt(l[j], g:InvStart(l, i, c)), "col", 0) == g:InvStart(l, i, c)}),
+        \     {_, j -> {'lin': j, 'col': g:InvStart(l, i, c)}}))}],
+        \ ['Lift', {l, i, c -> {'lines': songwriter#tab#carry#Lift(l, i, c).base,
+        \   'map': songwriter#tab#carry#Lift(l, i, c).map}}],
+        \ ]
+  " Edits run on every note start and dash after a note.
+  let g:inv_dash_edits = [
+        \ ['ShiftColumn >', {l, i, c -> songwriter#tab#columns#ShiftColumn(l, i, c, 1)}],
+        \ ['ShiftColumn <', {l, i, c -> songwriter#tab#columns#ShiftColumn(l, i, c, -1)}],
+        \ ['Append', {l, i, c -> songwriter#tab#slots#Append(songwriter#tab#model#Parse(0, l), i, c)}],
+        \ ['Prepend', {l, i, c -> songwriter#tab#slots#Prepend(songwriter#tab#model#Parse(0, l), i, c)}],
+        \ ['PutNote 7', {l, i, c -> songwriter#tab#columns#PutNote(l, i, c, '7')}],
+        \ ['PutNote 12', {l, i, c -> songwriter#tab#columns#PutNote(l, i, c, '12')}],
+        \ ['Place', {l, i, c -> songwriter#tab#voicings#Place(l, i, c,
+        \   {'frets': map(range(len(l)), {j, _ -> j % 3 == 2 ? -1 : 10 + j})})}],
+        \ ['Paste column', {l, i, c -> songwriter#tab#paste#Paste(l, i, c, g:InvColumnRows(l), [], 0, 1)}],
+        \ ['Paste column before', {l, i, c -> songwriter#tab#paste#Paste(l, i, c, g:InvColumnRows(l), [], 1, 2)}],
+        \ ['Paste bar', {l, i, c -> songwriter#tab#paste#Paste(l, i, c, g:InvBarRows(l), [], 0, 1)}],
+        \ ['Linted', {l, i, c -> songwriter#tab#edit#Linted(l, i, c)}],
+        \ ]
+  let g:inv_failures = []
+  for g:inv_tab in g:inv_tabs
+    let g:inv_runs = (index(g:inv_map_kinds, 'note') >= 0
+          \   ? map(g:InvNotePositions(g:inv_tab.lines), {_, p -> [p, g:inv_note_edits]}) : [])
+          \ + (index(g:inv_map_kinds, 'dash') >= 0
+          \   ? map(g:InvKeyPositions(g:inv_tab.lines), {_, p -> [p, g:inv_dash_edits]}) : [])
+    for [g:inv_pos, g:inv_edits] in g:inv_runs
+      let g:inv_lin = g:inv_pos[0] - 1
+      let g:inv_col = g:inv_pos[1]
+      for [g:inv_name, g:InvEdit] in g:inv_edits
+        let g:inv_res = g:InvEdit(g:inv_tab.lines, g:inv_lin, g:inv_col)
+        if empty(g:inv_res) || has_key(g:inv_res, 'error') || empty(get(g:inv_res, 'lines', []))
+          continue
+        endif
+        let g:inv_errors = InvMapErrors(g:inv_tab.lines, g:inv_res,
+              \ InvRewritten(g:inv_tab.lines, g:inv_lin, g:inv_col))
+        if !empty(g:inv_errors)
+          call add(g:inv_failures, printf('%s, %d:%d, %s: %s', g:inv_tab.name,
+                \ g:inv_pos[0], g:inv_pos[1], g:inv_name, join(g:inv_errors, ', ')))
+        endif
+      endfor
+    endfor
+  endfor
+  for g:inv_tab in index(g:inv_map_kinds, 'lint') >= 0 ? g:inv_tabs + g:inv_unlinted : []
+    let g:inv_errors = InvMapErrors(g:inv_tab.lines, songwriter#tab#lint#Lint(g:inv_tab.lines), [])
+    if !empty(g:inv_errors)
+      call add(g:inv_failures, g:inv_tab.name . ', lint: ' . join(g:inv_errors, ', '))
+    endif
+  endfor
+  AssertEqual [], g:InvUnexpected()
+  AssertEqual [], g:InvFixed()

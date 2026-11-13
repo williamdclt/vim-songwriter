@@ -1,0 +1,12 @@
+" Invariants of annotations through edits on a note (see invariants/setup.vader and
+" invariants/annotations.vader).
+
+Include: invariants/setup.vader
+
+Execute (the edits checked here):
+  let g:inv_note_keys = ['SJ', '+', "a12\<Esc>"]
+  let g:inv_dash_keys = []
+  let g:inv_range_keys = []
+  let g:inv_known = []
+
+Include: invariants/annotations.vader

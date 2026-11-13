@@ -1,0 +1,99 @@
+" Shared body of the annotation invariants
+" (test/songwriter_invariants_annotations_*.vader), split across files so that
+" they run in parallel. Each file sets the edits it checks before including
+" this: g:inv_note_keys on every note, g:inv_dash_keys on every note and every
+" dash after a note, g:inv_range_keys, those of them that delete more than
+" the cursor's column, and g:inv_known, the cases that fail because of a bug
+" of the spec's [[Bugs]].
+
+" === Annotations follow the music (spec [Tablature][[Annotations]] 4) ===
+
+Execute (labels stay above their time columns through every edit, and come back with undo):
+  " The time columns of `lines` that get a label: all but one right after
+  " another (labels are one letter, with a space between them).
+  function! InvLabelColumns(lines) abort
+    let l:cols = []
+    for l:c in songwriter#tab#model#NoteColumns(songwriter#tab#model#Parse(1, a:lines))
+      if empty(l:cols) || l:c > l:cols[-1] + 1
+        call add(l:cols, l:c)
+      endif
+    endfor
+    return l:cols
+  endfunction
+  " `lines` with a label line: a letter above each of their label columns.
+  function! InvLabelled(lines) abort
+    let l:cols = InvLabelColumns(a:lines)
+    let l:label = ''
+    for l:k in range(len(l:cols))
+      let l:label .= repeat(' ', l:cols[l:k] - 1 - len(l:label)) . nr2char(char2nr('a') + l:k)
+    endfor
+    return [l:label] + a:lines
+  endfunction
+  " The notes starting on column `c` of each line.
+  function! InvColumnNotes(lines, c) abort
+    return map(copy(a:lines), {_, l -> get(filter(songwriter#tab#model#Notes(l), {_, n -> n.col == a:c}), 0, {'text': ''}).text})
+  endfunction
+  " True when every note of `notes` (InvColumnNotes) is in `under`, on its
+  " string: the notes under a label are still under it (an edit may push
+  " another string's note onto its column).
+  function! InvStillUnder(under, notes) abort
+    return empty(filter(range(len(a:notes)), {_, i -> a:notes[i] !=# '' && a:under[i] !=# a:notes[i]}))
+  endfunction
+  let g:inv_failures = []
+  for g:inv_tab in g:inv_tabs
+    let g:inv_buffer = InvLabelled(g:inv_tab.lines)
+    let g:inv_cols = InvLabelColumns(g:inv_tab.lines)
+    let g:inv_edits = map(g:InvNotePositions(g:inv_tab.lines), {_, p -> [p, g:inv_note_keys]})
+          \ + map(g:InvKeyPositions(g:inv_tab.lines), {_, p -> [p, g:inv_dash_keys]})
+    for [g:inv_pos, g:inv_keyset] in g:inv_edits
+      " The columns the edit may rewrite: a digit on a dash extends the note
+      " before or after it.
+      let g:inv_skip = []
+      for g:inv_c in range(g:inv_pos[1] - 1, g:inv_pos[1] + 1)
+        call extend(g:inv_skip, map(InvRewritten(g:inv_tab.lines, g:inv_pos[0] - 1, g:inv_c), 'v:val[1]'))
+      endfor
+      for g:inv_keys in g:inv_keyset
+        call g:InvLoad(g:inv_buffer, [g:inv_pos[0] + 1, g:inv_pos[1]])
+        let g:inv_tick = b:changedtick
+        silent! call feedkeys(g:inv_keys, 'xt')
+        if b:changedtick == g:inv_tick
+          continue
+        endif
+        let g:inv_case = g:InvCase(g:inv_tab, g:inv_pos, g:inv_keys)
+        let g:inv_block = songwriter#tab#model#ReadTop(1)
+        let g:inv_words = empty(g:inv_block.above) ? []
+              \ : songwriter#tab#annotations#Words(g:inv_block.above[-1])
+        let g:inv_kept = []
+        let g:inv_prev = 0
+        for g:inv_w in g:inv_words
+          let g:inv_k = char2nr(g:inv_w.text) - char2nr('a')
+          let g:inv_c = g:inv_cols[g:inv_k]
+          call add(g:inv_kept, g:inv_k)
+          let g:inv_notes = InvColumnNotes(g:inv_tab.lines, g:inv_c)
+          " A label pushed off a column right after the previous label's (4.4)
+          " is one column to the right of it.
+          if index(g:inv_skip, g:inv_c) < 0 && !InvStillUnder(InvColumnNotes(g:inv_block.lines, g:inv_w.col), g:inv_notes)
+                \ && !(g:inv_w.col == g:inv_prev + 2 && InvStillUnder(InvColumnNotes(g:inv_block.lines, g:inv_w.col - 1), g:inv_notes))
+            call add(g:inv_failures, printf('moved %s: %s', g:inv_w.text, g:inv_case))
+          endif
+          let g:inv_prev = g:inv_w.col
+        endfor
+        if g:inv_kept !=# sort(copy(g:inv_kept), 'n')
+          call add(g:inv_failures, 'order: ' . g:inv_case)
+        endif
+        if index(g:inv_range_keys, g:inv_keys) < 0
+          for g:inv_k in range(len(g:inv_cols))
+            if index(g:inv_kept, g:inv_k) < 0 && index(g:inv_skip, g:inv_cols[g:inv_k]) < 0
+              call add(g:inv_failures, printf('deleted %s: %s', nr2char(char2nr('a') + g:inv_k), g:inv_case))
+            endif
+          endfor
+        endif
+        silent! call feedkeys("\<Esc>u", 'xt')
+        if getline(1, '$') !=# g:inv_buffer
+          call add(g:inv_failures, 'undo: ' . g:inv_case)
+        endif
+      endfor
+    endfor
+  endfor
+  AssertEqual [], g:InvUnexpected()
+  AssertEqual [], g:InvFixed()

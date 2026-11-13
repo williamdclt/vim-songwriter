@@ -1,0 +1,205 @@
+" Spec [Tablature][[Annotations]] 3, 4: words of an annotation line, and how
+" they follow the music through edits.
+
+Before:
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_insert b:songwriter_carry b:songwriter_repeat
+  let b:songwriter_tabmode = 1
+  let Follow = {lines, map -> songwriter#tab#annotations#Follow(lines, map)}
+
+" --- 3. Words ---
+
+Execute (3 words: labels, and spans, which have an extender):
+  let words = songwriter#tab#annotations#Words('    Am  PM-----|  P.M.  ~~~~  let')
+  AssertEqual [[5, 'Am', 0], [9, 'PM-----|', 1], [19, 'P.M.', 0], [25, '~~~~', 1], [31, 'let', 0]],
+        \ map(words, '[v:val.col, v:val.text, v:val.span]')
+
+Execute (3 an extender is a run of two or more of the same fill character):
+  AssertEqual [0, 0, 1, 1, 1, 0], map(['1-2', 'x.', 'a==', '..', 'let~~~~', '-~-~'],
+        \ 'songwriter#tab#annotations#Words("  " . v:val)[0].span')
+
+Execute (3 columns are display columns):
+  if &encoding ==# 'utf-8'
+    AssertEqual [[3, 'Ré'], [6, 'x']], map(songwriter#tab#annotations#Words('  Ré x'), '[v:val.col, v:val.text]')
+  endif
+
+" --- 4. Following a map (pure) ---
+
+Execute (4 labels follow the map, and those whose column is deleted go):
+  let m = songwriter#tab#colmap#Delete(8, 10)
+  AssertEqual ['    Am C'], Follow(['    Am    C'], m)
+  AssertEqual ['    C'], Follow(['    x  C'], songwriter#tab#colmap#Delete(5, 7))
+
+Execute (4.1 room opened inside a span widens it, room after it does not):
+  AssertEqual ['    PM------|'], Follow(['    PM-----|'], songwriter#tab#colmap#Insert(7, 1))
+  AssertEqual ['    PM-----|'], Follow(['    PM-----|'], songwriter#tab#colmap#Insert(12, 3))
+  AssertEqual ['    ~~~~~~'], Follow(['    ~~~~'], songwriter#tab#colmap#Insert(5, 2))
+
+Execute (4.2 a span shrinks to the columns it still covers, its labels at its ends):
+  AssertEqual ['    PM--|'], Follow(['    PM-----|'], songwriter#tab#colmap#Delete(8, 10))
+  AssertEqual ['    PM--|'], Follow(['    PM-----|'], songwriter#tab#colmap#Delete(5, 7))
+  AssertEqual ['    PM--|'], Follow(['    PM-----|'], songwriter#tab#colmap#Delete(10, 12))
+  AssertEqual [], Follow(['    PM-----|'], songwriter#tab#colmap#Delete(3, 14))
+
+Execute (4.2 an annotation line left empty is deleted):
+  AssertEqual ['      C'], Follow(['    Am', '      C'], songwriter#tab#colmap#Then(
+        \ songwriter#tab#colmap#Delete(5, 6), songwriter#tab#colmap#Insert(4, 2)))
+
+Execute (4.4 a word running into the previous one is pushed right, an extender keeps two characters):
+  AssertEqual ['    Am C'], Follow(['    Am C'], songwriter#tab#colmap#Delete(7, 7))
+  AssertEqual ['    PM--|'], Follow(['    PM---|'], songwriter#tab#colmap#Delete(7, 9))
+
+Execute (4.4 a line whose columns did not move is left exactly as it is):
+  AssertEqual ['    Am   C  '], Follow(['    Am   C  '], songwriter#tab#colmap#Insert(40, 3))
+
+Execute (4.4 words never go into the first two columns):
+  AssertEqual ['  Am'], Follow(['    Am'], songwriter#tab#colmap#Then(
+        \ songwriter#tab#colmap#Delete(3, 4), songwriter#tab#colmap#Delete(1, 1)))
+
+" --- 4. Through the keys ---
+
+Given songwriter (labels over the columns):
+      Am x     C
+  e|--0--3-----5--|
+  B|--1-----------|
+
+Execute (4.2 x on a note alone in its column deletes its label):
+  call cursor(2, 8)
+  normal x
+
+Expect songwriter:
+      Am C
+  e|--0--5--|
+  B|--1-----|
+
+Given songwriter (labels over the columns):
+      Am x     C
+  e|--0--3-----5--|
+  B|--1-----------|
+
+Execute (4.5 the edit and its annotations are one undo step):
+  call cursor(2, 8)
+  normal xu
+
+Expect songwriter:
+      Am x     C
+  e|--0--3-----5--|
+  B|--1-----------|
+
+Given songwriter (a span over three notes):
+      PM-----|
+  e|--0--0--0--|
+
+Execute (4.1 a note typed in a slot opened inside a span is inside it):
+  call cursor(2, 5)
+  execute "normal a7\<Esc>"
+
+Expect songwriter:
+      PM------|
+  e|--0-7-0--0--|
+
+Given songwriter (a span over three notes):
+      PM-----|
+  e|--0--0--0--|
+
+Execute (4.2 a span shrinks when a column under it goes):
+  call cursor(2, 8)
+  normal x
+
+Expect songwriter:
+      PM--|
+  e|--0--0--|
+
+Given songwriter (a label alone on its line):
+      Am
+  e|--0--3--|
+
+Execute (4.2 an annotation line left empty is deleted, the cursor stays on its string):
+  call cursor(2, 5)
+  normal x
+  AssertEqual [1, 5], [line('.'), col('.')]
+
+Expect songwriter:
+  e|--3--|
+
+Given songwriter (a label over an empty bar at the end):
+      Am    x
+  e|--0--|-----|
+
+Do (4.2 an empty bar dropped at the end takes its annotations):
+  j||
+
+Expect songwriter:
+      Am
+  e|--0--|
+
+Given songwriter (text past the last pipe):
+      Am       x4
+  e|--0--3--|
+
+Execute (4.3 text past the tab's last pipe keeps its distance from it):
+  call cursor(2, 5)
+  normal _
+
+Expect songwriter:
+      Am        x4
+  e|--0---3--|
+
+Given songwriter (an unlinted tab with annotations):
+     a b
+  e|-3-5-|
+
+Do (4.5 a slot closed gives the annotations back as they were):
+  j0f3a\<Esc>
+
+Expect songwriter:
+     a b
+  e|-3-5-|
+
+Given songwriter (an unlinted tab with annotations):
+     a b
+  e|-3-5-|
+
+Do (4.3.3 a slot closed by a motion keeps the lint, the annotations follow it):
+  j0f3al\<Esc>
+
+Expect songwriter:
+      a b
+  e|--3-5--|
+
+Given songwriter (a label over a note alone in its column):
+      Am x
+  e|--0--3--------|
+  B|-----------5--|
+
+Execute (4.5 a note carried alone in its column takes its label along, and back):
+  call cursor(2, 8)
+  call songwriter#tab#insert#Enter()
+  execute "normal \<Right>"
+  AssertEqual ['    Am x', 'e|--0--3--|', 'B|-----5--|'], getline(1, '$')
+  execute "normal \<Left>"
+  AssertEqual ['    Am x', 'e|--0--3--------|', 'B|-----------5--|'], getline(1, '$')
+
+Given songwriter (a label over an empty bar at the end):
+           x
+  e|--3--|-----|
+
+Execute (4.5 a slot whose lint deleted an annotation line gives it back, the cursor on its string):
+  call cursor(2, 5)
+  execute "normal a\<Esc>"
+  AssertEqual [2, 5], [line('.'), col('.')]
+
+Expect songwriter:
+           x
+  e|--3--|-----|
+
+Given songwriter (a label over an empty bar at the end):
+           x
+  e|--3--|-----|
+
+Execute (4.3.3 a slot closed by a motion keeps its lint, the cursor on its string):
+  call cursor(2, 5)
+  execute "normal ah\<Esc>"
+  AssertEqual [1, 5], [line('.'), col('.')]
+
+Expect songwriter:
+  e|--3--|
