@@ -182,7 +182,7 @@ endfunction
 " g:songwriter_strum_ms apart.
 function! songwriter#sound#Schedule(steps) abort
   let l:step_ms = 30000 / get(g:, 'songwriter_play_bpm', 120)
-  let l:strum_ms = get(g:, 'songwriter_strum_ms', 40)
+  let l:strum_ms = get(g:, 'songwriter_strum_ms', 80)
   let l:res = []
   for l:i in range(len(a:steps))
     for l:k in range(len(a:steps[l:i]))
