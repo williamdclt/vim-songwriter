@@ -1,0 +1,189 @@
+" Spec [Tablature][[Annotations]] 8, 9: the annotation word above a column as
+" a text object (ia, aa), and gk / gj between the strings and the annotations.
+
+Before:
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_insert b:songwriter_annotating b:songwriter_upward
+  let b:songwriter_tabmode = 1
+  call setreg('"', '')
+
+" --- 8.1 dia, yia ---
+
+Given songwriter (chord names over a tab):
+      Am    G
+  e|--0--3--0--|
+
+Execute (8.1 dia deletes the word above the column, into the register):
+  call cursor(2, 11)
+  normal dia
+  AssertEqual 'G', getreg('"')
+
+Expect songwriter:
+      Am
+  e|--0--3--0--|
+
+Execute (8.1 the next word stays where it is):
+  call cursor(2, 5)
+  normal dia
+
+Expect songwriter:
+            G
+  e|--0--3--0--|
+
+Execute (8.1 yia yanks the word above the column; on a note, its column is the note's start):
+  call cursor(2, 5)
+  normal yia
+  AssertEqual 'Am', getreg('"')
+
+Execute (8 aa adds the spaces after the word):
+  call cursor(2, 5)
+  normal yaa
+  AssertEqual 'Am    ', getreg('"')
+
+Execute (8 aa, on the last word of its line, adds the spaces before it):
+  call cursor(2, 11)
+  normal yaa
+  AssertEqual '    G', getreg('"')
+
+Execute (8 no word above the column: nothing):
+  call cursor(2, 8)
+  normal dia
+  AssertEqual '', getreg('"')
+
+Expect songwriter:
+      Am    G
+  e|--0--3--0--|
+
+Execute (8.4 dia is one undo step):
+  call cursor(2, 5)
+  normal diau
+
+Expect songwriter:
+      Am    G
+  e|--0--3--0--|
+
+Given songwriter (a span and a label above a tab):
+      PM-----|
+      Am
+  e|--0--0--|
+
+Execute (8 the nearest word up that covers the column, a span included):
+  call cursor(3, 8)
+  normal yia
+  AssertEqual 'PM-----|', getreg('"')
+
+Execute (8 with a count, the count-th word up):
+  call cursor(3, 5)
+  normal y2ia
+  AssertEqual 'PM-----|', getreg('"')
+
+Execute (8.1 a line left empty is deleted):
+  call cursor(3, 5)
+  normal dia
+
+Expect songwriter:
+      PM-----|
+  e|--0--0--|
+
+" --- 8.2 cia ---
+
+Given songwriter (chord names over a tab):
+      Am    G
+  e|--0--3--0--|
+
+Execute (8.2 cia changes the word, the next word stays):
+  call cursor(2, 5)
+  execute "normal ciaC\<Esc>"
+  AssertEqual 'Am', getreg('"')
+
+Expect songwriter:
+      C     G
+  e|--0--3--0--|
+
+Execute (8.2 a longer word pushes the next one right):
+  call cursor(2, 5)
+  execute "normal ciaEm7sus4\<Esc>"
+
+Expect songwriter:
+      Em7sus4 G
+  e|--0--3--0--|
+
+Execute (8.2 with no word above the column, cia starts typing at the column):
+  call cursor(2, 8)
+  execute "normal ciaC\<Esc>"
+
+Expect songwriter:
+      Am C  G
+  e|--0--3--0--|
+
+Execute (8.4 cia and what is typed are one undo step):
+  call cursor(2, 5)
+  execute "normal ciaC\<Esc>u"
+
+Expect songwriter:
+      Am    G
+  e|--0--3--0--|
+
+Given songwriter (a tab with no annotation):
+  e|--0--3--|
+
+Execute (8.2 with no annotation line, cia opens one):
+  call cursor(1, 8)
+  execute "normal ciaC\<Esc>"
+
+Expect songwriter:
+         C
+  e|--0--3--|
+
+Execute (8.2 a new line left empty is deleted):
+  call cursor(1, 8)
+  execute "normal cia\<Esc>"
+
+Expect songwriter:
+  e|--0--3--|
+
+Execute (8.4 opening the line and typing are one undo step):
+  call cursor(1, 8)
+  execute "normal ciaC\<Esc>u"
+
+Expect songwriter:
+  e|--0--3--|
+
+" --- 8.3 visual ---
+
+Given songwriter (chord names over a tab):
+      Am    G
+  e|--0--3--0--|
+
+Execute (8.3 via selects the word):
+  call cursor(2, 5)
+  normal viay
+  AssertEqual 'Am', getreg('"')
+
+" --- 9. gk, gj ---
+
+Given songwriter (two annotation lines over two strings):
+      PM-----|
+      Am
+  e|--0--0--|
+  B|--1--1--|
+
+Execute (9 gk goes up through the annotation lines, gj back to the string it started from):
+  call cursor(4, 8)
+  normal gk
+  AssertEqual [2, 6], [line('.'), col('.')]
+  normal gk
+  AssertEqual [1, 8], [line('.'), col('.')]
+  normal gk
+  AssertEqual [1, 8], [line('.'), col('.')]
+  normal gj
+  AssertEqual [2, 6], [line('.'), col('.')]
+  normal gj
+  AssertEqual [4, 8], [line('.'), col('.')]
+
+Given songwriter (a tab with no annotation):
+  e|--0--3--|
+
+Execute (9 with no annotation line, gk stays):
+  call cursor(1, 8)
+  normal gk
+  AssertEqual [1, 8], [line('.'), col('.')]
