@@ -1,0 +1,113 @@
+" Spec [Tablature][[Annotations]] 5: registers carry annotations.
+
+Before:
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_insert b:songwriter_carry b:songwriter_repeat
+  let b:songwriter_tabmode = 1
+  call setreg('"', [])
+
+" --- 5.1 Deleting and yanking ---
+
+Given songwriter (chord names over two columns):
+      Am C
+  e|--0--3--|
+
+Execute (5.1 dd puts the annotations deleted with the column in the register, above the strings):
+  call cursor(2, 5)
+  normal dd
+  AssertEqual ['Am', '0--'], getreg('"', 1, 1)
+  AssertEqual "\<C-V>3", getregtype('"')
+
+Expect songwriter:
+      C
+  e|--3--|
+
+Given songwriter (chord names over two columns):
+      Am C
+  e|--0--3--|
+
+Execute (5.1 yy puts the annotations above the column in the register):
+  call cursor(2, 8)
+  normal yy
+  AssertEqual ['C', '3--'], getreg('"', 1, 1)
+
+Given songwriter (a chord name over one of two columns):
+      Am
+  e|--0--3--|
+
+Execute (5.1 a column with no annotation above it makes a register as before):
+  call cursor(2, 8)
+  normal dd
+  AssertEqual ['3--'], getreg('"', 1, 1)
+
+Given songwriter (a chord name over a note alone in its column):
+      Am C
+  e|--0--3--|
+  B|-----1--|
+
+Execute (5.1 x on a note alone in its column puts its label in the register):
+  call cursor(2, 5)
+  normal x
+  AssertEqual ['Am', '0--', '---'], getreg('"', 1, 1)
+
+Expect songwriter:
+      C
+  e|--3--|
+  B|--1--|
+
+" --- 5.2 Pasting ---
+
+Given songwriter (chord names over two columns):
+      Am C
+  e|--0--3--|
+
+Execute (5.2 ddp swaps two columns with their chord names):
+  call cursor(2, 5)
+  normal ddp
+
+Expect songwriter:
+      C  Am
+  e|--3--0--|
+
+Given songwriter (a chord name over a column):
+      Am
+  e|--0--|
+
+Execute (5.2 yyp copies a column with its chord name):
+  call cursor(2, 5)
+  normal yyp
+
+Expect songwriter:
+      Am Am
+  e|--0--0--|
+
+Given songwriter (two tabs, the second without annotations):
+      Am
+  e|--0--|
+
+  e|--3--|
+
+Execute (5.2 pasting into a tab with fewer annotation lines adds them):
+  call cursor(2, 5)
+  normal yy
+  call cursor(4, 5)
+  normal p
+
+Expect songwriter:
+      Am
+  e|--0--|
+
+         Am
+  e|--3--0--|
+
+Given songwriter (a tab with a label):
+      Am
+  e|--0--|
+
+Execute (5.2 a register without annotations pastes as before):
+  call setreg('"', ['3--'], 'b')
+  call cursor(2, 5)
+  normal p
+
+Expect songwriter:
+      Am
+  e|--0--3--|

@@ -181,16 +181,16 @@ e|--0--0--0--|--0-------------|
     4.3 Text past the tab's last pipe keeps its distance from that pipe. ✓
     4.4 Words keep at least one space between them: a word that would run into the previous one is pushed right. An extender keeps at least two characters. An annotation line none of whose columns moved is left exactly as it is. ✓
     4.5 What gives the tab back as it was gives its annotations back as they were: a slot closed (4.3), a carried note back where it started (3.6). A note carried alone in its column takes the labels of its column along. Annotations change in the same undo step as the tab. ✓
-5. Registers carry annotations. ✗
-    5.1 Deleting time columns or bars (`dd`, `d|`, `x` on a note alone in its column...) puts the annotations deleted with them in the register; yanking them (`yy`, `ya|`) puts the annotations above them. They are rows above the strings' rows, so the register stays a plain blockwise register. ✗
-    5.2 Pasting such a register (`p`, `P`, 6.5) puts its annotations above the pasted columns, adding annotation lines when the tab has fewer: `ddp` swaps two columns with their chord names. A register without annotations (a native `<C-v>` yank) pastes as before. ✗
+5. Registers carry annotations. ✓
+    5.1 Deleting time columns or bars (`dd`, `d|`, `x` on a note alone in its column...) puts the annotations deleted with them in the register; yanking them (`yy`, `ya|`) puts the annotations above them. They are rows above the strings' rows, so the register stays a plain blockwise register. ✓
+    5.2 Pasting such a register (`p`, `P`, 6.5) puts its annotations above the pasted columns, adding annotation lines when the tab has fewer: `ddp` swaps two columns with their chord names. A register without annotations (a native `<C-v>` yank) pastes as before. `gp` (6.14) adds notes only: the column keeps its own annotations. ✓
 6. `:SongwriterTabChord {chord}` writes the chord above the cursor's column: on the annotation line right above the strings when it fits there (a space or the line's end on each side), else on a new annotation line right above the strings. ✗
 7. In tablature mode, the time column highlight ([[Rendering]] 4) extends over the annotation lines. ✗
 
 [[Bugs]]
 These are known bugs that need fixing.
 1. Deleting a time column with its gap (`dac`, `dd`) can join two notes of another string, when that gap is, on that string, the dash between them: `dac` on the 5 of `e|--10-12--|` over `B|----5----|` gives `e|--1012--|`. `x` (6.7.2) keeps them apart; column deletions should too. ✗
-2. Pasting a column (`p` / `P`, 6.5.1) right after the end of another string's note joins it with a note the register has at its start on that string: with `e|--10-12--|` over `B|----5----|`, a column yanked from the 12 (`yy`) and pasted with `P` on the 5 gives `1012`. ✗
+2. Pasting a column (`p` / `P`, 6.5.1) right after the end of a note joins it with a note the register has at its start on that string: with `e|--10-12--|` over `B|----5----|`, `yyp` on the 10 gives `1010` (the 10's gap ends where the 5 starts). ✗
 3. Lint (1.3) pushing a note off another string's two-digit fret moves the rest of that string with it, which can split a time column: `e|--12--3---|` over `B|---3--12--|` lints to `e|--12--3-----|` over `B|-----3--12--|`, the 3 and the 12 no longer starting together. ✗
 
 [Chords]

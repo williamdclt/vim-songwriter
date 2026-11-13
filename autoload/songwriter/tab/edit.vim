@@ -18,8 +18,8 @@
 "   'error': a refusal to show; nothing else is applied,
 "   'state': {name: value} to record in tab/state.vim once written, each value
 "            completed with the cursor's 'line' and 'col' (Do only),
-"   'register': {'name', 'rows', 'type', 'names'} to set once written
-"            (register#Set; Do only),
+"   'register': {'name', 'rows', 'type', 'names', 'above' (optional)} to set
+"            once written (register#Set; Do only),
 "   'side':  0 for an edit that opens a slot in an empty bar whatever
 "            opts.open says (slots#InBar; Do only).
 " {} means nothing to do.
@@ -251,7 +251,7 @@ function! songwriter#tab#edit#Do(Fn, ...) abort
     endfor
     if has_key(l:result, 'register')
       let l:r = l:result.register
-      call songwriter#tab#register#Set(l:r.name, l:r.rows, l:r.type, l:r.names)
+      call songwriter#tab#register#Set(l:r.name, l:r.rows, l:r.type, l:r.names, get(l:r, 'above', 0))
     endif
     if has_key(l:opts, 'open')
       if get(l:result, 'side', l:mark.side) == 0

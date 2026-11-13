@@ -7,6 +7,7 @@ Execute (the edits checked here):
   let g:inv_note_keys = ['yyp', '>>', '<<', 'D']
   let g:inv_dash_keys = []
   let g:inv_range_keys = ['D']
-  let g:inv_known = []
+  " Spec [[Bugs]] 2: `yyp` joins the copied note with the note it copies.
+  let g:inv_known = ['order: two-digit frets, 1:18, yyp', 'order: two-digit frets, 3:18, yyp']
 
 Include: invariants/annotations.vader

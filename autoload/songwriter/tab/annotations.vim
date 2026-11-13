@@ -201,3 +201,32 @@ function! s:start(word) abort
   let l:p = a:word.pieces[0]
   return has_key(l:p, 'fill') ? (l:p.from > 0 ? l:p.from : l:p.to - 1) : l:p.from
 endfunction
+
+" Spec 5.1: the register rows of the words `words` (as Cut gives them), at
+" columns from `col`: one row per annotation row, the highest first, each word
+" at its offset from `col`. [] for no word.
+function! songwriter#tab#annotations#Rows(words, col) abort
+  if empty(a:words)
+    return []
+  endif
+  let l:n = max(map(copy(a:words), 'v:val.row')) + 1
+  let l:rows = repeat([''], l:n)
+  for l:w in sort(copy(a:words), {a, b -> a.col - b.col})
+    let l:i = l:n - 1 - l:w.row
+    let l:pad = max([l:w.col - a:col - strdisplaywidth(l:rows[l:i]), empty(l:rows[l:i]) ? 0 : 1])
+    let l:rows[l:i] .= repeat(' ', l:pad) . l:w.text
+  endfor
+  return l:rows
+endfunction
+
+" Spec 5.2: the words of register rows `rows` (Rows), as Follow's `put` takes
+" them, at columns from `col`.
+function! songwriter#tab#annotations#FromRows(rows, col) abort
+  let l:put = []
+  for l:i in range(len(a:rows))
+    for l:w in songwriter#tab#annotations#Words(a:rows[l:i])
+      call add(l:put, {'row': len(a:rows) - 1 - l:i, 'col': a:col + l:w.col - 1, 'text': l:w.text})
+    endfor
+  endfor
+  return l:put
+endfunction

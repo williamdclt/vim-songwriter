@@ -221,6 +221,14 @@ part of the tab, and follow its music through every edit.
   the words the lift deleted (those of a note alone in its column,
   `annotations#Cut`) travel with the note as words of the draft (`put`), at
   the note's new column.
+- **Registers carry the words a deletion takes.** A column or bar register
+  has the annotations deleted with it (for a yank, those a deletion would
+  delete) as rows above the strings' rows, so it stays a plain blockwise
+  register, and `register.vim` records how many rows are annotations. A paste
+  puts them back as words of its draft (`put`), above each copy. A register
+  changed since (a native yank) has no annotation rows, and pastes as before.
+  `gp` adds notes to a column that keeps its own annotations, so it leaves
+  them out.
 - **Display columns.** Annotations may hold any text; tab lines are ASCII, so
   a display column of an annotation is the byte column of the strings under
   it.
