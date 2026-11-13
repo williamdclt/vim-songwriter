@@ -146,6 +146,65 @@ function! songwriter#tab#carry#Move(key) abort
         \ {'join': l:going, 'prelint': 0, 'insert': 1})
 endfunction
 
+" Spec 3.7: a carry of a copy of the note covering column `col` of line `lin`
+" of `lines` (linted). The note stays: the base is `lines` as they are, so
+" wherever the copy goes the original is still there, and the copy carried
+" back onto it gives `lines` again. 'moving' marks the carry for `hjkl`
+" (Moving). Returns {} off a note.
+function! songwriter#tab#carry#Copy(lines, lin, col) abort
+  let l:note = songwriter#tab#model#NoteAt(a:lines[a:lin], a:col)
+  if empty(l:note)
+    return {}
+  endif
+  let l:pos = {'kind': 'col', 'col': l:note.col}
+  return {'base': copy(a:lines), 'origin': copy(a:lines), 'text': l:note.text,
+        \ 'lin': a:lin, 'pos': l:pos, 'lin0': a:lin, 'col0': l:note.col, 'pos0': l:pos,
+        \ 'moving': 1}
+endfunction
+
+" Spec 3.7: `<leader>k` / `<leader>j` (`dir` -1 / 1) copy the note under the
+" cursor onto the string above / below, cursor on the copy, and start moving
+" it: the insert state, with `hjkl` as the arrows (Moving). Nothing happens
+" outside tablature mode, off a note or with no string that way.
+function! songwriter#tab#carry#Duplicate(dir) abort
+  if !songwriter#keys#InTabMode()
+    return
+  endif
+  let l:done = songwriter#tab#edit#Do(function('s:duplicate', [a:dir]), {'prelint': 0})
+  if !empty(l:done)
+    call songwriter#tab#insert#Keep()
+    call songwriter#tab#insert#Show('-- TAB MOVE --')
+  endif
+endfunction
+
+" Pure. The copy of the note under the cursor of `ctx`, one string `dir`.
+function! s:duplicate(dir, ctx) abort
+  let l:linted = songwriter#tab#edit#Linted(a:ctx.block.lines, a:ctx.lin, a:ctx.col)
+  let l:carry = songwriter#tab#carry#Copy(l:linted.lines, a:ctx.lin, l:linted.col)
+  if empty(l:carry)
+    return {}
+  endif
+  let l:carry.start = a:ctx.block.start
+  return s:move([a:dir, 0], l:carry, a:ctx)
+endfunction
+
+" Spec 3.7: whether a duplicated note is being moved: in the insert state,
+" the cursor on the copy, nothing changed since it was last moved. `hjkl` are
+" then the arrows (keys.vim).
+function! songwriter#tab#carry#Moving() abort
+  let l:carry = songwriter#tab#state#Get('carry')
+  return get(l:carry, 'moving', 0) && songwriter#tab#insert#Active()
+        \ && l:carry.line == line('.') && l:carry.col == col('.')
+endfunction
+
+" Spec 3.7: a lone `<leader>` ends the move as `<Esc>` does; anywhere else it
+" does nothing.
+function! songwriter#tab#carry#EndMove() abort
+  if songwriter#tab#carry#Moving()
+    call songwriter#tab#insert#Escape()
+  endif
+endfunction
+
 " Pure. The move [string step, column direction] of the carry `carry` (or of
 " the note under the cursor of `ctx`, lifted, when it is {}).
 function! s:move(move, carry, ctx) abort

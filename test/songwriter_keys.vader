@@ -31,9 +31,9 @@ Execute (Leaving the filetype removes every buffer map and restores options):
   setfiletype songwriter
   Assert !empty(maparg('_', 'n'))
   set filetype=text
-  AssertEqual [], filter(['_', '||', '<C-A>', 'w', '5', 'W', 'B', 'E', 'L', 'H', '<Esc>'], '!empty(maparg(v:val, "n"))')
+  AssertEqual [], filter(['_', '||', '<C-A>', '[', ']', '<Leader>k', '<Leader>j', '<Leader>', 'w', '5', 'W', 'B', 'E', 'L', 'H', '<Esc>'], '!empty(maparg(v:val, "n"))')
   AssertEqual '', maparg('W', 'o') . maparg('W', 'x')
-  AssertEqual '', maparg('<C-A>', 'x') . maparg('<C-X>', 'x')
+  AssertEqual '', maparg('<C-A>', 'x') . maparg('<C-X>', 'x') . maparg('[', 'x') . maparg(']', 'x')
   AssertEqual 1, &l:wrap
 
 Execute (Every context key of every mode is mapped, and unmapped on leaving the filetype):

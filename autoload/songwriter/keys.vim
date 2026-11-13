@@ -6,6 +6,8 @@
 "     {mode}noremap <buffer> <expr> {key} songwriter#keys#Dispatch({key}, {mode})
 " Dispatch picks the action for the current context, most specific first, and
 " falls back to the key's default behaviour:
+"   0. s:moving[mode]  - tablature mode, moving a duplicated note
+"                        (songwriter#tab#carry#Moving)
 "   1. s:typed[mode]   - tablature mode, insert state, straight after a note
 "                        was typed (songwriter#tab#typing#JustTyped)
 "   2. s:tabinsert[mode] - tablature mode, insert state
@@ -17,10 +19,18 @@
 " run (operators need this: they return `g@`). Special keys are written in <>
 " notation ('<Esc>'). To add a context key: add it to a table.
 
+let s:moving = {'n': {}, 'o': {}, 'x': {}}
 let s:typed = {'n': {}, 'o': {}, 'x': {}}
 let s:tabinsert = {'n': {}, 'o': {}, 'x': {}}
 let s:tabmode = {}
 let s:tabline = {}
+
+" Spec [Tablature][[Editing]] 3.7: `hjkl` are the arrows while a duplicated
+" note is moved.
+for [s:hjkl, s:arrow] in [['h', '<Left>'], ['j', '<Down>'], ['k', '<Up>'], ['l', '<Right>']]
+  let s:moving.n[s:hjkl] = printf('call songwriter#tab#carry#Move(%s)', string(s:arrow))
+endfor
+unlet s:hjkl s:arrow
 
 " Spec [Tablature][[Editing]] 3.4.1.3: separator keys write a separator
 " straight after a typed note.
@@ -164,7 +174,7 @@ let s:tabline.x = {
 " Every key of `mode` (default 'n') that needs a dispatching map.
 function! songwriter#keys#ContextKeys(...) abort
   let l:mode = a:0 ? a:1 : 'n'
-  return uniq(sort(keys(s:typed[l:mode]) + keys(s:tabinsert[l:mode])
+  return uniq(sort(keys(s:moving[l:mode]) + keys(s:typed[l:mode]) + keys(s:tabinsert[l:mode])
         \ + keys(s:tabmode[l:mode]) + keys(s:tabline[l:mode])))
 endfunction
 
@@ -172,6 +182,9 @@ function! songwriter#keys#Dispatch(key, ...) abort
   let l:mode = a:0 ? a:1 : 'n'
   if songwriter#grammar#IsTabLine(getline('.'))
     if songwriter#keys#InTabMode()
+      if has_key(s:moving[l:mode], a:key) && songwriter#tab#carry#Moving()
+        return s:action(s:moving[l:mode][a:key])
+      endif
       if has_key(s:typed[l:mode], a:key) && songwriter#tab#typing#JustTyped()
         return s:action(s:typed[l:mode][a:key])
       endif
@@ -199,9 +212,13 @@ function! songwriter#keys#InTabMode() abort
   return get(b:, 'songwriter_tabmode', 0)
 endfunction
 
-" Spec [Tablature][[Editing]] 3.1.6: the state of tablature mode, for a status
-" line: 'TAB INSERT' in the insert state, '' otherwise.
+" Spec [Tablature][[Editing]] 3.1.6, 3.7: the state of tablature mode, for a
+" status line: 'TAB MOVE' while a duplicated note is moved, 'TAB INSERT' in
+" the insert state, '' otherwise.
 function! songwriter#keys#Mode() abort
+  if songwriter#tab#carry#Moving()
+    return 'TAB MOVE'
+  endif
   return songwriter#tab#insert#Active() ? 'TAB INSERT' : ''
 endfunction
 
