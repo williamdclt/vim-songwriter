@@ -272,3 +272,36 @@ function! songwriter#tab#annotations#Bytes(line, col, width) abort
   let l:end = s:byte_at(a:line, a:col + a:width)
   return [l:start + 1, (l:end < 0 ? len(a:line) : l:end) - l:start]
 endfunction
+
+" Spec 8: the `count`-th word of `above` covering column `col`, looking up from
+" the line right above the strings: {'i' (its line in `above`), 'word'}, or {}.
+function! songwriter#tab#annotations#Over(above, col, count) abort
+  let l:n = a:count
+  for l:i in range(len(a:above) - 1, 0, -1)
+    for l:w in songwriter#tab#annotations#Words(a:above[l:i])
+      if l:w.col <= a:col && a:col < l:w.col + l:w.width
+        let l:n -= 1
+        if l:n == 0
+          return {'i': l:i, 'word': l:w}
+        endif
+      endif
+    endfor
+  endfor
+  return {}
+endfunction
+
+" Spec 8.1, 8.2: an annotation line with the `width` display columns from
+" column `col` replaced by `typed`, `prefix` and `rest` being the text before
+" and after them: the next word stays where it was, unless `typed` runs into
+" it, then it goes one space after it. No spaces at the end.
+function! songwriter#tab#annotations#Retype(prefix, rest, col, width, typed) abort
+  let l:words = substitute(a:rest, '^\s*', '', '')
+  let l:line = a:prefix . a:typed
+  if l:words !=# ''
+    let l:next = a:col + a:width + strdisplaywidth(a:rest) - strdisplaywidth(l:words)
+    let l:end = a:col + strdisplaywidth(a:typed)
+    let l:at = a:typed ==# '' ? l:next : max([l:next, l:end + 1])
+    let l:line .= repeat(' ', l:at - l:end) . l:words
+  endif
+  return substitute(l:line, '\s*$', '', '')
+endfunction

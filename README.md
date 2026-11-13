@@ -204,10 +204,17 @@ Lines right above a tab that start with two spaces annotate it: chord names,
 e|--0--0--0--|--0-------------|
 ```
 
-`<leader>a` on a tab starts typing one above the cursor's column, in insert
-mode, on the annotation line right above the strings (opened if there is
-none; typing replaces its spaces, so the words after it stay aligned). They
-are plain text, and they follow the music while the tab is
+From a string, in tablature mode:
+
+| Key         | Action                                                         |
+|-------------|----------------------------------------------------------------|
+| `cia`       | Change the annotation above the column, or start one there     |
+| `dia` `yia` | Delete / yank the annotation above the column                  |
+| `ia` / `aa` | The annotation word above the column (`aa`: with its spaces)   |
+| `gk` / `gj` | Up to the annotation lines at the same column, and back down   |
+
+The other words of the line stay where they are. Annotations are plain text,
+and they follow the music while the tab is
 edited: a word stays above its time column, and a run of `-`, `~`, `.` or `=`
 stretches and shrinks with the columns under it. Deleting a column deletes
 the words above it, and they go in the register with it: `ddp` swaps two
@@ -253,7 +260,6 @@ Remap the default keys through their `<Plug>` mappings:
 | `<leader>k` | `<Plug>(songwriter-duplicate-up)`       |
 | `<leader>j` | `<Plug>(songwriter-duplicate-down)`     |
 | `<leader>`  | `<Plug>(songwriter-end-move)`           |
-| `<leader>a` | `<Plug>(songwriter-annotate)`           |
 | `<leader>m` | `<Plug>(songwriter-toggle-minor-major)` |
 | `<leader>t` | `<Plug>(songwriter-toggle-tabmode)`     |
 | `<leader>p` | `<Plug>(songwriter-play)` (normal and visual) |

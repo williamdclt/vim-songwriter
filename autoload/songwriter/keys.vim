@@ -13,7 +13,9 @@
 "   2. s:tabinsert[mode] - tablature mode, insert state
 "   3. s:tabmode[mode] - tablature mode on (<leader>t) and cursor on a tab line
 "   4. s:tabline[mode] - cursor on a tab line
-"   5. the key itself
+"   5. s:annotation[mode] - tablature mode, cursor on an annotation line of a
+"                        tab ([[Annotations]] 1)
+"   6. the key itself
 " An action is an Ex command, run with <Cmd> (no mode change, no command-line
 " echo), or, when it starts with `=`, an expression whose value is the keys to
 " run (operators need this: they return `g@`). Special keys are written in <>
@@ -24,6 +26,7 @@ let s:typed = {'n': {}, 'o': {}, 'x': {}}
 let s:tabinsert = {'n': {}, 'o': {}, 'x': {}}
 let s:tabmode = {}
 let s:tabline = {}
+let s:annotation = {'n': {}, 'o': {}, 'x': {}}
 
 " Spec [Tablature][[Editing]] 3.7: `hjkl` are the arrows while a duplicated
 " note is moved.
@@ -155,6 +158,18 @@ for [s:key, s:fn, s:kind, s:around] in [
   endfor
 endfor
 unlet s:key s:fn s:kind s:around s:mode s:module
+" [[Annotations]] 8: the annotation word above the column.
+for [s:key, s:around] in [['ia', 0], ['aa', 1]]
+  let s:tabmode.o[s:key] = printf('=songwriter#tab#annotate#Object(%d)', s:around)
+  let s:tabmode.x[s:key] = printf('call songwriter#tab#annotate#Select(%d)', s:around)
+endfor
+unlet s:key s:around
+" [[Annotations]] 9: between the strings and the annotation lines.
+let s:tabmode.n.gk = 'call songwriter#tab#annotate#Up()'
+let s:annotation.n = {
+      \ 'gk': 'call songwriter#tab#annotate#Up()',
+      \ 'gj': 'call songwriter#tab#annotate#Down()',
+      \ }
 
 " Spec [Tablature][[Motions]].
 let s:tabline.n = {
@@ -176,7 +191,7 @@ let s:tabline.x = {
 function! songwriter#keys#ContextKeys(...) abort
   let l:mode = a:0 ? a:1 : 'n'
   return uniq(sort(keys(s:moving[l:mode]) + keys(s:typed[l:mode]) + keys(s:tabinsert[l:mode])
-        \ + keys(s:tabmode[l:mode]) + keys(s:tabline[l:mode])))
+        \ + keys(s:tabmode[l:mode]) + keys(s:tabline[l:mode]) + keys(s:annotation[l:mode])))
 endfunction
 
 function! songwriter#keys#Dispatch(key, ...) abort
@@ -206,6 +221,10 @@ function! songwriter#keys#Dispatch(key, ...) abort
     if has_key(s:tabline[l:mode], a:key)
       return s:action(s:tabline[l:mode][a:key])
     endif
+  elseif has_key(s:annotation[l:mode], a:key) && songwriter#keys#InTabMode()
+        \ && songwriter#grammar#IsAnnotationLine(getline('.'))
+        \ && !empty(songwriter#tab#model#Around(line('.')))
+    return s:action(s:annotation[l:mode][a:key])
   endif
   return s:key(a:key)
 endfunction

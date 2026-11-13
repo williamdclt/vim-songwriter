@@ -14,6 +14,12 @@ let s:pending = {'op': 'd', 'reg': '"', 'exact': 0, 'note': 0, 'across': {}, 'ca
 
 " === Operators ===
 
+" The pending operator and its register: {'op', 'reg'} (for the annotation
+" objects, tab/annotate.vim).
+function! songwriter#tab#operator#Pending() abort
+  return {'op': s:pending.op, 'reg': s:pending.reg}
+endfunction
+
 " `d`/`y`/`c` in tablature mode: lint first (own undo step, joined to the
 " operation's), then g@. The <Cmd> that lints consumes the count, so it is
 " given again after g@ (`3dw` runs as `g@3w`). `play` (spec 12) changes
