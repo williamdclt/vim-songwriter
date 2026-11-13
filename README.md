@@ -103,6 +103,11 @@ In the insert state:
 - Technique markers are typed after a note: `5h7`, `7b`, `5/9~`.
 - The arrow keys carry the note under the cursor to another string or column.
 
+`<leader>k` / `<leader>j` copy the note under the cursor onto the string above /
+below and enter a move state, shown as `-- TAB MOVE --`: there `hjkl` carry the
+copy as the arrow keys do, and the original stays. `<Esc>` or `<leader>` ends
+it.
+
 Edit an existing marker with Vim's `f` and `r`: `fhr/` turns a hammer-on into a
 slide.
 
@@ -142,7 +147,7 @@ Operators act on whole time columns, on every string.
 | `sk` / `sj`         | Move the note one string up / down, same fret            |
 | `Sk` / `Sj`         | Same, keeping the pitch                                  |
 | `sK` `sJ` `SK` `SJ` | Same, for the whole time column                          |
-| `<C-A>` / `<C-X>`   | Move the note up / down a fret (every note in visual)    |
+| `<C-A>` / `<C-X>`   | Move the note up / down a fret (every note in visual); also `]` / `[` |
 | `V`                 | Select the time column                                   |
 | `.`                 | Repeat                                                   |
 
@@ -166,10 +171,11 @@ skip dashes, `W` / `B` jump between bar lines).
 
 | Key                 | Action                                                 |
 |---------------------|--------------------------------------------------------|
-| `<C-A>` / `<C-X>`   | Transpose the chord up / down a semitone (takes a count; in visual mode, every chord in the selection) |
+| `<C-A>` / `<C-X>`   | Transpose the chord up / down a semitone (takes a count; in visual mode, every chord in the selection); also `]` / `[` |
 | `<leader>m`         | Toggle minor / major                                   |
 
-Off a chord, `<C-A>` / `<C-X>` increment numbers as usual.
+Off a chord, `<C-A>` / `<C-X>` (and `]` / `[`) increment numbers as usual.
+`]` / `[` replace Vim's own `]`/`[` commands in song files.
 
 ## Commands
 
@@ -195,6 +201,10 @@ Remap the default keys through their `<Plug>` mappings:
 |-------------|-----------------------------------------|
 | `<C-A>`     | `<Plug>(songwriter-transpose-up)`       |
 | `<C-X>`     | `<Plug>(songwriter-transpose-down)`     |
+| `]` / `[`   | `<Plug>(songwriter-transpose-up)` / `-down` |
+| `<leader>k` | `<Plug>(songwriter-duplicate-up)`       |
+| `<leader>j` | `<Plug>(songwriter-duplicate-down)`     |
+| `<leader>`  | `<Plug>(songwriter-end-move)`           |
 | `<leader>m` | `<Plug>(songwriter-toggle-minor-major)` |
 | `<leader>t` | `<Plug>(songwriter-toggle-tabmode)`     |
 | `\|\|`       | `<Plug>(songwriter-lint)`               |

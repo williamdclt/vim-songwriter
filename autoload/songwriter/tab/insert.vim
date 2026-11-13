@@ -16,7 +16,7 @@ function! songwriter#tab#insert#Enter() abort
   let l:was = songwriter#tab#insert#Active()
   call songwriter#tab#insert#Keep()
   if !l:was
-    call s:show('-- TAB INSERT --')
+    call songwriter#tab#insert#Show('-- TAB INSERT --')
   endif
 endfunction
 
@@ -28,7 +28,7 @@ endfunction
 
 function! songwriter#tab#insert#Leave() abort
   if songwriter#tab#insert#Active()
-    call s:show('')
+    call songwriter#tab#insert#Show('')
   endif
   call songwriter#tab#state#Clear('insert')
 endfunction
@@ -41,7 +41,7 @@ endfunction
 
 " Show `msg` in place of the previous message, as Vim's own mode message, so
 " that repeated changes of state never pile up into a hit-enter prompt.
-function! s:show(msg) abort
+function! songwriter#tab#insert#Show(msg) abort
   redraw
   echo a:msg
 endfunction

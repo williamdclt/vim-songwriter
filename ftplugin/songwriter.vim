@@ -20,6 +20,11 @@ let b:undo_ftplugin .= '| unlet! b:songwriter_tabmode'
 let s:plug_keys = {
       \ '<C-A>': 'songwriter-transpose-up',
       \ '<C-X>': 'songwriter-transpose-down',
+      \ ']': 'songwriter-transpose-up',
+      \ '[': 'songwriter-transpose-down',
+      \ '<leader>k': 'songwriter-duplicate-up',
+      \ '<leader>j': 'songwriter-duplicate-down',
+      \ '<leader>': 'songwriter-end-move',
       \ '<leader>m': 'songwriter-toggle-minor-major',
       \ '<leader>t': 'songwriter-toggle-tabmode',
       \ '\|\|': 'songwriter-lint',
@@ -29,8 +34,9 @@ for [s:key, s:plug] in items(s:plug_keys)
   execute 'nmap <buffer> ' . s:key . ' <Plug>(' . s:plug . ')'
   let b:undo_ftplugin .= '| silent! nunmap <buffer> ' . s:key
 endfor
-" Visual-mode keys (spec [Chords][[Editing]]: visual <Ctrl-A>/<Ctrl-X>).
-for s:key in ['<C-A>', '<C-X>']
+" Visual-mode keys (spec [Chords][[Editing]]: visual <Ctrl-A>/<Ctrl-X>, and
+" `]`/`[`).
+for s:key in ['<C-A>', '<C-X>', ']', '[']
   execute 'xmap <buffer> ' . s:key . ' <Plug>(' . s:plug_keys[s:key] . ')'
   let b:undo_ftplugin .= '| silent! xunmap <buffer> ' . s:key
 endfor

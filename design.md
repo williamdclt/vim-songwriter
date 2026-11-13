@@ -23,7 +23,7 @@ never relies on concealing or rendering.
 | `autoload/songwriter/tab/typing.vim` | Typing notes and separators: digits, `x` on a dash, separators after a note (`EnterNote`, `EnterSeparator`). |
 | `autoload/songwriter/tab/motion.vim` | Tablature-mode motions at the cursor (`w`/`b`/`e`/`ge`, `l`/`h`, `L`/`H`, `W`/`B`/`E`), and the slots the insert state opens on the way. |
 | `autoload/songwriter/tab/stops.vim` | Where motions stop and what string motions cover after an operator, pure (`Stops`, `Advance`, `BarStop`, `StringMotion`), and the insert state's positions and how `l`/`h` and the arrows step through them (`Step`). |
-| `autoload/songwriter/tab/carry.vim` | Carrying a note with the arrow keys in the insert state. |
+| `autoload/songwriter/tab/carry.vim` | Carrying a note with the arrow keys in the insert state, and duplicating one to carry its copy with `hjkl`. |
 | `autoload/songwriter/tab/newtab.vim` | New tabs: `o`/`O` and `:SongwriterNewTab`. |
 | `autoload/songwriter/tab/state.vim` | Buffer state valid only while `b:changedtick` is unchanged (slot, insert state, digit being typed, carried note, `.`). |
 | `autoload/songwriter/tab/lint.vim` | The linter, as a pure function over a block's lines. |
@@ -89,7 +89,9 @@ or the key's default. Actions run through `<Cmd>…<CR>` (Vim 8.2.1978+ / Neovim
 echo, and valid as an operator-pending motion or text object. An action written
 `=expr` returns keys instead; operators use it to return `g@`. Plain keys
 (`||`, `_`, `<C-A>`, `<leader>m`…) map to `<Plug>(songwriter-*)` so users can
-rebind them.
+rebind them. `]`/`[` are a second binding of `<C-A>`/`<C-X>`, easier to reach
+and easier to repeat; Vim's own `]`/`[` commands (`[[`, `]s`, `[z`…) mean
+little in a song file.
 
 `||` is not a double bar line (the format has none); it is the key that lints
 the block.
@@ -364,6 +366,18 @@ text, and arrow keys would be needed).
   `h` does from the new bar's slot (5): `h` lands the cursor on a note, but a
   carried note would replace it. Off a note the arrows keep their meaning (`carry#Key` returns the
   arrow itself), so they still move the cursor out of a slot.
+- **Duplicating a note (3.7)**: `<leader>k`/`<leader>j` are a carry whose
+  base is the whole tab, note included (`carry#Copy`), started one string
+  away. Rendering the copy over that base never touches the original, and
+  carrying the copy back onto it renders the tab as it was, so nothing new is
+  needed beyond the carry's render. Positioning the copy is the next thing
+  done, so the move follows at once with `hjkl` as the arrows: a dispatch
+  context of its own (`s:moving` in `keys.vim`, checked first), active while
+  the carry is marked `moving`, the insert state is on and the cursor is on
+  the copy (`carry#Moving`). It needs no state of its own to end: any edit,
+  cursor move off the copy or leaving the insert state (`<Esc>`, or a lone
+  `<leader>`, `carry#EndMove`) gives `hjkl` back. A lone `<leader>` map makes
+  Vim wait 'timeoutlen' after it, as any leader prefix already does.
 
 ### Linting after edits (spec [Tablature][[Editing]] 4)
 

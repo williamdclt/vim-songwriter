@@ -1,0 +1,322 @@
+" Spec [Tablature][[Editing]] 3.7: `<leader>k` / `<leader>j` duplicate the
+" note onto the string above / below and carry the copy with `hjkl`.
+" `feedkeys` where undo steps matter (`normal` makes one undo step of all its
+" keys).
+
+Before:
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_insert b:songwriter_carry
+  let b:songwriter_tabmode = 1
+
+" === Duplicating ===
+
+Given songwriter (3.7 <leader>k copies the note onto the string above, the cursor following it):
+  e|-----------|
+  B|--3--5--7--|
+
+Execute (3.7 <leader>k copies the note onto the string above, the cursor following it):
+  call cursor(2, 8)
+  execute "normal \\k"
+Then:
+  AssertEqual [1, 8], [line('.'), col('.')]
+  Assert songwriter#tab#insert#Active()
+  AssertEqual 'TAB MOVE', songwriter#keys#Mode()
+
+Expect songwriter (3.7 <leader>k copies the note onto the string above, the cursor following it):
+  e|-----5-----|
+  B|--3--5--7--|
+
+Given songwriter (3.7 <leader>j copies the note onto the string below):
+  e|--3--5--7--|
+  B|-----------|
+
+Execute (3.7 <leader>j copies the note onto the string below):
+  call cursor(1, 8)
+  execute "normal \\j"
+Then:
+  AssertEqual [2, 8], [line('.'), col('.')]
+
+Expect songwriter (3.7 <leader>j copies the note onto the string below):
+  e|--3--5--7--|
+  B|-----5-----|
+
+Given songwriter (3.7 a two-digit fret is copied whole):
+  e|-----------|
+  B|--3--12--7--|
+
+Execute (3.7 a two-digit fret is copied whole):
+  call cursor(2, 9)
+  execute "normal \\k"
+Then:
+  AssertEqual [1, 8], [line('.'), col('.')]
+
+Expect songwriter (3.7 a two-digit fret is copied whole):
+  e|-----12-----|
+  B|--3--12--7--|
+
+Given songwriter (3.7 nothing happens on the top string):
+  e|--3--5--|
+  B|--------|
+
+Execute (3.7 nothing happens on the top string):
+  call cursor(1, 5)
+  execute "normal \\k"
+Then:
+  Assert !songwriter#tab#insert#Active()
+
+Expect songwriter (3.7 nothing happens on the top string):
+  e|--3--5--|
+  B|--------|
+
+Given songwriter (3.7 nothing happens off a note):
+  e|--------|
+  B|--3--5--|
+
+Execute (3.7 nothing happens off a note):
+  call cursor(2, 6)
+  execute "normal \\k"
+Then:
+  Assert !songwriter#tab#insert#Active()
+
+Expect songwriter (3.7 nothing happens off a note):
+  e|--------|
+  B|--3--5--|
+
+Given songwriter (3.7 nothing happens outside tablature mode):
+  e|--------|
+  B|--3--5--|
+
+Execute (3.7 nothing happens outside tablature mode):
+  let b:songwriter_tabmode = 0
+  call cursor(2, 5)
+  execute "normal \\k"
+
+Expect songwriter (3.7 nothing happens outside tablature mode):
+  e|--------|
+  B|--3--5--|
+
+" === Moving the copy with hjkl ===
+
+Given songwriter (3.7 l carries the copy as <Right> does, the original stays):
+  e|-----------|
+  B|--3--5--7--|
+
+Execute (3.7 l carries the copy as <Right> does, the original stays):
+  call cursor(2, 8)
+  execute "normal \\kl"
+Then:
+  AssertEqual 1, line('.')
+  AssertEqual 'TAB MOVE', songwriter#keys#Mode()
+
+Expect songwriter (3.7 l carries the copy as <Right> does, the original stays):
+  e|-------5----|
+  B|--3--5---7--|
+
+Given songwriter (3.7 ll carries the copy onto the next column):
+  e|-----------|
+  B|--3--5--7--|
+
+Execute (3.7 ll carries the copy onto the next column):
+  call cursor(2, 8)
+  execute "normal \\kll"
+Then:
+  AssertEqual [1, 11], [line('.'), col('.')]
+
+Expect songwriter (3.7 ll carries the copy onto the next column):
+  e|--------5--|
+  B|--3--5--7--|
+
+Given songwriter (3.7 h carries the copy as <Left> does):
+  e|-----------|
+  B|--3--5--7--|
+
+Execute (3.7 h carries the copy as <Left> does):
+  call cursor(2, 8)
+  execute "normal \\khh"
+Then:
+  AssertEqual [1, 5], [line('.'), col('.')]
+
+Expect songwriter (3.7 h carries the copy as <Left> does):
+  e|--5--------|
+  B|--3--5--7--|
+
+Given songwriter (3.7 k carries the copy one string up):
+  e|-----------|
+  B|-----------|
+  G|--3--5--7--|
+
+Execute (3.7 k carries the copy one string up):
+  call cursor(3, 8)
+  execute "normal \\kk"
+Then:
+  AssertEqual [1, 8], [line('.'), col('.')]
+
+Expect songwriter (3.7 k carries the copy one string up):
+  e|-----5-----|
+  B|-----------|
+  G|--3--5--7--|
+
+Given songwriter (3.7 j back onto the original leaves the tab as it was):
+  e|-----------|
+  B|--3--5--7--|
+
+Execute (3.7 j back onto the original leaves the tab as it was):
+  call cursor(2, 8)
+  execute "normal \\kj"
+Then:
+  AssertEqual [2, 8], [line('.'), col('.')]
+
+Expect songwriter (3.7 j back onto the original leaves the tab as it was):
+  e|-----------|
+  B|--3--5--7--|
+
+Given songwriter (3.7 the copy replaces a note on its way, which comes back once it moves on):
+  e|-----9-----|
+  B|-----7-----|
+  G|--3--5--8--|
+
+Execute (3.7 the copy replaces a note on its way, which comes back once it moves on):
+  call cursor(3, 8)
+  execute "normal \\k"
+  AssertEqual ['e|-----9-----|', 'B|-----5-----|', 'G|--3--5--8--|'], getline(1, '$')
+  execute "normal k"
+
+Expect songwriter (3.7 the copy replaces a note on its way, which comes back once it moves on):
+  e|-----5-----|
+  B|-----7-----|
+  G|--3--5--8--|
+
+Given songwriter (3.7 the duplicate and its moves are one undo step):
+  e|-----------|
+  B|--3--5--7--|
+
+Execute (3.7 the duplicate and its moves are one undo step):
+  call cursor(2, 8)
+  call feedkeys("\\k", 'xt')
+  call feedkeys('l', 'xt')
+  call feedkeys('l', 'xt')
+  call feedkeys('u', 'xt')
+
+Expect songwriter (3.7 the duplicate and its moves are one undo step):
+  e|-----------|
+  B|--3--5--7--|
+
+" === Leaving the move ===
+
+Given songwriter (3.7 <Esc> ends the move: l moves the cursor again):
+  e|-----------|
+  B|--3--5--7--|
+
+Execute (3.7 <Esc> ends the move: l moves the cursor again):
+  call cursor(2, 8)
+  execute "normal \\k\<Esc>l"
+Then:
+  AssertEqual [1, 11], [line('.'), col('.')]
+  AssertEqual '', songwriter#keys#Mode()
+
+Expect songwriter (3.7 <Esc> ends the move: l moves the cursor again):
+  e|-----5-----|
+  B|--3--5--7--|
+
+Given songwriter (3.7 <leader> alone ends the move, as <Esc> does):
+  e|-----------|
+  B|--3--5--7--|
+
+Execute (3.7 <leader> alone ends the move, as <Esc> does):
+  call cursor(2, 8)
+  execute "normal \\k\\l"
+Then:
+  AssertEqual [1, 11], [line('.'), col('.')]
+  AssertEqual '', songwriter#keys#Mode()
+
+Expect songwriter (3.7 <leader> alone ends the move, as <Esc> does):
+  e|-----5-----|
+  B|--3--5--7--|
+
+Given songwriter (3.7 <leader> alone does nothing outside a move):
+  e|-----------|
+  B|--3--5--7--|
+
+Execute (3.7 <leader> alone does nothing outside a move):
+  call cursor(2, 8)
+  call songwriter#tab#insert#Enter()
+  execute "normal \\"
+Then:
+  Assert songwriter#tab#insert#Active()
+
+Expect songwriter (3.7 <leader> alone does nothing outside a move):
+  e|-----------|
+  B|--3--5--7--|
+
+Given songwriter (3.7 a digit ends the move, replacing the copy):
+  e|-----------|
+  B|--3--5--7--|
+
+Execute (3.7 a digit ends the move, replacing the copy):
+  call cursor(2, 8)
+  execute "normal \\k4j"
+Then:
+  AssertEqual [2, 8], [line('.'), col('.')]
+  AssertEqual 'TAB INSERT', songwriter#keys#Mode()
+
+Expect songwriter (3.7 a digit ends the move, replacing the copy):
+  e|-----4-----|
+  B|--3--5--7--|
+
+Given songwriter (3.7 hjkl are plain motions without a duplicate):
+  e|-----------|
+  B|--3--5--7--|
+
+Execute (3.7 hjkl are plain motions without a duplicate):
+  call cursor(2, 8)
+  call songwriter#tab#insert#Enter()
+  execute "normal kj"
+Then:
+  AssertEqual [2, 8], [line('.'), col('.')]
+
+Expect songwriter (3.7 hjkl are plain motions without a duplicate):
+  e|-----------|
+  B|--3--5--7--|
+
+" === [ and ] ===
+
+Given songwriter (] is <C-A> on a fret):
+  e|--5--7--|
+
+Execute (] is <C-A> on a fret):
+  call cursor(1, 5)
+  execute "normal ]"
+
+Expect songwriter (] is <C-A> on a fret):
+  e|--6--7--|
+
+Given songwriter ([ is <C-X> on a fret):
+  e|--5--7--|
+
+Execute ([ is <C-X> on a fret):
+  call cursor(1, 5)
+  execute "normal ["
+
+Expect songwriter ([ is <C-X> on a fret):
+  e|--4--7--|
+
+Given songwriter (] and [ transpose a chord):
+  Am      F
+
+Execute (] and [ transpose a chord):
+  call cursor(1, 1)
+  execute "normal ]]"
+  call cursor(1, 9)
+  execute "normal ["
+
+Expect songwriter (] and [ transpose a chord):
+  Bm      E
+
+Given songwriter (] in visual mode changes every selected fret):
+  e|--5--7--|
+
+Execute (] in visual mode changes every selected fret):
+  call cursor(1, 5)
+  execute "normal v$]"
+
+Expect songwriter (] in visual mode changes every selected fret):
+  e|--6--8--|

@@ -35,4 +35,7 @@ nnoremap <Plug>(songwriter-transpose-down) <Cmd>call songwriter#chord#TransposeC
 xnoremap <Plug>(songwriter-transpose-up) <Cmd>call songwriter#chord#TransposeVisual(v:count1)<CR>
 xnoremap <Plug>(songwriter-transpose-down) <Cmd>call songwriter#chord#TransposeVisual(-v:count1)<CR>
 nnoremap <Plug>(songwriter-toggle-minor-major) <Cmd>call songwriter#chord#ToggleMinorMajor()<CR>
+nnoremap <Plug>(songwriter-duplicate-up) <Cmd>call songwriter#tab#carry#Duplicate(-1)<CR>
+nnoremap <Plug>(songwriter-duplicate-down) <Cmd>call songwriter#tab#carry#Duplicate(1)<CR>
+nnoremap <Plug>(songwriter-end-move) <Cmd>call songwriter#tab#carry#EndMove()<CR>
 nnoremap <Plug>(songwriter-toggle-tabmode) <Cmd>call songwriter#keys#ToggleTabMode()<CR>
