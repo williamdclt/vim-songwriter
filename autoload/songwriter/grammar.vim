@@ -11,6 +11,10 @@ let s:tab_line = '^' . s:string_name . '[|]'
 " holds something else. Right above a tab, it annotates the tab.
 let s:annotation_line = '^  .*\S'
 
+" An extender in a word of an annotation line ([[Annotations]] 3): a run of two
+" or more of the same fill character (`-----`, `~~~~`).
+let s:extender = '\([-~.=]\)\1\+'
+
 " A tab line whose last bar is closed: nothing but whitespace after its final
 " pipe (`e|--3--|`, not `e|--3--`).
 let s:closed_tab_line = '[|]\s*$'
@@ -97,6 +101,9 @@ function! songwriter#grammar#IsTabLine(line) abort
 endfunction
 function! songwriter#grammar#IsAnnotationLine(line) abort
   return a:line =~# s:annotation_line
+endfunction
+function! songwriter#grammar#Extender() abort
+  return s:extender
 endfunction
 function! songwriter#grammar#IsClosedTabLine(line) abort
   return a:line =~# s:closed_tab_line

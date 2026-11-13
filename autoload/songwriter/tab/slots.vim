@@ -207,16 +207,23 @@ function! songwriter#tab#slots#Abandon(...) abort
   endif
   let l:insert = songwriter#tab#insert#Active()
   if has_key(l:slot, 'from')
+    let l:top = l:slot.before.top
     let l:lnum = line('.')
+    let l:lin = l:lnum - get(songwriter#tab#model#ReadTop(l:top), 'start', l:lnum)
     if l:slot.changed
       call s:revert(l:slot)
     endif
-    if l:keep_lint && has_key(l:slot, 'linted') && l:slot.linted !=# l:slot.before
-      call songwriter#tab#model#Write(songwriter#tab#model#ReadTop(l:slot.before.top), l:slot.linted)
-      call cursor(l:lnum, l:slot.linted_col)
-    else
-      call cursor(l:lnum, l:slot.from)
+    let l:keep = l:keep_lint && has_key(l:slot, 'linted') && l:slot.linted !=# l:slot.before
+    if l:keep
+      call songwriter#tab#model#Write(songwriter#tab#model#ReadTop(l:top), l:slot.linted)
     endif
+    " The cursor stays on its string, however many annotation lines are
+    " above it now.
+    let l:block = songwriter#tab#model#ReadTop(l:top)
+    if !empty(l:block) && l:lin >= 0 && l:lin < len(l:block.lines)
+      let l:lnum = l:block.start + l:lin
+    endif
+    call cursor(l:lnum, l:keep ? l:slot.linted_col : l:slot.from)
   else
     call songwriter#tab#edit#LintAndFollow(songwriter#tab#model#Read(l:slot.line))
   endif

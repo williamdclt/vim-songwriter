@@ -90,6 +90,25 @@ Execute (corpus and helpers):
   " of its bar: carrying it one stop and back stays inside the bar (at a bar
   " line, the stops of spec 3.3.3 are not the same both ways).
   let g:InvInside = {lines, pos -> g:InvBetween(g:InvBarColumns(lines, pos), pos[1])}
+  " The notes [lin, col] of `lines` an edit at `lin`, `col` may rewrite or
+  " move off their time column: the chains, on every string, holding a note on
+  " the time column under the cursor, and the chain under the cursor.
+  function! InvRewritten(lines, lin, col) abort
+    let l:note = songwriter#tab#model#NoteAt(a:lines[a:lin], a:col)
+    let l:c0 = !empty(l:note) ? l:note.col : a:col
+    let l:skip = []
+    for l:i in range(len(a:lines))
+      for l:ch in songwriter#tab#model#Chains(a:lines[l:i])
+        let l:notes = filter(songwriter#tab#model#Notes(a:lines[l:i]),
+              \ {_, n -> n.col >= l:ch.col && n.col < l:ch.col + l:ch.len})
+        if !empty(filter(copy(l:notes), {_, n -> n.col == l:c0}))
+              \ || l:i == a:lin && a:col >= l:ch.col && a:col < l:ch.col + l:ch.len
+          call extend(l:skip, map(l:notes, {_, n -> [l:i, n.col]}))
+        endif
+      endfor
+    endfor
+    return l:skip
+  endfunction
   " The cases of g:inv_failures that are not known, and the known ones that no
   " longer fail: both must be empty.
   let g:InvUnexpected = {-> filter(copy(g:inv_failures), 'index(g:inv_known, v:val) < 0')}

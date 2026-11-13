@@ -1,29 +1,12 @@
-" Invariants of column maps (see invariants/setup.vader, tab/colmap.vim).
-
-Include: invariants/setup.vader
+" Shared body of the column map invariants
+" (test/songwriter_invariants_maps_*.vader), split across files so that they
+" run in parallel. Each file sets g:inv_map_kinds, the edits it checks: 'note'
+" (edits on every note), 'dash' (on every note and dash after a note), 'lint';
+" and g:inv_known, the cases that fail because of a bug of the spec's [[Bugs]].
 
 " === Every pure edit says where the tab went ===
 
 Execute (a pure edit's map puts every note it did not rewrite where it is now):
-  " The notes [lin, col] of `lines` an edit at `lin`, `col` may rewrite or
-  " move off their time column: the chains, on every string, holding a note on
-  " the time column under the cursor, and the chain under the cursor.
-  function! InvRewritten(lines, lin, col) abort
-    let l:note = songwriter#tab#model#NoteAt(a:lines[a:lin], a:col)
-    let l:c0 = !empty(l:note) ? l:note.col : a:col
-    let l:skip = []
-    for l:i in range(len(a:lines))
-      for l:ch in songwriter#tab#model#Chains(a:lines[l:i])
-        let l:notes = filter(songwriter#tab#model#Notes(a:lines[l:i]),
-              \ {_, n -> n.col >= l:ch.col && n.col < l:ch.col + l:ch.len})
-        if !empty(filter(copy(l:notes), {_, n -> n.col == l:c0}))
-              \ || l:i == a:lin && a:col >= l:ch.col && a:col < l:ch.col + l:ch.len
-          call extend(l:skip, map(l:notes, {_, n -> [l:i, n.col]}))
-        endif
-      endfor
-    endfor
-    return l:skip
-  endfunction
   " What is wrong with `res` (a result with 'lines' and 'map') as an edit of
   " `old` that rewrote only the notes `skip`: every other note must be at its
   " mapped column on its string, with the same text, and every pipe of the top
@@ -90,24 +73,12 @@ Execute (a pure edit's map puts every note it did not rewrite where it is now):
         \ ['Paste bar', {l, i, c -> songwriter#tab#paste#Paste(l, i, c, g:InvBarRows(l), [], 0, 1)}],
         \ ['Linted', {l, i, c -> songwriter#tab#edit#Linted(l, i, c)}],
         \ ]
-  " Spec [[Bugs]] 1 (DeleteRange ac), 2 (Paste) and 3 (lint): the edit joins
-  " or splits notes, whatever its map says.
-  let g:inv_known = [
-        \ 'two-digit frets, 1:9, DeleteRange ac: note 1:8 -> 8, note 1:11 -> 9',
-        \ 'two-digit frets, 2:20, DeleteRange ac: note 0:18 -> 18, note 0:21 -> 20',
-        \ 'separators, 2:8, DeleteRange ac: note 0:7 -> 7, note 0:10 -> 8',
-        \ 'two-digit frets, 1:20, Paste column before: note 0:18 -> 18',
-        \ 'two-digit frets, 2:20, Paste column before: note 0:18 -> 18',
-        \ 'two-digit frets, 3:19, Paste column: note 0:18 -> 18',
-        \ 'separators, 1:8, Paste column before: note 0:7 -> 7',
-        \ 'separators, 2:8, Paste column before: note 0:7 -> 7',
-        \ 'separators, 2:9, Paste column before: note 0:7 -> 7',
-        \ 'overlapping frets, lint: note 0:9 -> 11',
-        \ ]
   let g:inv_failures = []
   for g:inv_tab in g:inv_tabs
-    let g:inv_runs = map(g:InvNotePositions(g:inv_tab.lines), {_, p -> [p, g:inv_note_edits]})
-          \ + map(g:InvKeyPositions(g:inv_tab.lines), {_, p -> [p, g:inv_dash_edits]})
+    let g:inv_runs = (index(g:inv_map_kinds, 'note') >= 0
+          \   ? map(g:InvNotePositions(g:inv_tab.lines), {_, p -> [p, g:inv_note_edits]}) : [])
+          \ + (index(g:inv_map_kinds, 'dash') >= 0
+          \   ? map(g:InvKeyPositions(g:inv_tab.lines), {_, p -> [p, g:inv_dash_edits]}) : [])
     for [g:inv_pos, g:inv_edits] in g:inv_runs
       let g:inv_lin = g:inv_pos[0] - 1
       let g:inv_col = g:inv_pos[1]
@@ -125,7 +96,7 @@ Execute (a pure edit's map puts every note it did not rewrite where it is now):
       endfor
     endfor
   endfor
-  for g:inv_tab in g:inv_tabs + g:inv_unlinted
+  for g:inv_tab in index(g:inv_map_kinds, 'lint') >= 0 ? g:inv_tabs + g:inv_unlinted : []
     let g:inv_errors = InvMapErrors(g:inv_tab.lines, songwriter#tab#lint#Lint(g:inv_tab.lines), [])
     if !empty(g:inv_errors)
       call add(g:inv_failures, g:inv_tab.name . ', lint: ' . join(g:inv_errors, ', '))

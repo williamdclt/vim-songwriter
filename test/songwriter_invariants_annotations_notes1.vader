@@ -1,0 +1,13 @@
+" Invariants of annotations through edits on a note (see invariants/setup.vader and
+" invariants/annotations.vader).
+
+Include: invariants/setup.vader
+
+Execute (the edits checked here):
+  let g:inv_note_keys = ['x', 'dd']
+  let g:inv_dash_keys = []
+  let g:inv_range_keys = []
+  " Spec [[Bugs]] 1: `dd` joins another string's notes.
+  let g:inv_known = ['moved c: two-digit frets, 1:9, dd', 'moved d: two-digit frets, 2:20, dd', 'moved c: separators, 2:8, dd']
+
+Include: invariants/annotations.vader

@@ -9,6 +9,8 @@
 "   'base':  with 'lines' and 'map', a snapshot (model#Snapshot) the edit
 "            started from instead of the block it was given (a carry renders
 "            from the tab it saved),
+"   'put':   with 'lines', annotation words the edit brings along, at columns
+"            of its lines (annotations#Follow),
 "   'col':   the cursor column,
 "   'lin':   the cursor's 0-indexed line in the block (with 'col'; default:
 "            stays),
@@ -27,15 +29,18 @@
 " insert state, the state for the next key, and `.`. The rest are its parts,
 " for the entry points that are not one edit at the cursor.
 "
-" What an edit writes is a draft: {'lines', 'map', 'base' (optional)}, the
-" block's new lines and where each column of `base` went in them; `base` is
-" the snapshot the edit started from, by default the block being written.
-" Write() is the one way a draft reaches the buffer.
+" What an edit writes is a draft: {'lines', 'map', 'base' (optional), 'put'
+" (optional)}, the block's new lines and where each column of `base` went in
+" them; `base` is the snapshot the edit started from, by default the block
+" being written; `put` are annotation words the edit brings along
+" (annotations#Follow). Write() is the one way a draft reaches the buffer.
 
 " Pure. The snapshot of `lines`, made from the snapshot `base` by an edit
-" whose column map is `map`.
-function! songwriter#tab#edit#Derive(base, lines, map) abort
-  return {'top': a:base.top, 'above': copy(a:base.above), 'lines': copy(a:lines)}
+" whose column map is `map`: the annotations follow the music
+" (annotations#Follow), with the words `put` (optional) added.
+function! songwriter#tab#edit#Derive(base, lines, map, ...) abort
+  return {'top': a:base.top, 'lines': copy(a:lines),
+        \ 'above': songwriter#tab#annotations#Follow(a:base.above, a:map, a:0 ? a:1 : [])}
 endfunction
 
 " Pure. The snapshot `draft` makes of `block`.
@@ -44,7 +49,7 @@ function! s:snapshot(block, draft) abort
     throw 'songwriter: a draft needs a map (tab/colmap.vim)'
   endif
   return songwriter#tab#edit#Derive(get(a:draft, 'base', songwriter#tab#model#Snapshot(a:block)),
-        \ a:draft.lines, a:draft.map)
+        \ a:draft.lines, a:draft.map, get(a:draft, 'put', []))
 endfunction
 
 " Write `draft` over `block` and return the block written (model#Write). A
@@ -127,6 +132,12 @@ function! s:resolve(lines, lin, col, result, lint) abort
   let l:r = {'lines': l:lines, 'lin': l:lin, 'col': l:col, 'map': l:map}
   if has_key(a:result, 'base')
     let l:r.base = a:result.base
+  endif
+  if has_key(a:result, 'put')
+    " The words' columns follow the lint, as the rest of the tab.
+    let l:lint = a:lint ? l:linted.map : []
+    let l:r.put = map(copy(a:result.put), {_, p -> extend(copy(p),
+          \ {'col': songwriter#tab#colmap#At(l:lint, p.col)})})
   endif
   return l:r
 endfunction

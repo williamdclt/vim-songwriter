@@ -16,8 +16,9 @@
 " empty at the end stays, so that it, and an empty bar before it, are still
 " stops (3.3.4) for the note to go back to. Returns the carry: {'base': the
 " linted lines without the note, 'map': where the columns of `lines` are in
-" the base, 'origin': `lines`, 'text': the note, 'lin', 'pos': where it is
-" over the base, 'lin0', 'col0', 'pos0': where it started}, or {} off a note.
+" the base, 'erase': the map of erasing the note alone (what goes with it),
+" 'origin': `lines`, 'text': the note, 'lin', 'pos': where it is over the
+" base, 'lin0', 'col0', 'pos0': where it started}, or {} off a note.
 function! songwriter#tab#carry#Lift(lines, lin, col) abort
   let l:note = songwriter#tab#model#NoteAt(a:lines[a:lin], a:col)
   if empty(l:note)
@@ -52,7 +53,7 @@ function! songwriter#tab#carry#Lift(lines, lin, col) abort
       let l:pos = s:emptied_bar(a:lines[a:lin], l:base[a:lin], l:c)
     endif
   endif
-  return {'base': l:base, 'map': l:map, 'origin': copy(a:lines), 'text': l:note.text,
+  return {'base': l:base, 'map': l:map, 'erase': l:erased.map, 'origin': copy(a:lines), 'text': l:note.text,
         \ 'lin': a:lin, 'pos': l:pos, 'lin0': a:lin, 'col0': l:c, 'pos0': l:pos}
 endfunction
 
@@ -219,7 +220,9 @@ endfunction
 " Pure. The move [string step, column direction] of the carry `carry` (or of
 " the note under the cursor of `ctx`, lifted, when it is {}). The carry keeps
 " the snapshots of its origin and its base ('saved'), which the tab it renders
-" is made from (edit.vim's 'base').
+" is made from (edit.vim's 'base'), and the annotation words that went with
+" the note when it was lifted alone in its column ('words'): they go where it
+" goes ([[Annotations]] 4.5).
 function! s:move(move, carry, ctx) abort
   let [l:dlin, l:dir] = a:move
   let l:carry = a:carry
@@ -231,6 +234,7 @@ function! s:move(move, carry, ctx) abort
     let l:origin = songwriter#tab#model#Snapshot(a:ctx.block)
     let l:carry.saved = {'origin': l:origin,
           \ 'base': songwriter#tab#edit#Derive(l:origin, l:carry.base, l:carry.map)}
+    let l:carry.words = songwriter#tab#annotations#Cut(l:origin.above, l:carry.erase)
   endif
   let l:lin = l:carry.lin + l:dlin
   if l:lin < 0 || l:lin >= len(a:ctx.block.lines)
@@ -245,8 +249,10 @@ function! s:move(move, carry, ctx) abort
   if empty(l:res)
     return {}
   endif
-  let l:from = get(l:res, 'origin', 0) ? l:carry.saved.origin : l:carry.saved.base
-  return {'lines': l:res.lines, 'base': l:from, 'map': get(l:res, 'map', []),
-        \ 'lin': l:lin, 'col': l:res.col,
+  let l:home = get(l:res, 'origin', 0)
+  let l:put = l:home ? [] : map(copy(get(l:carry, 'words', [])),
+        \ {_, w -> extend(copy(w), {'col': l:res.col + w.col - l:carry.col0})})
+  return {'lines': l:res.lines, 'base': l:home ? l:carry.saved.origin : l:carry.saved.base,
+        \ 'map': get(l:res, 'map', []), 'put': l:put, 'lin': l:lin, 'col': l:res.col,
         \ 'state': {'carry': extend(copy(l:carry), {'pos': l:pos, 'lin': l:lin})}}
 endfunction

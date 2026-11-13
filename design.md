@@ -17,6 +17,7 @@ never relies on concealing or rendering.
 |---|---|
 | `autoload/songwriter/grammar.vim` | The format's patterns (tab line, note, fret, separator, chain, chord, highlighting). The only place regexes for the format are written. |
 | `autoload/songwriter/tab/colmap.vim` | Column maps: where each column of a block went through an edit, pure. |
+| `autoload/songwriter/tab/annotations.vim` | Annotation lines: their words, and how they follow an edit through its column map, pure. |
 | `autoload/songwriter/tab/model.vim` | Tab block model: parse, queries (notes, time columns, bars), `Splice`/`Blank` and the column-insertion primitive, snapshots, and `Read`/`Write` (the buffer edges). |
 | `autoload/songwriter/tab/edit.vim` | The buffer side of a tablature edit: `Do` runs a whole edit at the cursor (slot, undo join, lints, one write, insert state, state for the next key, register, `.`); `Commit`, `LintAndFollow`, `Apply` and the pure `Linted` are its parts; `Write` is the one way a draft reaches the buffer. |
 | `autoload/songwriter/tab/slots.vim` | Slots: where a new note's room goes (pure), the buffer's one open slot with how to close it, and `a`/`i` and the new bar's slot (`AddNote`, `AddBarSlot`). |
@@ -186,6 +187,43 @@ cannot tell which of the columns of a repeated riff `dd` deleted).
   in any tab lint has seen once.
 - `carry#Lift` maps the tab to the base, and `carry#Render` the base to the
   rendered tab, except back at the origin, which is the origin itself.
+
+### Annotations (spec [Tablature][[Annotations]])
+
+Lines of free text right above a tab's strings (chord names, `PM-----|`) are
+part of the tab, and follow its music through every edit.
+
+- **Two leading spaces make an annotation line.** Prose and sections start in
+  the first column; anything about time columns is indented past the string
+  name and first pipe anyway, so the rule tells them apart without markup. A
+  blank line ends the annotations, as it ends a tab.
+- **Part of the block, not of its strings.** `Read` gives a block's `top` and
+  `above`; `lines`, `lin` and every pure edit stay about strings only, so no
+  edit had to learn about annotations. A block is identified by its `top`,
+  which stays put when annotation lines come and go (a slot's revert, the
+  carry). Line-wise targets (`dap`, `cap`), `P` and `O` go by the top.
+- **Words, labels and spans.** A run of two or more of the same fill
+  character is an extender, which stretches; everything else is rigid. A
+  label is anchored on its first column, so `Am7` never splits; a span covers
+  its columns, its rigid parts at its ends (`PM`, `|`). One fill character is
+  not an extender, so `P.M.` and `1-2` are labels.
+- **Following is the column map applied to words** (`annotations#Follow`, in
+  `edit#Derive`, so every write path has it): a label goes where its column
+  goes and is deleted with it (a label stands for its column, as `x` deletes
+  a note's gap with it); a span's ends go to the first and last columns it
+  still covers. Words are then laid out left to right with a space between
+  them, never in the first two columns, so that a line stays an annotation
+  line. A line none of whose words moved is kept byte for byte, whitespace
+  included: an edit that does not touch it leaves no trace in it.
+- **Exact restores stay exact.** A slot's mark and a carry's origin are
+  snapshots, annotations included, so giving the tab back gives them back. A
+  carry renders from its base snapshot, whose annotations followed the lift;
+  the words the lift deleted (those of a note alone in its column,
+  `annotations#Cut`) travel with the note as words of the draft (`put`), at
+  the note's new column.
+- **Display columns.** Annotations may hold any text; tab lines are ASCII, so
+  a display column of an annotation is the byte column of the strings under
+  it.
 
 ### Column insertion (`_`, `:SongwriterAddBar`)
 
@@ -836,8 +874,9 @@ Highlighting stays permissive and accepts false positives such as the word "A"
   idempotent and keeps each string's notes, the normal state never edits, an
   abandoned slot and a carried-back note leave no trace, each edit is one
   undo step and leaves the tab linted, a rewritten note leaves every note on
-  its time column, and a pure edit's map puts every note it did not rewrite
-  where it now is. They catch the interactions between
+  its time column, a pure edit's map puts every note it did not rewrite
+  where it now is, and a label above a time column stays above the notes it
+  was above. They catch the interactions between
   features that hand-written cases miss. The main corpus is linted, so an
   edit's own lint shows no difference; unlinted tabs go only where the
   invariant must hold for them too (lint, 4.3). Keys are typed with
