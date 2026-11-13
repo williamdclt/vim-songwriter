@@ -39,6 +39,9 @@ never relies on concealing or rendering.
 | `autoload/songwriter/tab/repeat.vim` | `.` for actions that are not operators. |
 | `autoload/songwriter/tab/voicings.vim` | Whole chords on a time column: voicings of a chord name in their cycle order, placing one (pure), and `=`/`==`. |
 | `autoload/songwriter/tab/strings.vim` | Moving notes and time columns to another string, keeping the fret or the pitch: pure `Move()` and its entry point. |
+| `autoload/songwriter/tab/play.vim` | Playing a tab: open string pitches, the steps a target plays (pure), handed to `sound.vim`. |
+| `autoload/songwriter/sound.vim` | Plucked-string synthesis into cached WAV files, the player command, and the timers and jobs that play steps. |
+| `autoload/songwriter/sound9.vim` | The synthesis loop in compiled Vim9 script, used on Vim 9. |
 | `autoload/songwriter/chord.vim` | Chord model and chord editing. |
 | `autoload/songwriter/pitch.vim` | Pitch classes: note names to semitones and back (sharp spelling). Shared by chords and tab string intervals. |
 | `autoload/songwriter/keys.vim` | Context-dependent keys: tables and `Dispatch()`, tablature-mode flag and state (`Mode()`), tab-line `w`/`b`/`W`/`B`. |
@@ -679,6 +682,49 @@ and clear it when the window loses focus or shows another buffer (a window
 match would otherwise stay on that buffer). Reading the block on each move is
 cheap (a few short lines); the match is replaced only when the column
 changes.
+
+### Playing notes (`<leader>p`, spec [Tablature][[Editing]] 12)
+
+- **An operator, not a set of keys.** Playing reuses the d/y/c machinery
+  (`g@`, `s:pending`, the text objects, string motions, `j`/`k`, visual
+  selections), so every target that can be yanked can be heard, and what is
+  played is what `y` would reach. `play` is one more op in `ApplyRange`,
+  `s:across` and `ApplyLines`, which branch before any edit; `Start` skips
+  the pre-lint, so playing never changes the file (an invariant checks it).
+  The doubled form is `<leader>pp` (the `p` operator-pending key), and
+  `<leader>P` is `<leader>pin`, since one note is the most common case.
+- **No dependencies but a player.** Vim has no portable audio (`+sound` is
+  Linux-only and rarely built), so the plugin writes WAV files and starts a
+  player command as a job: `afplay` ships with macOS, `paplay`/`aplay` with
+  most Linux desktops. Windows is not supported. With no player the feature
+  is inert; nothing else depends on it.
+- **Karplus-Strong synthesis in Vim script.** A delay line of noise through
+  a damping lowpass sounds like a plucked string and is a few lines of code.
+  A first-order allpass, tuned for the note's frequency, covers the fraction
+  of a sample in the period (rounding alone makes high frets tens of cents
+  sharp), and the damping is set per pitch so notes die away in a guitar-like
+  time (`s:t60`) instead of high notes vanishing at once. The noise is seeded
+  by the pitch, so a pitch always gives the same file.
+- **Cached per pitch.** A guitar spans about 50 pitches; each is generated
+  once (1.2 s at 22.05 kHz) and kept in the cache directory, named with a
+  synthesis version (`pluck1-…`) so a change to the synthesis makes new
+  files. On Vim 9 the sample loop is compiled Vim9 script (`sound9.vim`),
+  about 25 times faster than legacy script (a whole tab's first play: 0.2 s
+  rather than 3 s); Vim 8.2 and Neovim use the legacy loop. A test checks
+  both give the same bytes.
+- **Timing with timers, mixing by the OS.** Each note is its own player job,
+  started by a timer at its step (a half beat at `g:songwriter_play_bpm`) plus
+  a 15 ms strum per string, so no mixing code is needed. A note stops the
+  previous job on its string (a string sounds one note at a time), and a new
+  play stops everything first. Spacing is not read as rhythm: it is only a
+  loose indication (spec 6), so every column gets the same length.
+- **Pitches from the string names**, as the `S` moves read them (7.3), with
+  the lowest string in [B1, A#2]: right for six- and seven-string guitars
+  and drop tunings; a bass sounds an octave up, which is acceptable for
+  checking notes by ear.
+- **Testing.** Tests set `g:songwriter_player = []` (sound off) and read
+  what would have played with `songwriter#sound#Last()`; the synthesis and
+  the schedule are pure functions.
 
 ### Outside tablature mode
 

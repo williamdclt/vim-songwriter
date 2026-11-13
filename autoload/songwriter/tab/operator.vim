@@ -4,7 +4,7 @@
 " registers tab/register.vim, `.` tab/repeat.vim. See design.md "Operators and
 " text objects".
 "
-" d/y/c run through 'operatorfunc' and g@, so counts, motions and `.` work as
+" d/y/c, and `play` (12, which only reads the tab), run through 'operatorfunc' and g@, so counts, motions and `.` work as
 " for native operators. The operator, register, whether the target was one of
 " our text objects or string motions (exact: no snapping) and its reach
 " (`note`, see ApplyRange) are kept in s:pending, since v:register is not
@@ -16,29 +16,36 @@ let s:pending = {'op': 'd', 'reg': '"', 'exact': 0, 'note': 0, 'across': {}, 'ca
 
 " `d`/`y`/`c` in tablature mode: lint first (own undo step, joined to the
 " operation's), then g@. The <Cmd> that lints consumes the count, so it is
-" given again after g@ (`3dw` runs as `g@3w`).
+" given again after g@ (`3dw` runs as `g@3w`). `play` (spec 12) changes
+" nothing, not even with a lint: just g@.
 function! songwriter#tab#operator#Start(op) abort
   let s:pending = {'op': a:op, 'reg': v:register, 'exact': 0, 'note': 0, 'across': {}, 'cancel': 0, 'tick': -1}
   set operatorfunc=songwriter#tab#operator#Opfunc
+  if a:op ==# 'play'
+    return 'g@'
+  endif
   return "\<Cmd>call songwriter#tab#operator#Prelint()\<CR>g@"
         \ . (v:count ? v:count : '')
 endfunction
 
-" `Y`, `S` (target "column": the column, as `yy`/`cc`) and `D`, `C` (target
-" "bar-end": to the end of the bar, as `dW`/`cW`): the operator, then its
-" target as a <Cmd> (a returned key would not be remapped).
+" `Y` (target "column": the column, as `yy`), `D`, `C` (target "bar-end": to
+" the end of the bar, as `dW`/`cW`) and `<leader>P` (target "note": the note,
+" as `in`, spec 12.1): the operator, then its target as a <Cmd> (a returned
+" key would not be remapped).
 function! songwriter#tab#operator#StartOn(op, target) abort
   let l:keys = songwriter#tab#operator#Start(a:op)
-  return l:keys . (a:target ==# 'column'
-        \ ? "\<Cmd>call songwriter#tab#operator#Object('c', 1)\<CR>"
-        \ : "\<Cmd>call songwriter#keys#JumpBarLine(1)\<CR>")
+  return l:keys . {
+        \ 'column': "\<Cmd>call songwriter#tab#operator#Object('c', 1)\<CR>",
+        \ 'bar-end': "\<Cmd>call songwriter#keys#JumpBarLine(1)\<CR>",
+        \ 'note': "\<Cmd>call songwriter#tab#operator#StringObject('n', 0)\<CR>",
+        \ }[a:target]
 endfunction
 
-" Spec 6.8: the second key of `dd`/`yy`/`cc` (after the operator, so `d3d`
-" takes a count): the column and its gap, as `ac`. Another operator key (`dy`)
-" cancels.
+" Spec 6.8, 12.1: the second key of `dd`/`yy`/`cc`/`<leader>pp` (after the
+" operator, so `d3d` takes a count): the column and its gap, as `ac`. Another
+" operator key (`dy`) cancels.
 function! songwriter#tab#operator#Doubled(key) abort
-  if s:pending.op ==# a:key
+  if s:pending.op ==# get({'p': 'play'}, a:key, a:key)
     call songwriter#tab#operator#Object('c', 1)
   else
     let s:pending.cancel = 1
@@ -95,9 +102,13 @@ endfunction
 " Apply `op` to columns [s, e] of `block`, cursor on its line. `note` is the
 " reach: 0 the time columns (6.2.3), 1 the notes of the cursor's string, a
 " string object (6.1.4, 6.1.5), 2 the notes of the cursor's string, a string
-" motion (6.2.2).
+" motion (6.2.2). `play` plays the notes of that reach (12.1).
 function! songwriter#tab#operator#ApplyRange(op, reg, block, s, e, note) abort
-  if a:note
+  if a:op ==# 'play'
+    call songwriter#tab#play#Play([[a:block.lines,
+          \ a:note ? [songwriter#tab#model#CursorLin(a:block)] : range(len(a:block.lines)),
+          \ a:s, a:e]])
+  elseif a:note
     call s:noteop(a:op, a:reg, a:block, a:s, a:e, a:note == 1)
   else
     call s:columnwise(a:op, a:reg, a:block, a:s, a:e)
@@ -165,6 +176,10 @@ endfunction
 " register holds that column and its gap, the other strings as dashes; `c`
 " opens a slot if the column went.
 function! s:across(op, reg, block, a) abort
+  if a:op ==# 'play'
+    call songwriter#tab#play#Play([[a:block.lines, range(a:a.lins[0], a:a.lins[1]), a:a.col, a:a.col]])
+    return
+  endif
   let l:notes = []
   for l:lin in range(a:a.lins[0], a:a.lins[1])
     if !empty(filter(copy(a:block.strings[l:lin].notes), 'v:val.col == a:a.col'))
@@ -208,8 +223,13 @@ function! s:slot_anchor(lines, lin, s) abort
   return !empty(l:next) ? [l:next[0], -1] : !empty(l:prev) ? [l:prev[-1], 1] : [l:left, 0]
 endfunction
 
-" Spec 6.3: line-wise targets cover every tab they touch, whole.
+" Spec 6.3: line-wise targets cover every tab they touch, whole. `play`
+" plays them one after the other (12.1).
 function! songwriter#tab#operator#ApplyLines(op, reg, l1, l2) abort
+  if a:op ==# 'play'
+    call songwriter#tab#play#Play(s:tabs_in(a:l1, a:l2))
+    return
+  endif
   let l:l1 = a:l1
   let l:l2 = a:l2
   if songwriter#grammar#IsTabLine(getline(l:l1))
@@ -263,6 +283,23 @@ function! s:next_column(lines, col) abort
   let l:cols = songwriter#tab#model#NoteColumns(songwriter#tab#model#Parse(0, a:lines))
   let l:next = filter(copy(l:cols), 'v:val >= a:col')
   return !empty(l:next) ? l:next[0] : !empty(l:cols) ? l:cols[-1] : a:col
+endfunction
+
+" The tabs with a line in [l1, l2], whole, as [lines, every string, first
+" column, last column] (see songwriter#tab#play#Play).
+function! s:tabs_in(l1, l2) abort
+  let l:tabs = []
+  let l:lnum = a:l1
+  while l:lnum <= a:l2
+    let l:block = songwriter#tab#model#Read(l:lnum)
+    if empty(l:block)
+      let l:lnum += 1
+      continue
+    endif
+    call add(l:tabs, [l:block.lines, range(len(l:block.lines)), 1, max(map(copy(l:block.lines), 'len(v:val)'))])
+    let l:lnum = l:block.end + 1
+  endwhile
+  return l:tabs
 endfunction
 
 " === Operator-pending targets ===

@@ -1,0 +1,61 @@
+" Spec [Tablature][[Editing]] 12.4, 12.5: the plucked-string sounds, their
+" cache and the playing queue. The player is off (g:songwriter_player = []),
+" so nothing is heard.
+
+Before:
+  let g:songwriter_player = []
+  let g:songwriter_sound_cache = tempname()
+  call songwriter#sound#Stop()
+
+After:
+  call delete(g:songwriter_sound_cache, 'rf')
+  unlet! g:songwriter_player g:songwriter_sound_cache g:songwriter_play_bpm
+
+Execute (A4 is 440 Hz):
+  AssertEqual 440.0, songwriter#sound#Frequency(69)
+  AssertEqual 220.0, songwriter#sound#Frequency(57)
+
+Execute (a sound is a 16-bit mono WAV, the same every time):
+  let g:wav = songwriter#sound#Wav(40)
+  AssertEqual 0z52494646, g:wav[0:3]
+  AssertEqual 0z57415645, g:wav[8:11]
+  " 16-bit (bytes 34-35), mono (22-23).
+  AssertEqual 0z1000, g:wav[34:35]
+  AssertEqual 0z0100, g:wav[22:23]
+  AssertEqual g:wav, songwriter#sound#Wav(40)
+  Assert g:wav != songwriter#sound#Wav(41)
+  " The data size (bytes 40-43) is what follows the 44-byte header.
+  AssertEqual len(g:wav) - 44,
+        \ g:wav[40] + g:wav[41] * 256 + g:wav[42] * 65536 + g:wav[43] * 16777216
+
+Execute (12.5 sounds are cached as WAV files, written once):
+  let g:path = songwriter#sound#File(52)
+  Assert filereadable(g:path)
+  AssertEqual g:songwriter_sound_cache, fnamemodify(g:path, ':h')
+  AssertEqual songwriter#sound#Wav(52), readblob(g:path)
+  call writefile(0z00, g:path)
+  AssertEqual g:path, songwriter#sound#File(52)
+  AssertEqual 0z00, readblob(g:path)
+
+Execute (12.5 g:songwriter_player is the player command):
+  let g:songwriter_player = ['play', '-q']
+  AssertEqual ['play', '-q'], songwriter#sound#Player()
+
+Execute (12.5 sound off: the steps are kept, no file is written):
+  call songwriter#sound#Play([[{'lin': 0, 'midi': 64}]])
+  AssertEqual [[{'lin': 0, 'midi': 64}]], songwriter#sound#Last()
+  Assert !isdirectory(g:songwriter_sound_cache)
+
+Execute (12.2 the start time of each note: a half beat per step, strummed up):
+  AssertEqual [[0, 0, 64], [1, 15, 59], [1, 250, 60]],
+        \ songwriter#sound#Schedule([[{'lin': 0, 'midi': 64}, {'lin': 1, 'midi': 59}], [{'lin': 1, 'midi': 60}]])
+  let g:songwriter_play_bpm = 60
+  AssertEqual [[0, 0, 64], [0, 500, 65]],
+        \ songwriter#sound#Schedule([[{'lin': 0, 'midi': 64}], [{'lin': 0, 'midi': 65}]])
+
+Execute (the compiled synthesis gives the same bytes as the legacy one):
+  if v:version >= 900 && !has('nvim')
+    let g:ks = {'buf': [0.5, -0.25, 0.75, -1.0, 0.0], 'a': 0.49, 'b': 0.49, 'c': 0.1,
+          \ 'n': 300, 'fade': 100, 'level': 9000.0}
+    AssertEqual songwriter#sound#Pluck(deepcopy(g:ks)), songwriter#sound9#Pluck(deepcopy(g:ks))
+  endif

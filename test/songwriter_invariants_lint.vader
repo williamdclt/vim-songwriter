@@ -50,3 +50,23 @@ Execute (motions in the normal state never change the file):
     endfor
   endfor
   AssertEqual [], g:inv_failures
+
+" === Playing never edits (spec 12) ===
+
+Execute (playing never changes the file):
+  let g:songwriter_player = []
+  let g:inv_failures = []
+  for g:inv_tab in g:inv_tabs + g:inv_unlinted
+    for g:inv_pos in g:InvKeyPositions(g:inv_tab.lines)
+      for g:inv_keys in ["\\pp", "\\P", "\\pw", "\\pj", "\\pi|", "\\pap", "V\\p"]
+        call g:InvLoad(g:inv_tab.lines, g:inv_pos)
+        let g:inv_tick = b:changedtick
+        silent! call feedkeys(g:inv_keys, 'xt')
+        if b:changedtick != g:inv_tick
+          call add(g:inv_failures, g:InvCase(g:inv_tab, g:inv_pos, g:inv_keys))
+        endif
+      endfor
+    endfor
+  endfor
+  unlet g:songwriter_player
+  AssertEqual [], g:inv_failures
