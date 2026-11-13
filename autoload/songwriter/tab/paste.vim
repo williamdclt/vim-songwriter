@@ -45,7 +45,7 @@ endfunction
 " for `P`; `count` copies. A register holding a pipe is a bar register (6.5.2),
 " pasted at a bar line; otherwise a column register (6.5.1), pasted after /
 " before the cursor's column and its gap. Returns {'lines', 'col' (first
-" pasted note, any string), 'msg'} or {'error'}.
+" pasted note, any string), 'msg', 'map'} or {'error'}.
 function! songwriter#tab#paste#Paste(lines, lin, col, rows, regnames, before, count) abort
   let l:names = songwriter#tab#model#Names(a:lines)
   let l:m = songwriter#tab#paste#MatchRows(l:names, a:rows, a:regnames)
@@ -81,7 +81,8 @@ function! songwriter#tab#paste#Paste(lines, lin, col, rows, regnames, before, co
 endfunction
 
 " Spec 6.9.4: paste register `rows` right after byte `offset` (0 = line
-" start), rows matched as in Paste. {'lines', 'col', 'msg'} or {'error'}.
+" start), rows matched as in Paste. {'lines', 'col', 'msg', 'map'} or
+" {'error'}.
 function! songwriter#tab#paste#PasteAt(lines, offset, rows, regnames) abort
   let l:m = songwriter#tab#paste#MatchRows(songwriter#tab#model#Names(a:lines), a:rows, a:regnames)
   if has_key(l:m, 'error')
@@ -93,7 +94,7 @@ function! songwriter#tab#paste#PasteAt(lines, offset, rows, regnames) abort
 endfunction
 
 " Insert `count` copies of `rows` after byte `offset` on every line. Returns
-" {'lines', 'col': the first inserted note on any string}.
+" {'lines', 'col': the first inserted note on any string, 'map'}.
 function! s:insert_rows(lines, offset, rows, count) abort
   let l:rows = map(copy(a:rows), 'repeat(v:val, max([a:count, 1]))')
   let l:out = []
@@ -108,14 +109,15 @@ function! s:insert_rows(lines, offset, rows, count) abort
       let l:first = l:p + 1
     endif
   endfor
-  return {'lines': l:out, 'col': a:offset + max([l:first, 1])}
+  return {'lines': l:out, 'col': a:offset + max([l:first, 1]),
+        \ 'map': songwriter#tab#colmap#Insert(a:offset, len(l:rows[0]))}
 endfunction
 
 " Spec 6.14: write the notes of column register `rows` onto the time column at
 " `col` of line `lin`, without adding time: the register's first note column
 " lands on that column. Rows are matched as in Paste. Returns {'lines', 'col',
-" 'msg'}, or {'error'} for a bar register, no column there, or a note that
-" would replace anything but dashes.
+" 'msg', 'map'} (no time column moves), or {'error'} for a bar register, no
+" column there, or a note that would replace anything but dashes.
 function! songwriter#tab#paste#Overlay(lines, lin, col, rows, regnames) abort
   if !empty(filter(copy(a:rows), "stridx(v:val, '|') >= 0"))
     return {'error': 'songwriter: gp pastes a column, not a bar'}
@@ -138,7 +140,7 @@ function! songwriter#tab#paste#Overlay(lines, lin, col, rows, regnames) abort
     call extend(l:starts, map(songwriter#tab#model#RowNotes(l:r), 'v:val.col'))
   endfor
   if empty(l:starts)
-    return {'lines': copy(a:lines), 'col': l:c, 'msg': l:m.msg}
+    return {'lines': copy(a:lines), 'col': l:c, 'msg': l:m.msg, 'map': []}
   endif
   let l:qmin = min(l:starts)
   let l:out = copy(a:lines)
@@ -152,5 +154,5 @@ function! songwriter#tab#paste#Overlay(lines, lin, col, rows, regnames) abort
       let l:out[l:i] = songwriter#tab#model#Splice(l:line, l:s, l:a.len, l:a.text)
     endfor
   endfor
-  return {'lines': l:out, 'col': l:c, 'msg': l:m.msg}
+  return {'lines': l:out, 'col': l:c, 'msg': l:m.msg, 'map': []}
 endfunction

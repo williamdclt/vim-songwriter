@@ -8,6 +8,12 @@
 "              'len': width, 'from': old column, 'to': new column}] for every
 "              note, so callers can keep the cursor on the same note after
 "              linting.
+"   'map':   where each column of `lines` went (tab/colmap.vim): a time
+"            column where its notes went, a pipe of the top string where
+"            that pipe went, any other column of a bar as FollowColumn moves
+"            the cursor there; a trailing empty bar that was dropped (1.4) is
+"            deleted, and what is past the last pipe keeps its distance from
+"            it.
 " }
 function! songwriter#tab#lint#Lint(lines) abort
   let l:lines = s:close_bars(a:lines)
@@ -66,7 +72,32 @@ function! songwriter#tab#lint#Lint(lines) abort
   for l:k in range(l:nl)
     call add(l:out, songwriter#tab#model#Name(l:lines[l:k]) . '|' . join(l:lineparts[l:k], '|') . '|')
   endfor
-  return {'lines': l:out, 'moves': s:to_columns(l:moves, l:lines, l:lineparts)}
+  let l:moves = s:to_columns(l:moves, l:lines, l:lineparts)
+  return {'lines': l:out, 'moves': l:moves,
+        \ 'map': songwriter#tab#colmap#Func(function('s:map_at', [{
+        \   'old': songwriter#tab#model#Pipes(l:lines[0]),
+        \   'new': songwriter#tab#model#Pipes(l:out[0]), 'moves': l:moves}]))}
+endfunction
+
+" Where column `col` goes through a lint, `lint` being {'old', 'new' (the top
+" string's pipes before and after), 'moves'} (see Lint's 'map').
+function! s:map_at(lint, col) abort
+  let [l:old, l:new] = [a:lint.old, a:lint.new]
+  if a:col < l:old[0]
+    return a:col
+  elseif a:col > l:old[-1]
+    return l:new[-1] + a:col - l:old[-1]
+  endif
+  let l:k = index(l:old, a:col)
+  if l:k >= 0
+    return l:k < len(l:new) ? l:new[l:k] : 0
+  endif
+  let l:bar = len(filter(copy(l:old), 'v:val < a:col')) - 1
+  if l:bar + 1 >= len(l:new)
+    return 0
+  endif
+  return s:in_bar(filter(copy(a:lint.moves), 'v:val.bar == l:bar'), a:col,
+        \ l:old[l:bar], l:new[l:bar], l:new[l:bar + 1])
 endfunction
 
 " The notes and separators of bar region `row` of line `lin`, left to right.
@@ -228,11 +259,18 @@ function! songwriter#tab#lint#FollowColumn(lines, result, lin, col) abort
       return l:m.to + a:col - l:m.from
     endif
   endfor
+  return s:in_bar(l:notes, a:col, l:old_pipes[l:bar], l:new_pipes[l:bar], l:new_pipes[l:bar + 1])
+endfunction
 
-  let l:lo = l:new_pipes[l:bar] + 1
-  let l:hi = l:new_pipes[l:bar + 1] - 1
-  let l:prev = filter(copy(l:notes), 'v:val.from <= a:col')
-  let l:next = filter(copy(l:notes), 'v:val.from > a:col')
+" Where column `col` of a bar goes through a lint, the bar's `notes` (moves, on
+" every string) being between pipes `old_left` before and `new_left`,
+" `new_right` after: the same distance from the nearest note starting at or
+" before `col`, kept before the next note start and inside the bar.
+function! s:in_bar(notes, col, old_left, new_left, new_right) abort
+  let l:lo = a:new_left + 1
+  let l:hi = a:new_right - 1
+  let l:prev = filter(copy(a:notes), 'v:val.from <= a:col')
+  let l:next = filter(copy(a:notes), 'v:val.from > a:col')
   if !empty(l:next)
     let l:hi = min([l:hi, min(map(copy(l:next), 'v:val.to')) - 1])
   endif
@@ -245,7 +283,7 @@ function! songwriter#tab#lint#FollowColumn(lines, result, lin, col) abort
     let l:first = sort(copy(l:next), {a, b -> a.from - b.from})[0]
     let l:c = l:first.to - (l:first.from - a:col)
   else
-    let l:c = l:lo + a:col - l:old_pipes[l:bar] - 1
+    let l:c = l:lo + a:col - a:old_left - 1
   endif
   return max([l:lo, min([l:c, l:hi])])
 endfunction

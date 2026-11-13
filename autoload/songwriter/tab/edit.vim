@@ -31,13 +31,13 @@ endfunction
 
 " Pure. `lines` linted, with column `col` of line `lin` (0-indexed) followed
 " through the lint so that it stays on the same note, or in the same gap
-" between notes (lint#FollowColumn): {'lines', 'col'}. A `lin` outside the
-" block keeps its column.
+" between notes (lint#FollowColumn): {'lines', 'col', 'map'}. A `lin` outside
+" the block keeps its column.
 function! songwriter#tab#edit#Linted(lines, lin, col) abort
   let l:result = songwriter#tab#lint#Lint(a:lines)
   let l:col = a:lin >= 0 && a:lin < len(a:lines)
         \ ? songwriter#tab#lint#FollowColumn(a:lines, l:result, a:lin, a:col) : a:col
-  return {'lines': l:result.lines, 'col': l:col}
+  return {'lines': l:result.lines, 'col': l:col, 'map': l:result.map}
 endfunction
 
 " Lint `block`, write it back and keep the cursor on the same note (or in the

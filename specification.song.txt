@@ -188,7 +188,10 @@ e|--0--0--0--|--0-------------|
 7. In tablature mode, the time column highlight ([[Rendering]] 4) extends over the annotation lines. ✗
 
 [[Bugs]]
-These are known bugs that need fixing (none known).
+These are known bugs that need fixing.
+1. Deleting a time column with its gap (`dac`, `dd`) can join two notes of another string, when that gap is, on that string, the dash between them: `dac` on the 5 of `e|--10-12--|` over `B|----5----|` gives `e|--1012--|`. `x` (6.7.2) keeps them apart; column deletions should too. ✗
+2. Pasting a column (`p` / `P`, 6.5.1) right after the end of another string's note joins it with a note the register has at its start on that string: with `e|--10-12--|` over `B|----5----|`, a column yanked from the 12 (`yy`) and pasted with `P` on the 5 gives `1012`. ✗
+3. Lint (1.3) pushing a note off another string's two-digit fret moves the rest of that string with it, which can split a time column: `e|--12--3---|` over `B|---3--12--|` lints to `e|--12--3-----|` over `B|-----3--12--|`, the 3 and the 12 no longer starting together. ✗
 
 [Chords]
 

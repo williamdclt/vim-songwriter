@@ -123,21 +123,23 @@ function! s:columnwise(op, reg, block, s, e) abort
   endif
   let l:res = songwriter#tab#columns#DeleteRange(a:block.lines, a:s, a:e)
   call songwriter#tab#register#Set(a:reg, l:res.rows, 'b', l:names)
-  call s:write_deleted(a:op, a:block, l:res.lines, a:s)
+  call s:write_deleted(a:op, a:block, l:res, a:s)
 endfunction
 
-" Write `lines`, from which columns were removed at `s`, lint, then for `c`
-" open a slot where they were (6.6), else go to the next note column (6.11).
-function! s:write_deleted(op, block, lines, s) abort
-  let l:anchor = s:slot_anchor(a:lines, songwriter#tab#model#CursorLin(a:block), a:s)
+" Write `res` ({'lines', 'map'}), from which columns were removed at `s`,
+" lint, then for `c` open a slot where they were (6.6), else go to the next
+" note column (6.11).
+function! s:write_deleted(op, block, res, s) abort
+  let l:anchor = s:slot_anchor(a:res.lines, songwriter#tab#model#CursorLin(a:block), a:s)
+  let l:res = {'lines': a:res.lines, 'map': a:res.map}
   if a:op ==# 'c'
-    call songwriter#tab#edit#Commit(a:block, {'lines': a:lines, 'col': l:anchor[0]})
+    call songwriter#tab#edit#Commit(a:block, extend(l:res, {'col': l:anchor[0]}))
     if l:anchor[1] == 0
       call cursor(line('.'), col('.') + 1)
     endif
     call songwriter#tab#slots#OpenHere(l:anchor[1])
   else
-    call songwriter#tab#edit#Commit(a:block, {'lines': a:lines})
+    call songwriter#tab#edit#Commit(a:block, l:res)
     call s:to_next_column()
   endif
 endfunction
@@ -165,9 +167,9 @@ function! s:noteop(op, reg, block, s, e, exact) abort
   endif
   call cursor(line('.'), l:res.col)
   if l:res.removed
-    call s:write_deleted(a:op, a:block, l:res.lines, l:res.col)
+    call s:write_deleted(a:op, a:block, l:res, l:res.col)
   else
-    call songwriter#tab#edit#Commit(a:block, {'lines': l:res.lines})
+    call songwriter#tab#edit#Commit(a:block, {'lines': l:res.lines, 'map': l:res.map})
   endif
 endfunction
 
@@ -202,9 +204,9 @@ function! s:across(op, reg, block, a) abort
   let l:res = songwriter#tab#columns#EraseSet(a:block.lines, l:notes)
   call cursor(line('.'), l:res.col)
   if l:res.removed
-    call s:write_deleted(a:op, a:block, l:res.lines, l:res.col)
+    call s:write_deleted(a:op, a:block, l:res, l:res.col)
   else
-    call songwriter#tab#edit#Commit(a:block, {'lines': l:res.lines})
+    call songwriter#tab#edit#Commit(a:block, {'lines': l:res.lines, 'map': l:res.map})
   endif
 endfunction
 
@@ -393,6 +395,7 @@ endfunction
 
 function! s:erase(count, reg, ctx) abort
   let l:lines = a:ctx.block.lines
+  let l:map = []
   let l:col = a:ctx.col
   let l:rows = []
   let l:lone = 0
@@ -413,11 +416,12 @@ function! s:erase(count, reg, ctx) abort
     let l:linted = songwriter#tab#edit#Linted(l:res.lines, a:ctx.lin,
           \ max([1, min([l:res.col, len(l:res.lines[a:ctx.lin])])]))
     let [l:lines, l:col] = [l:linted.lines, l:linted.col]
+    let l:map = songwriter#tab#colmap#Then(l:map, songwriter#tab#colmap#Then(l:res.map, l:linted.map))
   endfor
   if empty(l:rows)
     return {}
   endif
-  return {'lines': l:lines, 'col': l:lone ? s:next_column(l:lines, l:col) : l:col,
+  return {'lines': l:lines, 'map': l:map, 'col': l:lone ? s:next_column(l:lines, l:col) : l:col,
         \ 'register': {'name': a:reg, 'rows': l:rows, 'type': 'b',
         \   'names': songwriter#tab#model#Names(l:lines)}}
 endfunction
@@ -482,6 +486,7 @@ endfunction
 
 function! s:shift(dir, count, ctx) abort
   let l:lines = a:ctx.block.lines
+  let l:map = []
   let l:col = a:ctx.col
   let l:done = 0
   for l:i in range(max([a:count, 1]))
@@ -491,9 +496,10 @@ function! s:shift(dir, count, ctx) abort
     endif
     let l:linted = songwriter#tab#edit#Linted(l:res.lines, a:ctx.lin, l:res.col)
     let [l:lines, l:col] = [l:linted.lines, l:linted.col]
+    let l:map = songwriter#tab#colmap#Then(l:map, songwriter#tab#colmap#Then(l:res.map, l:linted.map))
     let l:done = 1
   endfor
-  return l:done ? {'lines': l:lines, 'col': l:col} : {}
+  return l:done ? {'lines': l:lines, 'col': l:col, 'map': l:map} : {}
 endfunction
 
 " Spec 6.14: `gp`, overlay a column register onto the cursor's column.

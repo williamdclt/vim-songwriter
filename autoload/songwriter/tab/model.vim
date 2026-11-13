@@ -299,7 +299,8 @@ endfunction
 
 " The column-insertion primitive: insert `n` copies of `char` after byte offset
 " `offset` (0 = line start) on every line, padding shorter lines with dashes up
-" to `offset` first. Returns the new lines; padding happens even when n is 0.
+" to `offset` first. Returns {'lines', 'map'}; padding happens even when n is
+" 0.
 function! songwriter#tab#model#InsertColumns(lines, offset, n, char) abort
   let l:out = []
   for l:l in a:lines
@@ -308,5 +309,5 @@ function! songwriter#tab#model#InsertColumns(lines, offset, n, char) abort
     endif
     call add(l:out, strpart(l:l, 0, a:offset) . repeat(a:char, a:n) . strpart(l:l, a:offset))
   endfor
-  return l:out
+  return {'lines': l:out, 'map': songwriter#tab#colmap#Insert(a:offset, a:n)}
 endfunction

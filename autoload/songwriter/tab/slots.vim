@@ -10,11 +10,12 @@ let s:new_bar_slot = 3
 
 " Pure. A new bar of five dashes after every string of a linted block (whose
 " strings all end on the same pipe column), with the slot on the middle dash.
-" Returns {'lines', 'col'}.
+" Returns {'lines', 'col', 'map'}.
 function! songwriter#tab#slots#AppendBar(block) abort
   return {
         \ 'lines': map(copy(a:block.lines), "v:val . s:new_bar . '|'"),
-        \ 'col': len(a:block.lines[0]) + s:new_bar_slot}
+        \ 'col': len(a:block.lines[0]) + s:new_bar_slot,
+        \ 'map': songwriter#tab#colmap#Insert(len(a:block.lines[0]), len(s:new_bar) + 1)}
 endfunction
 
 " Pure. A tab with the string names of `block` and one bar of five dashes,
@@ -36,7 +37,7 @@ endfunction
 " trailing it with no note after (`7b`). Dashes are inserted after the anchor so
 " that the slot sits one dash from it and the next note, on
 " any string, stays one dash away (the next pipe, two dashes).
-" Returns {'lines', 'col'}, or {} when there is no anchor note.
+" Returns {'lines', 'col', 'map'}, or {} when there is no anchor note.
 function! songwriter#tab#slots#Append(block, lin, col) abort
   let l:bar = songwriter#tab#model#BarAt(a:block.lines[a:lin], a:col)
   let l:e = 0
@@ -63,9 +64,7 @@ function! songwriter#tab#slots#Append(block, lin, col) abort
       endif
     endfor
   endfor
-  return {
-        \ 'lines': songwriter#tab#model#InsertColumns(a:block.lines, l:e, l:n, '-'),
-        \ 'col': l:e + 2}
+  return extend(songwriter#tab#model#InsertColumns(a:block.lines, l:e, l:n, '-'), {'col': l:e + 2})
 endfunction
 
 " Pure. The `i` slot, mirror of Append: the anchor is the leftmost note
@@ -73,7 +72,7 @@ endfunction
 " the cursor, before any separator leading it with no note before (`/5`). Dashes are inserted before it so that the slot sits one dash left
 " of it and the previous note, on any string, stays one dash away (the
 " previous pipe, two dashes).
-" Returns {'lines', 'col'}, or {} when there is no anchor note.
+" Returns {'lines', 'col', 'map'}, or {} when there is no anchor note.
 function! songwriter#tab#slots#Prepend(block, lin, col) abort
   let l:bar = songwriter#tab#model#BarAt(a:block.lines[a:lin], a:col)
   let l:s = 0
@@ -101,9 +100,8 @@ function! songwriter#tab#slots#Prepend(block, lin, col) abort
       endif
     endfor
   endfor
-  return {
-        \ 'lines': songwriter#tab#model#InsertColumns(a:block.lines, l:s - 1, l:n, '-'),
-        \ 'col': l:s + l:n - 2}
+  return extend(songwriter#tab#model#InsertColumns(a:block.lines, l:s - 1, l:n, '-'),
+        \ {'col': l:s + l:n - 2})
 endfunction
 
 " The width of the separators right after (dir 1) / before (dir -1) column
@@ -130,7 +128,8 @@ endfunction
 
 " Spec 6.6: a slot in the (empty) bar around column `col` of line `lin`: the
 " bar's content becomes 5 dashes on every string and the slot is the middle
-" one. Returns {'lines', 'col'}, or {} outside a bar.
+" one. Returns {'lines', 'col', 'map'}, or {} outside a bar. What was in the
+" bar keeps its offset from the bar's left pipe (colmap#Resize).
 function! songwriter#tab#slots#EmptyBar(lines, lin, col) abort
   let l:bar = songwriter#tab#model#BarAt(a:lines[a:lin], a:col)
   if l:bar.start == 0 || l:bar.end == 0
@@ -138,7 +137,8 @@ function! songwriter#tab#slots#EmptyBar(lines, lin, col) abort
   endif
   let l:out = map(copy(a:lines),
         \ 'strpart(v:val, 0, l:bar.start) . s:new_bar . strpart(v:val, l:bar.end - 1)')
-  return {'lines': l:out, 'col': l:bar.start + s:new_bar_slot}
+  return {'lines': l:out, 'col': l:bar.start + s:new_bar_slot,
+        \ 'map': songwriter#tab#colmap#Resize(l:bar.start + 1, l:bar.end - l:bar.start - 1, len(s:new_bar))}
 endfunction
 
 " What closing a slot about to be opened by `a`/`i`, `l`/`h` or a new bar must

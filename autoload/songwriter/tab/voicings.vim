@@ -284,7 +284,7 @@ endfunction
 " Spec 10.5, 10.6: write `voicing` on the time column at column `col` of line
 " `lin`: the column of the note under the cursor, or `col` itself on a dash.
 " Every note starting on that column is replaced; a fret that needs room gets
-" it as in spec 7.5. Returns {'lines', 'col'}, or {'error'} on a pipe or the
+" it as in spec 7.5. Returns {'lines', 'col', 'map'}, or {'error'} on a pipe or the
 " string name, or when a note on another string covers the column.
 function! songwriter#tab#voicings#Place(lines, lin, col, voicing) abort
   if songwriter#tab#columns#OnPipeOrName(a:lines[a:lin], a:col)
@@ -292,6 +292,7 @@ function! songwriter#tab#voicings#Place(lines, lin, col, voicing) abort
   endif
   let l:c = s:column(a:lines, a:lin, a:col)
   let l:lines = copy(a:lines)
+  let l:map = []
   for l:i in range(len(l:lines))
     for l:n in songwriter#tab#model#Notes(l:lines[l:i])
       if l:n.col == l:c
@@ -310,8 +311,9 @@ function! songwriter#tab#voicings#Place(lines, lin, col, voicing) abort
       return {'error': 'songwriter: ' . l:room.error}
     endif
     let [l:lines, l:c] = [l:room.lines, l:room.col]
+    let l:map = songwriter#tab#colmap#Then(l:map, l:room.map)
   endfor
-  return {'lines': l:lines, 'col': l:c}
+  return {'lines': l:lines, 'col': l:c, 'map': l:map}
 endfunction
 
 " Spec 10.4: the message for voicing `index` of `voicings` of `chord`.

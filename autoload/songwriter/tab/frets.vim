@@ -16,8 +16,8 @@ endfunction
 
 " Spec 11: the note starting at column `c` of line `lin`, `n` frets up (n > 0)
 " or down, every note keeping its time column (11.2, columns#SetNote). Returns
-" {'lines', 'lin', 'col'} (the cursor on the note), or {'error': message}
-" (11.3).
+" {'lines', 'lin', 'col' (the cursor on the note), 'map'}, or {'error':
+" message} (11.3).
 function! songwriter#tab#frets#Add(lines, lin, c, n) abort
   let l:note = songwriter#tab#model#NoteAt(a:lines[a:lin], a:c)
   let l:fret = str2nr(l:note.text, 10) + a:n

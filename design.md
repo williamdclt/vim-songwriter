@@ -16,6 +16,7 @@ never relies on concealing or rendering.
 | File | Role |
 |---|---|
 | `autoload/songwriter/grammar.vim` | The format's patterns (tab line, note, fret, separator, chain, chord, highlighting). The only place regexes for the format are written. |
+| `autoload/songwriter/tab/colmap.vim` | Column maps: where each column of a block went through an edit, pure. |
 | `autoload/songwriter/tab/model.vim` | Tab block model: parse, queries (notes, time columns, bars), `Splice`/`Blank` and the column-insertion primitive, and `Read`/`Write` (the buffer edges). |
 | `autoload/songwriter/tab/edit.vim` | The buffer side of a tablature edit: `Do` runs a whole edit at the cursor (slot, undo join, lints, one write, insert state, state for the next key, register, `.`); `Commit`, `LintAndFollow`, `Apply` and the pure `Linted` are its parts. |
 | `autoload/songwriter/tab/slots.vim` | Slots: where a new note's room goes (pure), the buffer's one open slot with how to close it, and `a`/`i` and the new bar's slot (`AddNote`, `AddBarSlot`). |
@@ -142,6 +143,36 @@ the single mutation primitive across strings is
 `InsertColumns(lines, offset, n, char)`: pad every line with dashes up to
 `offset`, then insert `n` copies of `char` after it, on every string, so pipes
 and notes stay vertically aligned.
+
+### Column maps
+
+Every pure edit that returns `lines` also returns `map`: where each column of
+the lines it was given is in the lines it returns, or 0 when the edit deleted
+it (`tab/colmap.vim`). Anything placed by time column outside the strings
+follows an edit through it, exactly, rather than guessing from a diff (which
+cannot tell which of the columns of a repeated riff `dd` deleted).
+
+- **A map is a list of steps**, so composing is concatenating (`Then`) and the
+  identity is `[]`: `Insert` (columns inserted after an offset), `Delete` (a
+  range removed), `Resize` (a region given a new width, each column keeping its
+  offset, clamped: an empty bar filled to five dashes, whose content is not
+  deleted), `Func` (a re-flow, looked up only when asked, so an edit nobody
+  follows costs nothing). Columns past the end follow the steps too, so text
+  after a tab's last pipe keeps its distance from it.
+- **The primitives make the steps** (`model#InsertColumns`,
+  `columns#DeleteRange`, the row insertion of `paste.vim`, `slots#AppendBar`,
+  `slots#EmptyBar`, `lint#Lint`); everything else composes the maps of what it
+  calls. Splicing one string (`Splice`, `Blank`, a note rewritten by
+  `SetNote`, a short line padded) moves no time column, so it adds no step.
+- **Lint's map shares the cursor's rule.** A time column goes where its notes
+  went, a pipe of the top string where that pipe went, any other column of a
+  bar as `FollowColumn` moves the cursor there (the same distance from the
+  nearest note starting at or before it, clamped before the next one and
+  inside the bar: `s:in_bar`, used by both); a trailing empty bar lint drops
+  is deleted. The top string stands for the block's pipes, which are aligned
+  in any tab lint has seen once.
+- `carry#Lift` maps the tab to the base, and `carry#Render` the base to the
+  rendered tab, except back at the origin, which is the origin itself.
 
 ### Column insertion (`_`, `:SongwriterAddBar`)
 
@@ -792,7 +823,8 @@ Highlighting stays permissive and accepts false positives such as the word "A"
   idempotent and keeps each string's notes, the normal state never edits, an
   abandoned slot and a carried-back note leave no trace, each edit is one
   undo step and leaves the tab linted, a rewritten note leaves every note on
-  its time column. They catch the interactions between
+  its time column, and a pure edit's map puts every note it did not rewrite
+  where it now is. They catch the interactions between
   features that hand-written cases miss. The main corpus is linted, so an
   edit's own lint shows no difference; unlinted tabs go only where the
   invariant must hold for them too (lint, 4.3). Keys are typed with

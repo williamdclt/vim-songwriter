@@ -15,9 +15,9 @@
 " The base keeps as many bars as the linted tab had: a bar the note leaves
 " empty at the end stays, so that it, and an empty bar before it, are still
 " stops (3.3.4) for the note to go back to. Returns the carry: {'base': the
-" linted lines without the note, 'origin':
-" `lines`, 'text': the note, 'lin', 'pos': where it is over the base, 'lin0',
-" 'col0', 'pos0': where it started}, or {} off a note.
+" linted lines without the note, 'map': where the columns of `lines` are in
+" the base, 'origin': `lines`, 'text': the note, 'lin', 'pos': where it is
+" over the base, 'lin0', 'col0', 'pos0': where it started}, or {} off a note.
 function! songwriter#tab#carry#Lift(lines, lin, col) abort
   let l:note = songwriter#tab#model#NoteAt(a:lines[a:lin], a:col)
   if empty(l:note)
@@ -27,8 +27,10 @@ function! songwriter#tab#carry#Lift(lines, lin, col) abort
   let l:erased = songwriter#tab#columns#EraseNote(a:lines, a:lin, l:c)
   let l:lint = songwriter#tab#lint#Lint(l:erased.lines)
   let l:base = l:lint.lines
+  let l:map = songwriter#tab#colmap#Then(l:erased.map, l:lint.map)
   let l:bars = len(songwriter#tab#model#Pipes(songwriter#tab#lint#Lint(a:lines).lines[a:lin])) - 1
   while len(songwriter#tab#model#Pipes(l:base[a:lin])) - 1 < l:bars
+    let l:map = songwriter#tab#colmap#Then(l:map, songwriter#tab#colmap#Insert(len(l:base[0]), 6))
     call map(l:base, "v:val . '-----|'")
   endwhile
   if len(l:erased.lines[a:lin]) == len(a:lines[a:lin])
@@ -50,7 +52,7 @@ function! songwriter#tab#carry#Lift(lines, lin, col) abort
       let l:pos = s:emptied_bar(a:lines[a:lin], l:base[a:lin], l:c)
     endif
   endif
-  return {'base': l:base, 'origin': copy(a:lines), 'text': l:note.text,
+  return {'base': l:base, 'map': l:map, 'origin': copy(a:lines), 'text': l:note.text,
         \ 'lin': a:lin, 'pos': l:pos, 'lin0': a:lin, 'col0': l:c, 'pos0': l:pos}
 endfunction
 
@@ -81,16 +83,18 @@ endfunction
 " Spec 3.6: the tab with the note of `carry` at `pos` on line `lin`: its base
 " with room opened as `a`/`i` (3.1), an empty bar (3.3.4) or a new bar (5) would,
 " and the note written there over whatever its string had, room made for it
-" (7.5). Where the carry started, its origin, untouched. Returns {'lines',
-" 'col': the note's column}, or {} when the note cannot go there (a separator).
+" (7.5). Returns {'lines', 'col': the note's column, 'map': where the columns
+" of the base are}; where the carry started, its origin, untouched, with no
+" map ({'lines', 'col', 'origin': 1}). {} when the note cannot go there (a
+" separator).
 function! songwriter#tab#carry#Render(carry, pos, lin) abort
   if a:lin == a:carry.lin0 && s:canonical(a:carry.base, a:lin, a:pos)
         \ ==# s:canonical(a:carry.base, a:lin, a:carry.pos0)
-    return {'lines': copy(a:carry.origin), 'col': a:carry.col0}
+    return {'lines': copy(a:carry.origin), 'col': a:carry.col0, 'origin': 1}
   endif
   let l:block = songwriter#tab#model#Parse(0, a:carry.base)
   if a:pos.kind ==# 'col'
-    let l:room = {'lines': a:carry.base, 'col': a:pos.col}
+    let l:room = {'lines': a:carry.base, 'col': a:pos.col, 'map': []}
   elseif a:pos.kind ==# 'gap'
     let l:room = a:pos.side > 0
           \ ? songwriter#tab#slots#Append(l:block, a:lin, a:pos.col)
@@ -100,10 +104,15 @@ function! songwriter#tab#carry#Render(carry, pos, lin) abort
   else
     let l:room = songwriter#tab#slots#AppendBar(l:block)
   endif
-  return empty(l:room) ? {} : s:put(l:room.lines, a:lin, l:room.col, a:carry.text)
+  if empty(l:room)
+    return {}
+  endif
+  let l:put = s:put(l:room.lines, a:lin, l:room.col, a:carry.text)
+  return empty(l:put) ? {} : extend(l:put, {'map': songwriter#tab#colmap#Then(l:room.map, l:put.map)})
 endfunction
 
-" `text` written at column `col` of line `lin`, over the note there if any.
+" `text` written at column `col` of line `lin`, over the note there if any:
+" {'lines', 'col', 'map'} (columns#PutNote), or {}.
 function! s:put(lines, lin, col, text) abort
   let l:lines = copy(a:lines)
   let l:c = a:col
@@ -157,7 +166,7 @@ function! songwriter#tab#carry#Copy(lines, lin, col) abort
     return {}
   endif
   let l:pos = {'kind': 'col', 'col': l:note.col}
-  return {'base': copy(a:lines), 'origin': copy(a:lines), 'text': l:note.text,
+  return {'base': copy(a:lines), 'map': [], 'origin': copy(a:lines), 'text': l:note.text,
         \ 'lin': a:lin, 'pos': l:pos, 'lin0': a:lin, 'col0': l:note.col, 'pos0': l:pos,
         \ 'moving': 1}
 endfunction

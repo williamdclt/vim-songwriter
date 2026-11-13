@@ -29,7 +29,7 @@ function! s:insert_after_cursor(char) abort
     return
   endif
   call songwriter#tab#model#Write(l:block,
-        \ songwriter#tab#model#InsertColumns(l:block.lines, col('.'), 1, a:char))
+        \ songwriter#tab#model#InsertColumns(l:block.lines, col('.'), 1, a:char).lines)
 endfunction
 
 " Spec [Tablature][[Editing]] 1: lint the block around the cursor.

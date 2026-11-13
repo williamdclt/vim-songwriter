@@ -1,0 +1,33 @@
+" Column maps (tab/colmap.vim): where each column of a block's lines is after
+" an edit, or 0 when the edit deleted it. Pure.
+
+Execute (the identity map keeps every column):
+  AssertEqual [1, 5, 40], map([1, 5, 40], 'songwriter#tab#colmap#At([], v:val)')
+
+Execute (Insert shifts the columns after the offset):
+  let m = songwriter#tab#colmap#Insert(4, 2)
+  AssertEqual [1, 4, 7, 12], map([1, 4, 5, 10], 'songwriter#tab#colmap#At(m, v:val)')
+
+Execute (Delete maps the removed columns to 0 and shifts the next ones back):
+  let m = songwriter#tab#colmap#Delete(5, 7)
+  AssertEqual [4, 0, 0, 0, 5, 10], map([4, 5, 6, 7, 8, 13], 'songwriter#tab#colmap#At(m, v:val)')
+
+Execute (Resize keeps each column's offset in the region, clamped to its new width):
+  let m = songwriter#tab#colmap#Resize(3, 2, 5)
+  AssertEqual [2, 3, 4, 8], map([2, 3, 4, 5], 'songwriter#tab#colmap#At(m, v:val)')
+  let m = songwriter#tab#colmap#Resize(3, 5, 2)
+  AssertEqual [3, 4, 4, 4, 5], map([3, 4, 5, 7, 8], 'songwriter#tab#colmap#At(m, v:val)')
+
+Execute (Resize of an empty region is an insertion before it):
+  let m = songwriter#tab#colmap#Resize(3, 0, 5)
+  AssertEqual [2, 8, 9], map([2, 3, 4], 'songwriter#tab#colmap#At(m, v:val)')
+
+Execute (Func maps a column through a function):
+  let m = songwriter#tab#colmap#Func({c -> c == 3 ? 0 : 2 * c})
+  AssertEqual [2, 0, 10], map([1, 3, 5], 'songwriter#tab#colmap#At(m, v:val)')
+
+Execute (Then applies the first map, then the second; a deleted column stays deleted):
+  let m = songwriter#tab#colmap#Then(songwriter#tab#colmap#Insert(2, 3), songwriter#tab#colmap#Delete(4, 6))
+  AssertEqual [1, 2, 0, 5], map([1, 2, 3, 5], 'songwriter#tab#colmap#At(m, v:val)')
+  let m = songwriter#tab#colmap#Then(songwriter#tab#colmap#Delete(2, 2), songwriter#tab#colmap#Insert(0, 1))
+  AssertEqual [2, 0, 3], map([1, 2, 3], 'songwriter#tab#colmap#At(m, v:val)')

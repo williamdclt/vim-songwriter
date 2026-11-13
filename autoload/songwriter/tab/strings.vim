@@ -10,8 +10,8 @@
 " column under it (column 1), one string in direction `dir`.
 " keep_pitch 0 moves the notes unchanged (7.2), 1 shifts their frets by the
 " interval between the two strings (7.3). A chain with a note on the time column
-" that starts earlier is refused (7.4). Returns {'lines', 'lin', 'col'}
-" (the cursor follows the notes), or {'error': message} (7.4).
+" that starts earlier is refused (7.4). Returns {'lines', 'lin', 'col' (the
+" cursor follows the notes), 'map'}, or {'error': message} (7.4).
 function! songwriter#tab#strings#Move(lines, lin, col, dir, keep_pitch, column) abort
   let l:c = s:column_at(a:lines, a:lin, a:col, a:column)
   if l:c == 0
@@ -42,6 +42,7 @@ function! songwriter#tab#strings#Move(lines, lin, col, dir, keep_pitch, column) 
 
   " Clear every source first, so that the notes of a column never collide.
   let l:lines = copy(a:lines)
+  let l:map = []
   for l:m in l:movers
     let l:lines[l:m.lin] = songwriter#tab#model#Blank(l:lines[l:m.lin], {'col': l:c, 'len': l:m.len})
   endfor
@@ -51,6 +52,7 @@ function! songwriter#tab#strings#Move(lines, lin, col, dir, keep_pitch, column) 
       return l:room
     endif
     let [l:lines, l:c] = [l:room.lines, l:room.col]
+    let l:map = songwriter#tab#colmap#Then(l:map, l:room.map)
   endfor
 
   " 7.6: the cursor moves one string with the notes, on the same character of
@@ -61,7 +63,7 @@ function! songwriter#tab#strings#Move(lines, lin, col, dir, keep_pitch, column) 
   if !empty(l:cur)
     let l:col += min([a:col - s:column_at(a:lines, a:lin, a:col, 0), len(l:cur[0].text) - 1])
   endif
-  return {'lines': l:lines, 'lin': l:lin, 'col': l:col}
+  return {'lines': l:lines, 'lin': l:lin, 'col': l:col, 'map': l:map}
 endfunction
 
 " True when a note of `line` inside `chain` starts on column `c`.
