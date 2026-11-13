@@ -46,11 +46,11 @@ Execute (12.5 sound off: the steps are kept, no file is written):
   AssertEqual [[{'lin': 0, 'midi': 64}]], songwriter#sound#Last()
   Assert !isdirectory(g:songwriter_sound_cache)
 
-Execute (12.2 the start time of each note: a half beat per step, strummed up):
-  AssertEqual [[0, 0, 64], [1, 80, 59], [1, 250, 60]],
+Execute (12.2 the start time of each note: a beat per step, strummed up):
+  AssertEqual [[0, 0, 64], [1, 80, 59], [1, 500, 60]],
         \ songwriter#sound#Schedule([[{'lin': 0, 'midi': 64}, {'lin': 1, 'midi': 59}], [{'lin': 1, 'midi': 60}]])
   let g:songwriter_play_bpm = 60
-  AssertEqual [[0, 0, 64], [0, 500, 65]],
+  AssertEqual [[0, 0, 64], [0, 1000, 65]],
         \ songwriter#sound#Schedule([[{'lin': 0, 'midi': 64}], [{'lin': 0, 'midi': 65}]])
 
 Execute (12.2 g:songwriter_strum_ms is the delay between the notes of a column):

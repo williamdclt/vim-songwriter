@@ -713,11 +713,12 @@ changes.
   rather than 3 s); Vim 8.2 and Neovim use the legacy loop. A test checks
   both give the same bytes.
 - **Timing with timers, mixing by the OS.** Each note is its own player job,
-  started by a timer at its step (a half beat at `g:songwriter_play_bpm`) plus
+  started by a timer at its step (a beat at `g:songwriter_play_bpm`) plus
   a strum delay per string (80 ms by default, so each note of a chord is
   heard distinctly), so no mixing code is needed. The strum does not push
-  the next column back: steps stay evenly spaced, and a wide chord's last
-  notes may overlap the next column. A note stops the
+  the next column back: steps stay evenly spaced, and at fast tempos a wide
+  chord's last notes may overlap the next column (a six-string strum takes
+  400 ms of a 500 ms beat at 120 bpm). A note stops the
   previous job on its string (a string sounds one note at a time), and a new
   play stops everything first. Spacing is not read as rhythm: it is only a
   loose indication (spec 6), so every column gets the same length.
