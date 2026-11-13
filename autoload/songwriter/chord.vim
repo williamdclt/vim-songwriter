@@ -223,27 +223,39 @@ endfunction
 " === Naming the chord of some pitches ===
 
 " Spec [Tablature][[Editing]] 13.2: the qualities a chord is named with, in
-" order, each with the intervals (semitones above the root, octaves aside) it
-" needs and, for `omit`, its fifth may be left out.
+" order, each with its intervals (semitones above the root, octaves aside) and
+" those that may be left out (`opt`). `rare` ones are tried only when no
+" other fits.
 let s:named = [
-      \ {'q': '', 'iv': [0, 4, 7], 'omit': 1}, {'q': 'm', 'iv': [0, 3, 7], 'omit': 1},
-      \ {'q': '5', 'iv': [0, 7], 'omit': 0}, {'q': '6', 'iv': [0, 4, 7, 9], 'omit': 0},
-      \ {'q': 'm6', 'iv': [0, 3, 7, 9], 'omit': 0}, {'q': '7', 'iv': [0, 4, 7, 10], 'omit': 1},
-      \ {'q': 'maj7', 'iv': [0, 4, 7, 11], 'omit': 1}, {'q': 'm7', 'iv': [0, 3, 7, 10], 'omit': 1},
-      \ {'q': 'mmaj7', 'iv': [0, 3, 7, 11], 'omit': 1}, {'q': '9', 'iv': [0, 2, 4, 7, 10], 'omit': 1},
-      \ {'q': 'maj9', 'iv': [0, 2, 4, 7, 11], 'omit': 1}, {'q': 'm9', 'iv': [0, 2, 3, 7, 10], 'omit': 1},
-      \ {'q': 'add9', 'iv': [0, 2, 4, 7], 'omit': 1}, {'q': 'madd9', 'iv': [0, 2, 3, 7], 'omit': 1},
-      \ {'q': 'sus2', 'iv': [0, 2, 7], 'omit': 0}, {'q': 'sus4', 'iv': [0, 5, 7], 'omit': 0},
-      \ {'q': '7sus4', 'iv': [0, 5, 7, 10], 'omit': 0}, {'q': 'dim', 'iv': [0, 3, 6], 'omit': 0},
-      \ {'q': 'dim7', 'iv': [0, 3, 6, 9], 'omit': 0}, {'q': 'aug', 'iv': [0, 4, 8], 'omit': 0},
-      \ {'q': 'm7b5', 'iv': [0, 3, 6, 10], 'omit': 0},
+      \ {'q': '', 'iv': [0, 4, 7], 'opt': [7]}, {'q': 'm', 'iv': [0, 3, 7], 'opt': [7]},
+      \ {'q': '5', 'iv': [0, 7], 'opt': []}, {'q': '6', 'iv': [0, 4, 7, 9], 'opt': []},
+      \ {'q': 'm6', 'iv': [0, 3, 7, 9], 'opt': []}, {'q': '7', 'iv': [0, 4, 7, 10], 'opt': [7]},
+      \ {'q': 'maj7', 'iv': [0, 4, 7, 11], 'opt': [7]}, {'q': 'm7', 'iv': [0, 3, 7, 10], 'opt': [7]},
+      \ {'q': 'mmaj7', 'iv': [0, 3, 7, 11], 'opt': [7]}, {'q': '9', 'iv': [0, 2, 4, 7, 10], 'opt': [7]},
+      \ {'q': 'maj9', 'iv': [0, 2, 4, 7, 11], 'opt': [7]}, {'q': 'm9', 'iv': [0, 2, 3, 7, 10], 'opt': [7]},
+      \ {'q': 'add9', 'iv': [0, 2, 4, 7], 'opt': [7]}, {'q': 'madd9', 'iv': [0, 2, 3, 7], 'opt': [7]},
+      \ {'q': 'sus2', 'iv': [0, 2, 7], 'opt': []}, {'q': 'sus4', 'iv': [0, 5, 7], 'opt': []},
+      \ {'q': '7sus4', 'iv': [0, 5, 7, 10], 'opt': []}, {'q': 'dim', 'iv': [0, 3, 6], 'opt': []},
+      \ {'q': 'dim7', 'iv': [0, 3, 6, 9], 'opt': []}, {'q': 'aug', 'iv': [0, 4, 8], 'opt': []},
+      \ {'q': 'm7b5', 'iv': [0, 3, 6, 10], 'opt': []},
+      \ ]
+let s:rare = [
+      \ {'q': 'addb9', 'iv': [0, 1, 4, 7], 'opt': [7]}, {'q': 'maddb9', 'iv': [0, 1, 3, 7], 'opt': [7]},
+      \ {'q': '13', 'iv': [0, 2, 4, 7, 9, 10], 'opt': [2, 7]},
       \ ]
 
 " Spec [Tablature][[Editing]] 13.2, 13.3: every chord the MIDI pitches
 " `midis` can be, the one rooted on the bass (the lowest pitch) first, then by
-" root going up from the bass, then in the order of s:named. A chord not
-" rooted on the bass is written over it (`Am7/C`). [] when none fits.
+" root going up from the bass, then in the order of s:named; the s:rare
+" qualities only when none of those fits. A chord not rooted on the bass is
+" written over it (`Am7/C`). [] when none fits.
 function! songwriter#chord#Identify(midis) abort
+  let l:names = s:identify(a:midis, s:named)
+  return empty(l:names) ? s:identify(a:midis, s:rare) : l:names
+endfunction
+
+" The chords of `qualities` that the MIDI pitches `midis` can be, as Identify.
+function! s:identify(midis, qualities) abort
   if empty(a:midis)
     return []
   endif
@@ -253,8 +265,10 @@ function! songwriter#chord#Identify(midis) abort
   let l:names = []
   for l:root in l:roots
     let l:iv = sort(map(copy(l:pcs), '(v:val - l:root + 12) % 12'), 'n')
-    for l:chord in s:named
-      if l:iv ==# l:chord.iv || (l:chord.omit && l:iv ==# filter(copy(l:chord.iv), 'v:val != 7'))
+    for l:chord in a:qualities
+      let l:needed = filter(copy(l:chord.iv), 'index(l:chord.opt, v:val) < 0')
+      if empty(filter(copy(l:iv), 'index(l:chord.iv, v:val) < 0'))
+            \ && empty(filter(copy(l:needed), 'index(l:iv, v:val) < 0'))
         call add(l:names, s:chord_build(songwriter#pitch#Name(l:root), l:chord.q,
               \ l:root == l:bass ? '' : songwriter#pitch#Name(l:bass)))
       endif

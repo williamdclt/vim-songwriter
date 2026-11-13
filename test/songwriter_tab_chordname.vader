@@ -60,6 +60,19 @@ Execute (13.2 every quality, in its order):
     Assert !empty(songwriter#grammar#ParseChord(names[0])), names[0]
   endfor
 
+Execute (13.2 the rarer qualities, when nothing else fits):
+  AssertEqual ['D#maddb9', 'F#13/D#'], songwriter#chord#Identify([51, 58, 64, 66])
+  AssertEqual ['Caddb9'], songwriter#chord#Identify([48, 49, 52, 55])
+  AssertEqual ['C13'], songwriter#chord#Identify([48, 52, 55, 58, 62, 69])
+  AssertEqual ['C13', 'Amaddb9/C'], songwriter#chord#Identify([48, 52, 58, 69])
+  for name in ['Caddb9', 'Cmaddb9', 'C13']
+    Assert !empty(songwriter#grammar#ParseChord(name)), name
+  endfor
+
+Execute (13.2 the rarer qualities never come when another fits):
+  " C C# E is also a fifthless Caddb9.
+  AssertEqual ['C#mmaj7/C'], songwriter#chord#Identify([48, 49, 52])
+
 Execute (13.4 nothing fits):
   AssertEqual [], songwriter#chord#Identify([48, 49, 50])
 
