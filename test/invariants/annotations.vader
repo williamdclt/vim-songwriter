@@ -61,8 +61,14 @@ Execute (labels stay above their time columns through every edit, and come back 
         endif
         let g:inv_case = g:InvCase(g:inv_tab, g:inv_pos, g:inv_keys)
         let g:inv_block = songwriter#tab#model#ReadTop(1)
-        let g:inv_words = empty(g:inv_block.above) ? []
-              \ : songwriter#tab#annotations#Words(g:inv_block.above[-1])
+        " The letters only, wherever they are: a chord key also writes its
+        " chord label ([[Editing]] 10.9), on a line of its own when it does not
+        " fit among them, and the letters are never chords.
+        let g:inv_words = []
+        for g:inv_line in g:inv_block.above
+          call extend(g:inv_words, filter(songwriter#tab#annotations#Words(g:inv_line),
+                \ 'v:val.text =~# "^\\l$"'))
+        endfor
         let g:inv_kept = []
         let g:inv_prev = 0
         for g:inv_w in g:inv_words

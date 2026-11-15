@@ -324,7 +324,8 @@ function! songwriter#tab#voicings#Describe(chord, voicings, index, names) abort
 endfunction
 
 " Spec 10.1, 10.4: `=`. Read a chord name and enter it (Enter), or, on a
-" second `=`, go to the next voicing (Next). `<Esc>` or an empty name cancels.
+" second `=`, go to the next voicing or name (Next). `<Esc>` cancels; no
+" name (`=<CR>`) is entered as ''.
 " The `=` shown while waiting is cleared before the name's prompt and the
 " voicing's message, so it never stacks above them (a second line, or a
 " hit-enter prompt).
@@ -341,15 +342,23 @@ function! songwriter#tab#voicings#Prompt() abort
   endif
   if l:key ==# '='
     call songwriter#tab#voicings#Next()
-  elseif !empty(l:name)
+  elseif l:key !=# "\<Esc>"
     call songwriter#tab#voicings#Enter(l:name)
   endif
 endfunction
 
 " Spec 10.1, 10.5: enter the first voicing of `chord` rooted from the
-" cursor's string on the cursor's time column. A quality alone changes the
-" chord already there (10.7). A refusal is echoed (10.6).
+" cursor's string on the cursor's time column, and its label (10.9). A
+" quality alone changes the chord already there (10.7); no chord ('') names
+" the column instead (10.10). On an annotation line, the chord goes under the
+" label under the cursor ([[Annotations]] 10). A refusal is echoed (10.6).
 function! songwriter#tab#voicings#Enter(chord) abort
+  if songwriter#grammar#IsAnnotationLine(getline('.'))
+    return s:from_label(a:chord)
+  endif
+  if empty(a:chord)
+    return songwriter#tab#chordname#Name()
+  endif
   let l:block = songwriter#tab#model#Read()
   if empty(l:block)
     return
@@ -360,7 +369,7 @@ function! songwriter#tab#voicings#Enter(chord) abort
     if has_key(l:r, 'error')
       call songwriter#tab#edit#Error(l:r.error)
     else
-      call s:put(l:r.chord, l:r.voicings, l:r.index, 0)
+      call s:put(l:r.chord, l:r.voicings, l:r.index, 0, 1)
     endif
     return
   endif
@@ -371,7 +380,7 @@ function! songwriter#tab#voicings#Enter(chord) abort
     call songwriter#tab#edit#Error(l:voicings.error)
     return
   endif
-  call s:put(l:chord, l:voicings, 0, 0)
+  call s:put(l:chord, l:voicings, 0, 0, 1)
 endfunction
 
 " Spec 10.8: `+`, a power chord on the note under the cursor, then the major
@@ -386,38 +395,122 @@ function! songwriter#tab#voicings#Plus() abort
   if has_key(l:r, 'error')
     call songwriter#tab#edit#Error(l:r.error)
   elseif !empty(l:r)
-    call s:put(l:r.chord, l:r.voicings, l:r.index, 0)
+    call s:put(l:r.chord, l:r.voicings, l:r.index, 0, 0)
   endif
 endfunction
 
-" Spec 10.4: `==`, replace the chord just entered with its next voicing, in
-" the same undo step.
+" Spec 10.4, 10.10, [[Annotations]] 10.3: `==`, replace the chord just
+" entered with its next voicing, or the name just written with the next one,
+" in the same undo step.
 function! songwriter#tab#voicings#Next() abort
+  if songwriter#tab#chordname#Naming()
+    return songwriter#tab#chordname#NextName()
+  endif
   let l:last = songwriter#tab#state#Get('voicing')
   if empty(l:last) || l:last.line != line('.') || l:last.col != col('.')
     call songwriter#tab#edit#Error('songwriter: == follows a chord entered with =')
     return
   endif
-  call s:put(l:last.chord, l:last.voicings, (l:last.index + 1) % len(l:last.voicings), 1)
+  let l:index = (l:last.index + 1) % len(l:last.voicings)
+  if has_key(l:last, 'label')
+    call s:on_label(l:last.chord, l:last.voicings, l:index, 1, l:last.label)
+  else
+    call s:put(l:last.chord, l:last.voicings, l:index, 1, l:last.add)
+  endif
 endfunction
 
-" Place voicing `index` of `voicings` on the cursor's column, then lint (10.5).
-" It fills an open slot, joined to its undo step, as is a cycle (`join`). In
-" the insert state, the next digit opens a slot after it (EnterNote).
-function! s:put(chord, voicings, index, join) abort
-  call songwriter#tab#edit#Do(function('s:place', [a:chord, a:voicings, a:index]),
-        \ {'slot': 'fill', 'join': a:join, 'prelint': 0, 'insert': 1})
+" Spec [[Annotations]] 10.1, 10.2, 10.5: `=` on an annotation line, `name`
+" being what was typed ('' for none): the voicing lowest on the neck of the
+" chord labelled under the cursor (renamed `name`, or given the quality
+" `name`), on the time column under the label.
+function! s:from_label(name) abort
+  let l:block = songwriter#tab#model#Around(line('.'))
+  if empty(l:block)
+    return
+  endif
+  let l:vcol = virtcol('.')
+  let l:word = {}
+  for l:w in songwriter#tab#annotations#Words(getline('.'))
+    if l:w.col <= l:vcol && l:vcol < l:w.col + l:w.width
+      let l:word = l:w
+    endif
+  endfor
+  let l:parsed = empty(l:word) || l:word.span ? [] : songwriter#grammar#ParseChord(l:word.text)
+  if empty(l:parsed)
+    return songwriter#tab#edit#Error('songwriter: = on an annotation line goes on a chord name')
+  endif
+  if l:word.col >= max(songwriter#tab#model#Pipes(l:block.lines[0]))
+    return songwriter#tab#edit#Error('songwriter: this chord name is past the end of the tab')
+  endif
+  let l:chord = empty(a:name) ? l:word.text
+        \ : songwriter#tab#voicings#IsQuality(a:name) ? l:parsed[0] . a:name
+        \ : songwriter#tab#voicings#Name(a:name)
+  let l:names = songwriter#tab#model#Names(l:block.lines)
+  let l:all = songwriter#tab#voicings#Voicings(l:names, l:chord, len(l:names) - 1)
+  if type(l:all) == v:t_dict
+    return songwriter#tab#edit#Error(l:all.error)
+  endif
+  let l:first = l:all[0]
+  for l:v in l:all
+    if l:v.fret < l:first.fret
+      let l:first = l:v
+    endif
+  endfor
+  let l:voicings = songwriter#tab#voicings#Voicings(l:names, l:chord, l:first.lin)
+  let l:index = index(l:voicings, l:first)
+  let l:label = {'col': l:word.col, 'off': l:vcol - l:word.col,
+        \ 'row': l:block.start - 1 - line('.')}
+  if !empty(s:on_label(l:chord, l:voicings, l:index, 0, l:label))
+    call songwriter#tab#repeat#Record(printf('songwriter#tab#voicings#Enter(%s)', string(a:name)), 1)
+  endif
 endfunction
 
-function! s:place(chord, voicings, index, ctx) abort
+" Place voicing `index` of `voicings` under the chord label `label` ({'col',
+" 'off' (the cursor's display offset in it), 'row' (its annotation line, 0
+" right above the strings)}), as on the voicing's root string at that column,
+" unlinted, so that the labels still to fill keep their columns; then bring
+" the cursor back on the label. `==` goes on from there. Returns the written
+" block, {} for a refusal (the cursor stays).
+function! s:on_label(chord, voicings, index, join, label) abort
+  let l:pos = getcurpos()
+  let l:block = songwriter#tab#model#Around(line('.'))
+  call cursor(l:block.start + a:voicings[a:index].lin, a:label.col)
+  let l:written = s:put(a:chord, a:voicings, a:index, a:join, 1, 0)
+  if empty(l:written)
+    call setpos('.', l:pos)
+    return {}
+  endif
+  let l:col = col('.')
+  let l:lnum = l:written.start - 1 - a:label.row
+  let l:bytes = songwriter#tab#annotations#Bytes(getline(l:lnum), l:col + a:label.off, 1)
+  call cursor(l:lnum, empty(l:bytes) ? l:col : l:bytes[0])
+  let l:state = songwriter#tab#state#Get('voicing')
+  call songwriter#tab#state#Set('voicing', extend(l:state, {'line': line('.'), 'col': col('.'),
+        \ 'label': extend(copy(a:label), {'col': l:col})}))
+  return l:written
+endfunction
+
+" Place voicing `index` of `voicings` on the cursor's column, then lint (10.5),
+" with the chord's label (10.9): replacing the column's chord label, or added
+" when there is none if `add` is set. It fills an open slot, joined to its
+" undo step, as is a cycle (`join`). In the insert state, the next digit
+" opens a slot after it (EnterNote). `lint` (default 1): lint the result.
+" Returns the written block (edit#Do).
+function! s:put(chord, voicings, index, join, add, ...) abort
+  return songwriter#tab#edit#Do(function('s:place', [a:chord, a:voicings, a:index, a:add]),
+        \ {'slot': 'fill', 'join': a:join, 'prelint': 0, 'insert': 1, 'lint': a:0 ? a:1 : 1})
+endfunction
+
+function! s:place(chord, voicings, index, add, ctx) abort
   let l:result = songwriter#tab#voicings#Place(a:ctx.block.lines, a:ctx.lin, a:ctx.col, a:voicings[a:index])
   if has_key(l:result, 'error')
     return l:result
   endif
   let l:result.msg = songwriter#tab#voicings#Describe(a:chord, a:voicings, a:index,
         \ songwriter#tab#model#Names(a:ctx.block.lines))
+  let l:result.label = {'col': l:result.col, 'text': a:chord, 'add': a:add}
   let l:result.state = {'voicing': {'chord': a:chord, 'voicings': a:voicings,
-        \ 'index': a:index, 'lin': a:ctx.lin}}
+        \ 'index': a:index, 'lin': a:ctx.lin, 'add': a:add}}
   if a:ctx.insert
     let l:result.state.typing = {'chord': 1}
   endif

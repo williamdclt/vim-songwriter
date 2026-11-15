@@ -75,6 +75,7 @@ Execute (10.1 =am is A minor, named Am):
   AssertEqual 'Am', b:songwriter_voicing.chord
 
 Expect songwriter (10.1 =am is A minor, named Am):
+      Am
   e|--0--|
   B|--1--|
   G|--2--|
@@ -154,9 +155,10 @@ Given songwriter (10.1 =Am on the A string):
 Execute (10.1 =Am on the A string):
   call cursor(5, 5)
   execute "normal =Am\<CR>"
-  AssertEqual [5, 5], [line('.'), col('.')]
+  AssertEqual [6, 5], [line('.'), col('.')]
 
 Expect songwriter (10.1 =Am on the A string):
+      Am
   e|--0--|
   B|--1--|
   G|--2--|
@@ -177,6 +179,7 @@ Execute (10.1 =Am on the low E string is the barre):
   execute "normal =Am\<CR>"
 
 Expect songwriter (10.1 =Am on the low E string is the barre):
+      Am
   e|--5--|
   B|--5--|
   G|--5--|
@@ -244,9 +247,10 @@ Execute (10.4 == goes to the next voicing):
   call cursor(5, 5)
   execute "normal =A\<CR>"
   normal ==
-  AssertEqual [5, 5], [line('.'), col('.')]
+  AssertEqual [6, 5], [line('.'), col('.')]
 
 Expect songwriter (10.4 == goes to the next voicing):
+      A
   e|--5--|
   B|--5--|
   G|--6--|
@@ -270,6 +274,7 @@ Execute (10.4 == wraps around to the first voicing):
   normal ==
 
 Expect songwriter (10.4 == wraps around to the first voicing):
+      A
   e|--0--|
   B|--2--|
   G|--2--|
@@ -314,6 +319,7 @@ Execute (10.5 a chord fills the slot):
   Assert songwriter#tab#insert#Active()
 
 Expect songwriter (10.5 a chord fills the slot):
+        A5
   e|-------|
   B|-------|
   G|-------|
@@ -334,6 +340,7 @@ Execute (10.5 a digit after a chord opens the next slot):
   execute "normal a=F5\<CR>2"
 
 Expect songwriter (10.5 a digit after a chord opens the next slot):
+        F5
   e|---------|
   B|---------|
   G|---------|
@@ -394,9 +401,10 @@ Given songwriter (10.7 =M7 on an open Em):
 Execute (10.7 =M7 on an open Em):
   call cursor(2, 5)
   execute "normal =M7\<CR>"
-  AssertEqual [2, 5], [line('.'), col('.')]
+  AssertEqual [3, 5], [line('.'), col('.')]
 
 Expect songwriter (10.7 =M7 on an open Em):
+      EM7
   e|--0--|
   B|--0--|
   G|--1--|
@@ -419,6 +427,7 @@ Execute (10.7 =5 on a single note, then ==):
   normal ==
 
 Expect songwriter (10.7 =5 on a single note, then ==):
+      C5
   e|--------|
   B|--------|
   G|--------|

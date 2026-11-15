@@ -40,7 +40,7 @@ never relies on concealing or rendering.
 | `autoload/songwriter/tab/register.vim` | Blockwise tab registers and the string names of their source tab. |
 | `autoload/songwriter/tab/repeat.vim` | `.` for actions that are not operators. |
 | `autoload/songwriter/tab/voicings.vim` | Whole chords on a time column: voicings of a chord name in their cycle order, placing one (pure), and `=`/`==`. |
-| `autoload/songwriter/tab/chordname.vim` | Naming the chord on a time column (`<leader>?`): the column's pitches, named by `chord#Identify`. |
+| `autoload/songwriter/tab/chordname.vim` | Naming the chord on a time column (`<leader>?`), and writing that name as its label (`=<CR>`): the column's pitches, named by `chord#Identify`. |
 | `autoload/songwriter/tab/strings.vim` | Moving notes and time columns to another string, keeping the fret or the pitch: pure `Move()` and its entry point. |
 | `autoload/songwriter/tab/play.vim` | Playing a tab: open string pitches, the steps a target plays (pure), handed to `sound.vim`. |
 | `autoload/songwriter/sound.vim` | Plucked-string synthesis into cached WAV files, the player command, and the timers and jobs that play steps. |
@@ -231,7 +231,8 @@ part of the tab, and follow its music through every edit.
   `gp` adds notes to a column that keeps its own annotations, so it leaves
   them out.
 - **`:SongwriterTabChord` and the highlight** use the same lines: a chord
-  goes on the annotation line closest to the strings when it fits there, and
+  replaces the column's chord label, else goes on the annotation line closest
+  to the strings when it fits there, and
   the time column highlight covers the annotations, converting their display
   columns to the bytes `matchaddpos` wants. Vim 8.2 takes at most 8 positions
   per match, so the highlight is added 8 lines at a time.
@@ -756,6 +757,29 @@ voicings in their cycle order out) and `Place()`, and the entry points.
   must be rooted on that string at that fret, or `+` is refused, so the next
   `+` still finds its root under the cursor. Minor is the end: a third quality
   would have to be chosen arbitrarily, and `=` covers the rest.
+- **The name and the notes are two views of one chord.** Whatever writes a
+  chord by name (`=Am`, `=m7`) writes its label too, so they never disagree;
+  `+` builds riffs note by note, where labels would be clutter, so it only
+  keeps an existing label true. The label is a draft field (`label`, beside
+  `put`): `edit#Derive` writes it after the annotations followed the edit, so
+  it lands on the chord's column wherever the lint put it, and in the same
+  undo step. `annotations#Label` is the one way a chord name is written
+  (`=`, `+`, `=<CR>`, `:SongwriterTabChord`): it replaces the column's chord
+  label (a label starting on the column that is a chord), else places the
+  name as spec 6 says.
+- **`=<CR>` is "the other view".** With no name typed, `=` takes the chord from
+  where the cursor is: on a string, the name from the notes (`chordname.vim`,
+  `==` cycling the names `<leader>?` lists, kept in state `naming`); on a
+  label, the voicing from the name. One key both ways, and `==` always cycles
+  what was just written.
+- **From a label: lowest on the neck, unlinted.** There is no cursor string to
+  root on, so the voicing is the lowest root fret (open shapes first), and
+  `==` goes on in the 10.4 order from its string. The entry point moves the
+  cursor to that string, runs the usual `=` edit, and comes back to the label,
+  so the whole of `edit#Do` (slot, undo, state) is reused. It does not lint:
+  a progression typed over empty bars would lose the columns of the labels
+  still to fill as the bars closed up. `.` on the annotation line repeats it
+  (`repeat#Record`), so a progression is `=<CR>` then `w.` per chord.
 - **Typing on.** In the insert state a chord counts as a typed note
   (`typing.chord`): a digit after it opens the next slot even when it would
   extend the root's fret (`1` then `2` is not `12`), and separators are not
