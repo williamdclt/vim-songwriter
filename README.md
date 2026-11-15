@@ -116,8 +116,9 @@ slide.
 
 | Key                  | Action                                                  |
 |----------------------|---------------------------------------------------------|
-| `=Am<Enter>`         | Write the chord on the column, rooted on the cursor's string |
+| `=Am<Enter>`         | Write the chord on the column, rooted on the cursor's string, and its name above |
 | `==`                 | Right after: cycle to the next voicing of that chord    |
+| `=<Enter>`           | Write the name of the chord on the column above it (`==`: the next name) |
 | `=M7<Enter>`         | Change the quality of the chord on the column           |
 | `+`                  | Build a chord up from the note: power, major, minor     |
 | `<leader>?`          | Name the chord on the column (`C6 \| Am7/C`)            |
@@ -126,6 +127,9 @@ Shapes cover major, `m`, `7`, `m7`, `maj7`, `sus2` and `sus4` in standard
 tuning. Power chords (`=E5`) follow any tuning.
 `<leader>?` names any column, in any tuning, listing every chord its notes
 can be; it works outside tablature mode too.
+
+The chord's name goes on the annotation line above its column, replacing the
+name already there. `+` keeps a name that is there up to date, but adds none.
 
 ### Moving
 
@@ -212,6 +216,11 @@ From a string, in tablature mode:
 | `dia` `yia` | Delete / yank the annotation above the column                  |
 | `ia` / `aa` | The annotation word above the column (`aa`: with its spaces)   |
 | `gk` / `gj` | Up to the annotation lines at the same column, and back down   |
+
+On a chord name in an annotation line, `=<Enter>` writes that chord on the
+column under it (the shape lowest on the neck; `==` for the next one), and
+`.` repeats it. Type a progression above a tab, then fill it in with
+`=<Enter>`, `w.`, `w.`... `=Am<Enter>` there renames the chord and writes it.
 
 The other words of the line stay where they are. Annotations are plain text,
 and they follow the music while the tab is
