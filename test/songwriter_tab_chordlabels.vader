@@ -318,6 +318,16 @@ Expect songwriter (10.9 =AM7 writes the label Amaj7):
   A|--0--|
   E|-----|
 
+Execute (10.9 labels are spelled canonically):
+  for [typed, spelled] in [['AM', 'A'], ['Amaj', 'A'], ['Amin', 'Am'], ['Amin7', 'Am7'],
+        \ ['AM7', 'Amaj7'], ['Asus', 'Asus4'], ['Am', 'Am'], ['Asus2', 'Asus2'], ['A5', 'A5']]
+    %delete _
+    call setline(1, map(['e', 'B', 'G', 'D', 'A', 'E'], 'v:val . "|-----|"'))
+    call cursor(5, 5)
+    execute "normal =" . typed . "\<CR>"
+    AssertEqual '    ' . spelled, getline(1), typed
+  endfor
+
 Given songwriter (A10.1 =<CR> on a CM7 label spells it Cmaj7):
       CM7
   e|-----|

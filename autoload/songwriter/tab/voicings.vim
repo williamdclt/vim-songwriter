@@ -87,14 +87,18 @@ function! songwriter#tab#voicings#Name(chord) abort
   return toupper(a:chord[0 : 0]) . a:chord[1 :]
 endfunction
 
-" Spec 10.9: `chord` as its label and message spell it: the quality `M7` is
-" written `maj7` (`EM7` -> `Emaj7`); any other spelling is kept.
+" Spec 10.9: `chord` as its label and message spell it: its quality in the
+" canonical spelling of s:qualities, the one `<leader>?` names (`AM`, `Amaj`
+" -> `A`; `Amin7` -> `Am7`; `AM7` -> `Amaj7`; `Asus` -> `Asus4`). A quality
+" outside the table is kept.
 function! songwriter#tab#voicings#Spelled(chord) abort
   let l:parsed = songwriter#grammar#ParseChord(a:chord)
-  if empty(l:parsed) || l:parsed[1] !=# 'M7'
+  if empty(l:parsed)
     return a:chord
   endif
-  return l:parsed[0] . 'maj7' . (empty(l:parsed[2]) ? '' : '/' . l:parsed[2])
+  let l:quality = get(s:qualities, l:parsed[1], l:parsed[1])
+  return l:parsed[0] . (l:quality ==# 'maj' ? '' : l:quality)
+        \ . (empty(l:parsed[2]) ? '' : '/' . l:parsed[2])
 endfunction
 
 " Spec 10.7: true when `name` is a quality alone: not a chord itself, but a
