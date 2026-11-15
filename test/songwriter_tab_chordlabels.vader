@@ -294,6 +294,52 @@ Expect songwriter (A10.1 =<CR> on a label writes its voicing):
   A|--0--|
   E|-----|
 
+Given songwriter (10.9 =AM7 writes the label Amaj7):
+  e|-----|
+  B|-----|
+  G|-----|
+  D|-----|
+  A|-----|
+  E|-----|
+
+Execute (10.9 =AM7 writes the label Amaj7):
+  call cursor(5, 5)
+  redir => g:messages
+  silent execute "normal =AM7\<CR>"
+  redir END
+  Assert g:messages =~# 'Amaj7: root on A', g:messages
+
+Expect songwriter (10.9 =AM7 writes the label Amaj7):
+      Amaj7
+  e|--0--|
+  B|--2--|
+  G|--1--|
+  D|--2--|
+  A|--0--|
+  E|-----|
+
+Given songwriter (A10.1 =<CR> on a CM7 label spells it Cmaj7):
+      CM7
+  e|-----|
+  B|-----|
+  G|-----|
+  D|-----|
+  A|-----|
+  E|-----|
+
+Execute (A10.1 =<CR> on a CM7 label spells it Cmaj7):
+  call cursor(1, 6)
+  execute "normal =\<CR>"
+
+Expect songwriter (A10.1 =<CR> on a CM7 label spells it Cmaj7):
+      Cmaj7
+  e|--0--|
+  B|--0--|
+  G|--0--|
+  D|--2--|
+  A|--3--|
+  E|-----|
+
 Execute (A10.1 the voicing lowest on the neck):
   for [chord, frets] in [['C', ['0', '1', '0', '2', '3', '-']], ['G', ['3', '0', '0', '0', '2', '3']],
         \ ['D', ['2', '3', '2', '0', '-', '-']], ['F', ['1', '1', '2', '3', '3', '1']]]

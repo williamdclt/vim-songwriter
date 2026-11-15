@@ -404,7 +404,7 @@ Execute (10.7 =M7 on an open Em):
   AssertEqual [3, 5], [line('.'), col('.')]
 
 Expect songwriter (10.7 =M7 on an open Em):
-      EM7
+      Emaj7
   e|--0--|
   B|--0--|
   G|--1--|
