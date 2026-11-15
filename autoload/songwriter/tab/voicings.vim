@@ -87,6 +87,16 @@ function! songwriter#tab#voicings#Name(chord) abort
   return toupper(a:chord[0 : 0]) . a:chord[1 :]
 endfunction
 
+" Spec 10.9: `chord` as its label and message spell it: the quality `M7` is
+" written `maj7` (`EM7` -> `Emaj7`); any other spelling is kept.
+function! songwriter#tab#voicings#Spelled(chord) abort
+  let l:parsed = songwriter#grammar#ParseChord(a:chord)
+  if empty(l:parsed) || l:parsed[1] !=# 'M7'
+    return a:chord
+  endif
+  return l:parsed[0] . 'maj7' . (empty(l:parsed[2]) ? '' : '/' . l:parsed[2])
+endfunction
+
 " Spec 10.7: true when `name` is a quality alone: not a chord itself, but a
 " chord's quality after a root (`m7`, `M7`, `add9`; `b` is the chord B).
 function! songwriter#tab#voicings#IsQuality(name) abort
@@ -506,9 +516,10 @@ function! s:place(chord, voicings, index, add, ctx) abort
   if has_key(l:result, 'error')
     return l:result
   endif
-  let l:result.msg = songwriter#tab#voicings#Describe(a:chord, a:voicings, a:index,
+  let l:name = songwriter#tab#voicings#Spelled(a:chord)
+  let l:result.msg = songwriter#tab#voicings#Describe(l:name, a:voicings, a:index,
         \ songwriter#tab#model#Names(a:ctx.block.lines))
-  let l:result.label = {'col': l:result.col, 'text': a:chord, 'add': a:add}
+  let l:result.label = {'col': l:result.col, 'text': l:name, 'add': a:add}
   let l:result.state = {'voicing': {'chord': a:chord, 'voicings': a:voicings,
         \ 'index': a:index, 'lin': a:ctx.lin, 'add': a:add}}
   if a:ctx.insert
