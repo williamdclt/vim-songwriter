@@ -83,3 +83,21 @@ Expect songwriter:
       Am
         C
   e|--0--3--|
+
+Given (the chord is spelled canonically, other words as given):
+  e|--4--|--1--|
+  B|-----|-----|
+  G|-----|-----|
+  D|-----|-----|
+  A|-----|-----|
+  E|-----|-----|
+
+Execute (the chord is spelled canonically, other words as given):
+  for [typed, spelled] in [['CM7', 'Cmaj7'], ['Amin7', 'Am7'], ['Dsus', 'Dsus4'], ['GM', 'G'],
+        \ ['Cadd9', 'Cadd9'], ['Bdim/F', 'Bdim/F'], ['AM7/E', 'Amaj7/E']]
+    %delete _
+    call setline(1, ['e|--4--|--1--|'] + map(['B', 'G', 'D', 'A', 'E'], 'v:val . "|-----|-----|"'))
+    call cursor(1, 5)
+    call songwriter#tab#TabChord(typed)
+    AssertEqual '    ' . spelled, getline(1), typed
+  endfor
