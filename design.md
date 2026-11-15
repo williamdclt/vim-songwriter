@@ -774,7 +774,7 @@ voicings in their cycle order out) and `Place()`, and the entry points.
   that decides which voicing a spelling means also decides how it is written,
   so the two cannot drift. It is applied where the voicing is placed, not
   where the name is read, so `=M7`, `=EM7` and a `CM7` label all come out the
-  same.
+  same; `:SongwriterTabChord` spells its chord the same way.
 - **`=<CR>` is "the other view".** With no name typed, `=` takes the chord from
   where the cursor is: on a string, the name from the notes (`chordname.vim`,
   `==` cycling the names `<leader>?` lists, kept in state `naming`); on a
