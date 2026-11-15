@@ -767,12 +767,14 @@ voicings in their cycle order out) and `Place()`, and the entry points.
   (`=`, `+`, `=<CR>`, `:SongwriterTabChord`): it replaces the column's chord
   label (a label starting on the column that is a chord), else places the
   name as spec 6 says.
-- **A label is spelled as `<leader>?` would name it.** `M7` is a convenient
-  thing to type but reads as `maj7` everywhere else (the names `chord#Identify`
-  gives), so `voicings#Spelled` writes `maj7` in the label and the message. It
-  is applied where the voicing is placed, not where the name is read, so
-  `=M7`, `=EM7` and a `CM7` label all come out the same. Other spellings
-  (`min`, `sus`) are kept as typed.
+- **A label is spelled as `<leader>?` would name it.** `M7`, `min` or `sus`
+  are convenient to type, but the names `chord#Identify` gives are `maj7`,
+  `m`, `sus4`, so `voicings#Spelled` writes each quality as `s:qualities`
+  canonicalises it (`maj` dropped) in the label and the message. The table
+  that decides which voicing a spelling means also decides how it is written,
+  so the two cannot drift. It is applied where the voicing is placed, not
+  where the name is read, so `=M7`, `=EM7` and a `CM7` label all come out the
+  same.
 - **`=<CR>` is "the other view".** With no name typed, `=` takes the chord from
   where the cursor is: on a string, the name from the notes (`chordname.vim`,
   `==` cycling the names `<leader>?` lists, kept in state `naming`); on a
