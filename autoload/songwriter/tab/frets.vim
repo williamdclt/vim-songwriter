@@ -39,10 +39,14 @@ endfunction
 " the cursor on the note, and records itself for `.` (11.4). A refusal is
 " echoed.
 function! songwriter#tab#frets#Increment(n) abort
-  let l:sign = a:n < 0 ? '-' : ''
   call songwriter#tab#edit#Do(function('s:increment', [a:n]), {
         \ 'slot': 'close',
-        \ 'repeat': 'songwriter#tab#frets#Increment(' . l:sign . '%d)', 'count': abs(a:n)})
+        \ 'repeat': [function('s:by', [a:n < 0 ? -1 : 1]), [abs(a:n)], 0]})
+endfunction
+
+" Increment by `n` frets in the direction `sign`, for `.` with a count.
+function! s:by(sign, n) abort
+  call songwriter#tab#frets#Increment(a:sign * a:n)
 endfunction
 
 function! s:increment(n, ctx) abort

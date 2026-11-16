@@ -480,7 +480,7 @@ function! s:from_label(name) abort
   let l:label = {'col': l:word.col, 'off': l:vcol - l:word.col,
         \ 'row': l:block.start - 1 - line('.')}
   if !empty(s:on_label(l:chord, l:voicings, l:index, 0, l:label))
-    call songwriter#tab#repeat#Record(printf('songwriter#tab#voicings#Enter(%s)', string(a:name)), 1)
+    call songwriter#tab#repeat#Record(function('songwriter#tab#voicings#Enter'), [a:name])
   endif
 endfunction
 

@@ -266,7 +266,7 @@ function! songwriter#tab#carry#Carry(kind, dir, frets, keep_pitch) abort
   call songwriter#tab#edit#Do(function('s:step',
         \ [l:going ? l:carry : {}, empty(a:kind) ? 'note' : a:kind, a:dir, a:frets, a:keep_pitch]),
         \ {'join': l:going, 'prelint': !l:going, 'slot': 'close',
-        \ 'repeat': printf('songwriter#tab#carry#Carry(%s, %d, %d, %d)', string(a:kind), a:dir, a:frets, a:keep_pitch)})
+        \ 'repeat': [function('songwriter#tab#carry#Carry'), [a:kind, a:dir, a:frets, a:keep_pitch]]})
 endfunction
 
 " Pure. A step of `carry`, or of the notes of `kind` under the cursor of `ctx`,
@@ -313,7 +313,7 @@ endfunction
 " string that way.
 function! songwriter#tab#carry#Duplicate(dir) abort
   call songwriter#tab#edit#Do(function('s:duplicate', [a:dir]), {'slot': 'close',
-        \ 'repeat': printf('songwriter#tab#carry#Duplicate(%d)', a:dir)})
+        \ 'repeat': [function('songwriter#tab#carry#Duplicate'), [a:dir]]})
 endfunction
 
 " Pure. The copy of the note under the cursor of `ctx`, one string `dir`.

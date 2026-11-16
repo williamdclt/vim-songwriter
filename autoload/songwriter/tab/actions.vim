@@ -18,7 +18,7 @@ endfunction
 " the next note on the string). Writes what was erased to `reg` (6.7.3).
 function! songwriter#tab#actions#Erase(count, reg) abort
   call songwriter#tab#edit#Do(function('s:erase', [a:count, a:reg]), {
-        \ 'repeat': "songwriter#tab#actions#Erase(%d, '" . a:reg . "')", 'count': a:count})
+        \ 'repeat': [function('songwriter#tab#actions#Erase'), [a:count, a:reg], 0]})
 endfunction
 
 function! s:erase(count, reg, ctx) abort
@@ -67,17 +67,17 @@ endfunction
 
 " Spec 6.5 / 6.3.2: `p` (before 0) / `P` (before 1) from register `reg`.
 function! songwriter#tab#actions#Put(before, count, reg) abort
-  let l:repeat = printf("songwriter#tab#actions#Put(%d, %%d, '%s')", a:before, a:reg)
+  let l:repeat = [function('songwriter#tab#actions#Put'), [a:before, a:count, a:reg], 1]
   if getregtype(a:reg) !=# 'V'
     call songwriter#tab#edit#Do(function('s:put', [a:before, a:count, a:reg]),
-          \ {'repeat': l:repeat, 'count': a:count})
+          \ {'repeat': l:repeat})
     return
   endif
   call songwriter#tab#edit#Do({_ -> {}})
   let l:block = songwriter#tab#model#Read()
   if !empty(l:block)
     call s:put_lines(l:block, getreg(a:reg, 1, 1), a:before, a:count)
-    call songwriter#tab#repeat#Record(l:repeat, a:count)
+    call call('songwriter#tab#repeat#Record', l:repeat)
   endif
 endfunction
 
@@ -123,7 +123,7 @@ endfunction
 " Spec 6.13: `>>` (dir +1) / `<<` (dir -1), `count` times.
 function! songwriter#tab#actions#Shift(dir, count) abort
   call songwriter#tab#edit#Do(function('s:shift', [a:dir, a:count]), {
-        \ 'repeat': 'songwriter#tab#actions#Shift(' . a:dir . ', %d)', 'count': a:count})
+        \ 'repeat': [function('songwriter#tab#actions#Shift'), [a:dir, a:count], 1]})
 endfunction
 
 function! s:shift(dir, count, ctx) abort

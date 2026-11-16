@@ -186,7 +186,8 @@ endfunction
 "              bar): closing it gives back the block as it was before the
 "              edit, prelint included (slots#Mark, slots#Open).
 "   'insert':  keep the insert state when it is on (default: an edit ends it).
-"   'repeat':  a call for `.` (repeat#Record), with 'count'.
+"   'repeat':  [Fn, args] or [Fn, args, count index]: the call `.` repeats
+"              (repeat#Record).
 " Returns the written block, {} when nothing was done (off a tab line, a
 " refusal, nothing to do).
 function! songwriter#tab#edit#Do(Fn, ...) abort
@@ -334,7 +335,7 @@ endfunction
 " Follow-up: record the edit for `.`.
 function! s:record_repeat(edit, result) abort
   if has_key(a:edit.opts, 'repeat')
-    call songwriter#tab#repeat#Record(a:edit.opts.repeat, get(a:edit.opts, 'count', 1))
+    call call('songwriter#tab#repeat#Record', a:edit.opts.repeat)
   endif
 endfunction
 

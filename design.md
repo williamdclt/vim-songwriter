@@ -647,8 +647,9 @@ The spec items carry the behaviour; this records why, and how it is built.
   yank, so after `ya|` a `.` repeats the yank (native `y` is not repeatable);
   accepted rather than reimplementing redo. `x`, `p`, `P`, `>>`, `<<` are `<Cmd>`
   actions, invisible to redo: they record themselves in `b:songwriter_repeat`
-  (`repeat#Record`) with the changedtick they left, and the `.` map runs
-  them again while the buffer is unchanged since. The string moves (spec 7)
+  (`repeat#Record`: a Funcref, its arguments and which one a count
+  replaces, so nothing is quoted by hand) with the changedtick they left,
+  and the `.` map runs them again while the buffer is unchanged since. The string moves (spec 7)
   record themselves the same way.
 - **No counts in front of a command.** Digits enter notes in tablature mode
   (spec 3.4), so `3x` types a 3. Counts work after an operator (`d2ac`, `d3w`)

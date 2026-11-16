@@ -12,12 +12,3 @@ more regular, as a question for the user.
 
 The safety net for all of them is `test/songwriter_invariants_*.vader`, on top of
 the per-feature tests: run `make test` after every step.
-
-## 9. `.` records a function and its arguments
-
-**Now.** An action records itself for `.` as a printf format string
-(`'songwriter#tab#carry#Carry(%s, %d, %d, %d)'`), with the quoting done by
-hand.
-
-**Change.** Record a Funcref and its arguments (and which argument the count
-replaces); repeat#Repeat calls it.
