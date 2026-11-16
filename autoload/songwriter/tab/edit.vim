@@ -179,7 +179,7 @@ endfunction
 " 'insert' (whether the insert state is on), 'sel' (the selection, when one
 " is given)}. A refusal or an empty result still writes the first lint,
 " except for an edit that opens a slot: the lint is part of opening it (spec
-" 4.2), so with no slot nothing changes.
+" [Tablature][[Editing]] 4.2), so with no slot nothing changes.
 " `opts` (all optional):
 "   'lnum':    a line of the block to edit (default: the cursor's), when the
 "              cursor may be elsewhere.

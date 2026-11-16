@@ -1086,6 +1086,11 @@ Highlighting stays permissive and accepts false positives such as the word "A"
   `Assert*`.
 - Vader reuses one buffer across the cases of a file, so buffer state (the
   tablature-mode flag) is reset in a `Before:` block wherever keys are typed.
+- **Spec references** (`test/songwriter_spec_refs.vader`): every `spec
+  [Section][[Sub]] n.n` in a comment under `autoload/`, `plugin/`,
+  `ftplugin/` and `syntax/` must exist in specification.song.txt. A bare
+  number counts only after a qualified reference in its comment block or the
+  file's header comment; the rule is written at the top of the test.
 - Key mappings are exercised end-to-end with `normal` where the result is
   observable; `Dispatch` and `b:undo_ftplugin` have their own tests. The
   actions of the key tables are strings, so a test checks that every function
