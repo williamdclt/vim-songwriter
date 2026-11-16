@@ -747,7 +747,14 @@ while transcribing, so it has right-hand keys (`<leader>k`/`<leader>j`, with a
   (`tab/mode.vim`, its keys in `s:moving`), and it holds while the cursor is
   on a note, so it needs no bookkeeping of edits: `[`/`]`, typing a fret or
   `w` keep it, and a `CursorMoved`/`TextChanged` autocmd (`mode#Check`)
-  clears its message once the cursor is off the notes. There, `h`/`l` change the fret as a step of the run (a
+  clears its message once the cursor is off the notes. A message alone is
+  easy to miss, so the note under the cursor is also highlighted
+  (`songwriterMovingNote`, `Search` by default: a background colour in nearly
+  every color scheme), in the same window matches as the time column
+  (`tab/highlight.vim`), at a higher priority so it shows over the band;
+  `mode#Enter` refreshes them, since entering or leaving the state moves
+  nothing. The cursor's own colour is left alone: terminals do not reliably
+  let a plugin change it. There, `h`/`l` change the fret as a step of the run (a
   replaced note still comes back), unlike `[`/`]`, which are their own edit.
   Off a note, `m` is Vim's mark command. There is no exit on a lone
   `<leader>`: it would make Vim wait 'timeoutlen' after every leader key.

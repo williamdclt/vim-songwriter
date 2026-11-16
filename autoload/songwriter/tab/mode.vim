@@ -41,7 +41,7 @@ function! s:on_note() abort
 endfunction
 
 " Enter state `name`, leaving the current one first (leaving the insert state
-" closes its slot, 4.3), and show it. Entering the insert state while in it
+" closes its slot, 4.3), and show it (its message, and the highlight of 3.8.5). Entering the insert state while in it
 " records it at the buffer's current version, as Keep.
 function! songwriter#tab#mode#Enter(name) abort
   let l:from = songwriter#tab#mode#Current()
@@ -54,6 +54,7 @@ function! songwriter#tab#mode#Enter(name) abort
     let b:songwriter_mode = {'name': a:name, 'tick': b:changedtick}
   endif
   if l:from !=# a:name
+    call songwriter#tab#highlight#Update()
     call songwriter#tab#mode#Show(s:modes[a:name].msg)
   endif
 endfunction
