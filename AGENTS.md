@@ -10,6 +10,7 @@
 - Commit every time you make a successful change (tests green, enforced by the pre-commit hook), and push.
 - A PLAN.md is a scratchpad for one task in progress. Delete it once the task is done; it must never describe finished work.
 - refactors.md lists the planned architecture changes, in order. When one lands, delete its entry there and record the resulting design in design.md.
+- questions.md lists behaviours that may not be the right ones, as questions for the user. Add to it when implementation reveals one; when one is decided, delete its entry and record the outcome (spec, refactors.md or design.md).
 
 ## Architecture (see design.md for the why)
 - `autoload/songwriter/grammar.vim` is the single source of truth for the format's patterns (tab line, note, chord root...). Never write one of these regexes inline elsewhere.
