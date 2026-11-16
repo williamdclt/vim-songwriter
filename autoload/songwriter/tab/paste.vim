@@ -101,7 +101,9 @@ function! songwriter#tab#paste#PasteAt(lines, offset, rows, regnames, ...) abort
 endfunction
 
 " Insert `count` copies of `rows` after byte `offset` on every line, the
-" annotation rows `above` above each copy. Returns {'lines', 'col': the first
+" annotation rows `above` above each copy. At each edge of a copy, two chains
+" of a string never meet (columns#KeepApart): a pasted note never joins a
+" note of the tab or of the next copy. Returns {'lines', 'col': the first
 " inserted note on any string, 'map', 'annotations'}.
 function! s:insert_rows(lines, offset, rows, count, above) abort
   let l:width = len(a:rows[0])
@@ -122,15 +124,28 @@ function! s:insert_rows(lines, offset, rows, count, above) abort
       let l:first = l:p + 1
     endif
   endfor
-  return {'lines': l:out, 'col': a:offset + max([l:first, 1]),
-        \ 'map': songwriter#tab#colmap#Insert(a:offset, len(l:rows[0])), 'annotations': l:put}
+  let l:col = a:offset + max([l:first, 1])
+  let l:map = songwriter#tab#colmap#Insert(a:offset, len(l:rows[0]))
+  " Right to left, so that a dash put at an edge leaves the others where they
+  " are.
+  let l:apart = []
+  for l:k in range(max([a:count, 1]), 0, -1)
+    let l:res = songwriter#tab#columns#KeepApart(l:out, a:offset + l:k * l:width)
+    let l:out = l:res.lines
+    let l:apart = songwriter#tab#colmap#Then(l:apart, l:res.map)
+  endfor
+  call map(l:put, {_, p -> extend(p, {'col': songwriter#tab#colmap#At(l:apart, p.col)})})
+  return {'lines': l:out, 'col': songwriter#tab#colmap#At(l:apart, l:col),
+        \ 'map': songwriter#tab#colmap#Then(l:map, l:apart), 'annotations': l:put}
 endfunction
 
 " Spec 6.14: write the notes of column register `rows` onto the time column at
 " `col` of line `lin`, without adding time: the register's first note column
-" lands on that column. Rows are matched as in Paste. Returns {'lines', 'col',
-" 'msg', 'map'} (no time column moves), or {'error'} for a bar register, no
-" column there, or a note that would replace anything but dashes.
+" lands on that column. Rows are matched as in Paste. Each note is written as
+" a note on dashes is (columns#PutNote), so it never joins a note ending
+" right before it: a dash is inserted there on every string. Returns
+" {'lines', 'col', 'msg', 'map', 'written'}, or {'error'} for a bar register,
+" no column there, or a note that would replace anything but dashes.
 function! songwriter#tab#paste#Overlay(lines, lin, col, rows, regnames) abort
   if !empty(filter(copy(a:rows), "stridx(v:val, '|') >= 0"))
     return {'error': 'gp pastes a column, not a bar'}
@@ -156,16 +171,29 @@ function! songwriter#tab#paste#Overlay(lines, lin, col, rows, regnames) abort
     return {'lines': copy(a:lines), 'col': l:c, 'msg': l:m.msg, 'map': []}
   endif
   let l:qmin = min(l:starts)
-  let l:out = copy(a:lines)
-  for l:i in range(len(l:out))
+  for l:i in range(len(a:lines))
     for l:a in l:atoms[l:i]
       let l:s = l:c + l:a.col - l:qmin
-      let l:line = songwriter#tab#model#Pad(l:out[l:i], l:s + l:a.len)
+      let l:line = songwriter#tab#model#Pad(a:lines[l:i], l:s + l:a.len)
       if strpart(l:line, l:s - 1, l:a.len) !~# songwriter#grammar#OnlyDashes()
         return {'error': printf('gp would replace a note on string %s', songwriter#tab#model#Name(a:lines[l:i]))}
       endif
-      let l:out[l:i] = songwriter#tab#model#Splice(l:line, l:s, l:a.len, l:a.text)
     endfor
   endfor
-  return {'lines': l:out, 'col': l:c, 'msg': l:m.msg, 'map': []}
+  let l:out = copy(a:lines)
+  let [l:map, l:written] = [[], []]
+  for l:i in range(len(l:out))
+    for l:a in l:atoms[l:i]
+      let l:s = songwriter#tab#colmap#At(l:map, l:c + l:a.col - l:qmin)
+      let l:res = songwriter#tab#columns#PutNote(l:out, l:i, l:s, l:a.text)
+      if has_key(l:res, 'error')
+        return l:res
+      endif
+      let l:out = l:res.lines
+      let l:map = songwriter#tab#colmap#Then(l:map, l:res.map)
+      let l:written = songwriter#tab#colmap#Positions(l:written, l:res.map) + l:res.written
+    endfor
+  endfor
+  return {'lines': l:out, 'col': songwriter#tab#colmap#At(l:map, l:c), 'msg': l:m.msg, 'map': l:map,
+        \ 'written': l:written}
 endfunction

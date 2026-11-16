@@ -15,16 +15,6 @@ the per-feature tests, and check mode (design.md "Checking the rules"), which
 checks the rules of the music on every edit of every test: run `make test`
 after every step.
 
-The one weakness behind most of these: a tab is edited as raw text, and the
-rules of the music (the notes of a time column start together; two chains of
-a string never join into one; a string keeps its notes in order) are guarded
-by each primitive on its own. `columns#WriteNote` (`s:splits`, `s:in_chain`)
-and `columns#EraseNote` (`s:removable`) guard them; `columns#DeleteRange`,
-the row insertion of `paste.vim` and `paste#Overlay` do not, and lint pushes
-single notes. Every bug in the spec's [[Bugs]] is one of these gaps. Check
-mode makes a broken rule fail loudly anywhere; the entries below find more
-of them (4), then make them impossible by construction (5).
-
 ## 4. Fuzz the key tables
 
 **Now.** The invariant tests press a fixed list of keys at fixed positions.
@@ -41,48 +31,6 @@ seeds.
 **Buys.** A key added to a table is fuzzed with no new test, and bugs that
 need two features together are found by the suite rather than by use.
 
-## 5. A time-grid model: the rules of the music by construction
-
-**Now.** See the top of this file: each primitive keeps chains apart and
-time columns together on its own, and those that do not are the known bugs.
-Pure functions also re-scan raw lines (`model#Notes`, `NoteAt`, `ChainAt`
-are called on raw lines in 14 modules) and re-parse whole blocks inside
-helpers (`WriteNote` to find the next time column, `EraseSet` once per
-note), against AGENTS.md.
-
-**Change.** A tab is parsed into bars, each a list of time columns (the
-notes starting there, one per string, and the gap after the column on each
-string, separators included, at their distance from what precedes them),
-and rendered back. Rendering is the only code that writes a tab's text: it
-puts each column at its position, widening the gap before it on every
-string wherever a string would join two chains, so no edit can join or
-split them. The column map comes from the render. Edits work on the grid
-(insert, delete, rewrite a column or a note) and pure functions take and
-return parsed tabs.
-
-In steps, each with the suite green:
-
-1. Lint as parse, then render. The fixed point pushes a time column, not a
-   note, which fixes [[Bugs]] 3 (a behaviour change, already decided by the
-   spec). Lint's idempotence and note-keeping invariants are its oracle.
-2. Column deletion (`columns#DeleteRange`, `x` on a lone column) on the
-   grid: fixes [[Bugs]] 1.
-3. Pasting and overlaying (`paste.vim`) on the grid: fixes [[Bugs]] 2 and 4.
-4. `WriteNote`, the slots and the carry's render on the grid; the guards
-   (`s:splits`, `s:in_chain`, `s:removable`) go.
-
-**Open questions.** Where a separator goes when the gap it is in shrinks,
-and whether `_`, `:SongwriterAddBar` and `:SongwriterAddDashes` outside
-tablature mode (which keep an unlinted tab as it is) stay text edits. If
-step 1 shows the grid cannot keep unlinted tabs as they are where the spec
-needs it, the fallback is one guarded insertion primitive and one guarded
-removal primitive that every edit goes through, fixing the same bugs
-without the model.
-
-**Buys.** A new edit cannot break the rules of the music, rather than
-having to know which guards to call; the known bugs go with the code that
-had them.
-
 ## 8. Later: the same layer for chords over lyrics
 
 **Now.** `[Chord annotations]` (chords above lyrics) has editing features to
@@ -92,8 +40,7 @@ come, and `:SongwriterChordAbove` places a chord by hand.
 operations (`annotations#Apply`, `Render`, `Room`), whose only tie to tabs is
 where the anchors come from and how room is made. Anchor them to character
 positions of a lyric line instead (room made by spaces in the lyric, or not
-at all) to give chords over lyrics the same following and room-making. With
-the grid of 5, a tab's anchors are its time columns; a lyric line's would be
-its characters.
+at all) to give chords over lyrics the same following and room-making. A tab's
+anchors are its time columns; a lyric line's would be its characters.
 
 **Buys.** One annotation engine for both formats instead of a second one.
