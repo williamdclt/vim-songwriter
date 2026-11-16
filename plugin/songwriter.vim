@@ -7,11 +7,11 @@ endif
 let g:loaded_songwriter_plugin = 1
 
 " Spec [Tablature][[Rendering]] 4: the time column under the cursor, and
-" [[Editing]] 3.8.5: the note under the cursor in the move state (defaults that
+" [[Editing]] 3.8.5: that column in the move state (defaults that
 " a color scheme or the user can override).
 function! s:colors() abort
   highlight default link songwriterTimeColumn CursorColumn
-  highlight default link songwriterMovingNote Search
+  highlight default link songwriterMoveColumn Search
 endfunction
 call s:colors()
 augroup songwriter_colors
