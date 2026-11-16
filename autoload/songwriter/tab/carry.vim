@@ -112,9 +112,9 @@ endfunction
 " Spec 3.6.1, 7.5: the tab with the notes of `carry` where they are: its base
 " with each note (and its separators) written on its string as a note that
 " changes width is (columns#WriteNote, 11.2): in place of the note starting
-" on its time column there if any (blanked first when the carried note has
-" separators before it), or back where it was lifted with another fret, or
-" on dashes. Returns {'lines', 'map'
+" on its time column there if any (blanked first with its separators before
+" it when the carried note has some, which take their place), or back where
+" it was lifted with another fret, or on dashes. Returns {'lines', 'map'
 " (where the columns of the base went), 'lin', 'col' (the cursor), 'home' (1
 " when the notes are back where they started: the origin, untouched),
 " 'erased', 'written' (the notes it replaces and writes, check.vim)}, or
@@ -137,7 +137,9 @@ function! songwriter#tab#carry#Render(carry) abort
       if empty(l:n.pre)
         let l:old = l:there.len
       else
-        let l:lines[l:to] = songwriter#tab#model#Blank(l:lines[l:to], l:there)
+        let l:sp = songwriter#tab#model#NoteSpan(l:lines[l:to], l:there)
+        let l:lines[l:to] = songwriter#tab#model#Blank(l:lines[l:to],
+              \ {'col': l:sp.col, 'len': len(l:sp.pre . l:sp.text)})
         call add(l:erased, {'lin': l:to, 'col': l:there.col})
       endif
     elseif a:carry.dlin == 0

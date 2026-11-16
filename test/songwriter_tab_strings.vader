@@ -20,11 +20,23 @@ Execute (7.2 a two-digit note moves down; the cursor keeps its digit):
   AssertEqual ['e|------|', 'B|--12--|'], r.lines
   AssertEqual [1, 6], [r.lin, r.col]
 
-Execute (7.1 only the note moves, its separators stay):
+Execute (7.1 only the note moves, with the separator before it):
   let r = songwriter#tab#carry#Move(['G|--5h7--|', 'D|-------|'], 0, 7, 1, 0, 'note')
-  AssertEqual ['G|--5h---|', 'D|----7--|'], r.lines
+  AssertEqual ['G|--5----|', 'D|---h7--|'], r.lines
   let r = songwriter#tab#carry#Move(['G|--5h7--|', 'D|-------|'], 0, 6, 1, 0, 'note')
   AssertEqual 'no note under the cursor', r.error
+
+Execute (7.5 a carried note's separator may follow a note of its new string):
+  let r = songwriter#tab#carry#Move(['e|--5----|', 'B|--3h7--|'], 1, 7, -1, 0, 'note')
+  AssertEqual ['e|--5h7--|', 'B|--3----|'], r.lines
+
+Execute (7.5 a carried note's separator never follows another separator: a dash on every string):
+  let r = songwriter#tab#carry#Move(['e|--5~----|', 'B|--3-h7--|'], 1, 8, -1, 0, 'note')
+  AssertEqual ['e|--5~-h7--|', 'B|--3------|'], r.lines
+
+Execute (3.6.1 a carried note's separators take the place of those of the note it replaces):
+  let r = songwriter#tab#carry#Move(['e|--5/12--|', 'B|--3h7---|'], 1, 7, -1, 0, 'note')
+  AssertEqual ['e|--5h7---|', 'B|--3-----|'], r.lines
 
 Execute (7.2 other notes of the column stay, a note carried onto is replaced):
   let r = songwriter#tab#carry#Move(['e|-----|', 'B|--3--|', 'G|--5--|'], 2, 5, -1, 0, 'note')

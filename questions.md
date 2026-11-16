@@ -12,31 +12,9 @@ Ordered by importance: how many bugs a behaviour can cause, and how much it
 gets in the way of new features. Each entry says why it stands where it
 does.
 
-## 1. Separators belong to notes in several ways
+## 1. Operators lint in a command of their own
 
-**Why first.** The rules are applied in six places, and a new edit near a
-separator has to get all of them right; [[Bugs]] 6 and 8 are chains handled
-wrongly. A simpler ownership rule would shrink every one of those places.
-
-**Now.** A separator belongs to the note after it (`/5`), to the note before
-it (`7~`), or to neither when it joins two notes (`h` of `5h7`). Slots
-(3.1.3), `x` (6.7.4), carries (3.6.1), lint (1.5), `columns#WriteNote` and
-check mode each apply these rules. Two consequences:
-
-- **A narrower fret moves another note off its time column.** `10h7` ->
-  `9h7-` (11.2): the 7 moves one column left, the one exception to "every
-  note keeps its time column", which check mode needs declared specially
-  (`WriteNote`'s moved notes). Alternatives: `9-h7` (the `h` then belongs
-  to the 7, as 3.1.3 says of a separator after a dash) or `9h-7` (the
-  hammer-on unhooked).
-- **`>>` inside a chain unhooks a hammer-on.** `>>` on the 7 of `5h7` gives
-  `5h-7` (6.13). Splitting a chain is deliberate elsewhere (`a` on the 5
-  opens `5--h7`, 3.1.3), so check mode cannot treat it as a broken rule.
-  Should `>>`/`<<` inside a chain be refused, or move the whole chain?
-
-## 2. Operators lint in a command of their own
-
-**Why second.** Every operator and target goes through the joined undo step
+**Why first.** Every operator and target goes through the joined undo step
 and the re-typed count; a new operator or text object has to fit that, and
 getting the join wrong leaves two undo steps.
 
@@ -51,9 +29,9 @@ almost always linted already (leaving the insert state, entering tablature
 mode on a tab), and the operator's lint becomes a rare no-op. The rule that
 operators see a linted tab stays.
 
-## 3. `x` with a count lints between erasures
+## 2. `x` with a count lints between erasures
 
-**Why third.** Local to one function, but it is a second rule for something
+**Why second.** Local to one function, but it is a second rule for something
 `d3l` already does, and it needed the most special handling in check mode.
 
 **Now.** `3x` erases a note, lints, then erases the next one
@@ -67,9 +45,9 @@ register for each note depended on the order of the erasures, until
 **Alternative.** `3x` is `d3l`: one rule, one function, and `colmap#Before`
 goes.
 
-## 4. `gp` can add time
+## 3. `gp` can add time
 
-**Why fourth.** A spec decision with no bug risk either way: the code is the
+**Why third.** A spec decision with no bug risk either way: the code is the
 same, only the outcome differs.
 
 **Now.** Spec 6.14 says `gp` writes a column register "without adding
@@ -82,7 +60,14 @@ time is added.
 keeping the promise of 6.14. The dash was chosen to match carries and
 chords.
 
-## 5. Smaller oddities
+## 4. Smaller oddities
+
+- **Column ranges leave a note's separators behind.** A separator belongs
+  to a note and goes where it goes (spec [Tablature]), but `ac`, `dd` and
+  the other column ranges are time columns, from the column's first fret to
+  the next column: `dac` on the 7 of `5h7--9` gives `5h-9`, the `h` passing
+  to the 5. Should a column range start at the separators of its notes
+  (refused, or shrunk, where another string has a note under them)?
 
 - **`cap` on several tabs is several edits.** An edit touches one block, so
   each tab is cleared in an edit of its own, joined into one undo step by

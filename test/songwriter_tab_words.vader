@@ -254,14 +254,14 @@ Execute (6.2.2 de erases the rest of the word):
 Expect songwriter:
   e|--9--|
 
-Given songwriter (6.2.2 db inside a word erases its part before the cursor):
+Given songwriter (6.2.2 db inside a word erases its part before the cursor, the separator of the note under it kept):
   e|--5h7--|
 
-Execute (6.2.2 db inside a word erases its part before the cursor):
+Execute (6.2.2 db inside a word erases its part before the cursor, the separator of the note under it kept):
   call cursor(1, 7)
   normal db
 Expect songwriter:
-  e|--7--|
+  e|--h7--|
 
 Given songwriter (6.2.2 yw yanks what dw would delete, buffer unchanged):
   e|--5h7--9--|

@@ -75,18 +75,45 @@ function! songwriter#tab#model#ChainAt(line, col) abort
   return {}
 endfunction
 
-" Spec [Tablature][[Editing]] 3.1.3: `note` (as Notes gives it) of `line` with
-" the separators that belong to it: those of its chain with no note beyond
-" them, before it when it is the chain's first note ('pre'), after it when it
-" is its last ('post'). {'col' (where 'pre' starts), 'pre', 'text', 'post'}.
+" Spec [Tablature]: the notes of a tab line, left to right, each with the
+" separators that belong to it: those of its chain between it and the previous
+" note (or the chain's start) ('pre'), and, for the chain's last note, those
+" after it ('post'). {'col' (where 'pre' starts), 'pre', 'text', 'post'}.
+function! songwriter#tab#model#Spans(line) abort
+  return s:spans(a:line, songwriter#tab#model#BodyOffset())
+endfunction
+
+" Spans of a row (a bar region, with no string name), as Spans().
+function! songwriter#tab#model#RowSpans(row) abort
+  return s:spans(a:row, 0)
+endfunction
+
+function! s:spans(text, start) abort
+  let l:res = []
+  for l:ch in s:matches(a:text, songwriter#grammar#Chain(), a:start)
+    let l:notes = s:matches(l:ch.text, songwriter#grammar#Note(), 0)
+    let l:from = 0
+    for l:k in range(len(l:notes))
+      let l:n = l:notes[l:k]
+      let l:end = l:n.col - 1 + l:n.len
+      call add(l:res, {'col': l:ch.col + l:from,
+            \ 'pre': strpart(l:ch.text, l:from, l:n.col - 1 - l:from), 'text': l:n.text,
+            \ 'post': l:k == len(l:notes) - 1 ? strpart(l:ch.text, l:end) : ''})
+      let l:from = l:end
+    endfor
+  endfor
+  return l:res
+endfunction
+
+" `note` (as Notes gives it) of `line` with the separators that belong to it
+" (Spans).
 function! songwriter#tab#model#NoteSpan(line, note) abort
-  let l:chain = songwriter#tab#model#ChainAt(a:line, a:note.col)
-  let l:notes = filter(songwriter#tab#model#Notes(a:line),
-        \ {_, n -> n.col >= l:chain.col && n.col < l:chain.col + l:chain.len})
-  let l:pre = l:notes[0].col == a:note.col ? strpart(a:line, l:chain.col - 1, a:note.col - l:chain.col) : ''
-  let l:end = a:note.col + a:note.len
-  let l:post = l:notes[-1].col == a:note.col ? strpart(a:line, l:end - 1, l:chain.col + l:chain.len - l:end) : ''
-  return {'col': a:note.col - len(l:pre), 'pre': l:pre, 'text': a:note.text, 'post': l:post}
+  for l:sp in songwriter#tab#model#Spans(a:line)
+    if l:sp.col + len(l:sp.pre) == a:note.col
+      return l:sp
+    endif
+  endfor
+  return {}
 endfunction
 
 " Words of a tab line (spec [Tablature][[Editing]] 3.2): its chains holding at

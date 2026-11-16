@@ -225,11 +225,20 @@ their content is the one recorded, which no buffer tick says.
   Decoration around a note (`(5)`, `<12>`) is separators too, which belong to
   the note (`model#NoteSpan`, 3.1.3), so erasing or carrying the 5 takes them
   with it; digits that are not frets (`7b1/2`) read as notes.
-- **The separators of a note.** A separator with no note beyond it in its
-  chain belongs to the note at that end (`7~`, `/5`); one joining two notes
-  belongs to neither. `model#NoteSpan` is the one definition, used by the
-  slots (a slot goes past them, 3.1.3), carries (they go with the note) and
-  `x` (they go with the note, 6.7.4).
+- **The separators of a note.** Every separator belongs to one note: the next
+  one of its chain, or, with none after it, the previous one (`/5` and the
+  `h` of `5h7` belong to the note after them, the `~` of `7~` to the 7). The
+  next note is the default because a technique between two notes (`h`, `/`,
+  `b`) says how the second one is played, and because it gives one rule
+  everywhere: a note's separators go wherever it goes, and are never left
+  between two notes that belong to neither, which every edit near a
+  separator had to treat as a case of its own. `model#Spans` is the one
+  definition (`NoteSpan` for one note), used by the linter (a pushed note
+  takes them, 1.5), the slots (a slot goes past them and keeps a dash from
+  those of the next note, 3.1.3), carries and `x` (they go with the note,
+  6.7.4), `>>`/`<<` (the dash goes before them, 6.13) and `WriteNote` (a
+  narrower fret leaves its dashes after them, 11.2). Column ranges (`ac`,
+  `dd`) are time columns and do not take the separators of their notes.
 - **Bar**: the region between two pipes. On a line, the bar around column `c` is
   bounded by the nearest pipes strictly left and right of `c`
   (`model#BarAt`).
@@ -454,10 +463,11 @@ strings, whose first note comes later, keep their extra leading dashes, which
 preserves the order across strings. Likewise the rightmost note sits two dashes
 before the right pipe, and shorter strings are padded so the pipes line up.
 
-**Separators are kept** (spec 1.5). They are placed alongside the notes of their
-string, keeping the same distance from what precedes them, so a pushed note
-leaves its separator behind (`5h--7`). They count for the bar's edges but not
-for overlaps between strings, since they occupy no time. Everything else in a
+**Separators are kept** (spec 1.5). A note's separators before it are part of
+its atom, written right before it wherever it goes, so a pushed note takes
+them (`5--h7`); the others (after the last note of a chain, or with no note)
+keep their distance from what precedes them. They count for the bar's edges
+but not for overlaps between strings, since they occupy no time. Everything else in a
 bar (dashes, whitespace) is re-rendered as dashes.
 
 **Empty bar** (no note on any string) becomes `|-----|`: five dashes rather
@@ -795,7 +805,8 @@ The spec items carry the behaviour; this records why, and how it is built.
   to paste: onto an existing column, no time added, refusing to replace a
   note, since silently changing music is what these operations avoid.
 - **`>>`/`<<`** nudge rhythm: a dash before the column, inserted or removed on
-  every string, so what follows moves with it. Lint keeps two dashes after a
+  every string, so what follows moves with it; on each string it goes before
+  the separators of the column's note, which stay with it (`5h7` -> `5-h7`). Lint keeps two dashes after a
   pipe, so on a bar's first column they would be undone and do nothing.
 - **Text object names.** `ic`/`ac` (column), `i|`/`a|` (bar, also
   `iW`/`aW`), `in`/`an` (note), `iw`/`aw` (word). Bare letters
@@ -857,23 +868,24 @@ one it was lifted from. `test/songwriter_invariants_frets.vader` checks over
 the corpus that the notes of each time column still start together
 afterwards.
 
-- **Narrower: the chain closes up, dashes after it.** The note keeps its
-  start; the rest of its chain follows it (`10h7` -> `9h7-`), because a dash
-  inside a chain (`9-h7`) would detach the separator from the note it belongs
-  to, and a chain is written as one unit. Its other notes move by the
-  difference, the one place where a note leaves its column; notes outside the
-  chain keep theirs (`10-7` -> `9--7`).
+- **Narrower: dashes after it and its separators.** The note keeps its start,
+  its separators after it close up with it (`10~` -> `9~-`), and every other
+  note keeps its column, those of its chain included: the `h` of `10h7`
+  belongs to the 7, so a dash inside the chain (`9-h7`) detaches nothing.
 - **Wider: the gap first, then room for everyone.** The dashes after the note
   are used while one stays before its string's next chain (that dash is what
   keeps `10` and `7` two notes) and the note covers no other string's time
   column. What is still missing is inserted on every string between the note
   and the next time column, so all that follows moves together. No dash goes
-  before a rewritten note, and a separator right after it is not pushed off,
-  since the chain must stay whole.
+  before a rewritten note, and its separators right after it are not pushed
+  off.
 - **On dashes, apart from the previous chain.** A note written where there
   was none (a carry to another string, a chord's fret) is its own chain: when
   a note ends right before its column, a dash is inserted there on every
-  string, rather than merging the two (`123`), which lint cannot undo.
+  string, rather than merging the two (`123`), which lint cannot undo. Its
+  separators before it may follow a note (`5` and `h7` give `5h7`, each
+  note keeping its own separators), not another separator (`5~h7` would give
+  the `~` to the 7).
 - **Visual `<C-A>` changes every fret selected**, so a riff is moved up the
   neck in one go, rather than Vim's first number per line, which means
   nothing in a tab. The notes change right to left: each one's room or
@@ -907,9 +919,8 @@ while transcribing, so it has right-hand keys (`<leader>k`/`<leader>j`, with a
   frets everywhere.
 - **The note, not the chain.** `s`/`S` and `<leader>k`/`<leader>j` carry one
   note, as do column carries (`sK`/`sJ` take the notes starting on the column,
-  even the second note of `5h7`). A separator goes with the note only when it
-  belongs to it (no note beyond it, the rule `a`/`i` use, 3.1.3: `7~`, `/5`);
-  one joining two notes stays. A note is replaced only when one starts on the
+  even the second note of `5h7`), with the separators that belong to it
+  (`7~`, `/5`, the `h` of `5h7` with the 7). A note is replaced only when one starts on the
   carried note's time column; anything else in the way (a separator, a wider
   fret covering the column) is no room and refuses the carry.
 - **Copies are carries.** `<leader><leader>k`/`j` are a carry whose base is the
@@ -957,9 +968,10 @@ while transcribing, so it has right-hand keys (`<leader>k`/`<leader>j`, with a
 - **Room, not overlap.** A carried note is written as any note that changes
   width (`columns#WriteNote`, see "Rewriting a note in place"): a wider one
   takes the gap or gets dashes inserted on every string, a narrower one closes
-  up its chain, and on another string it keeps apart from a note ending right
-  before it. A note it lands on is rewritten in place, keeping its chain
-  (`5h12` -> `5h7`). Rendering from the base keeps all of it undoable: the
+  up with its separators, and on another string it keeps apart from a note
+  ending right before it. A note it lands on is rewritten in place, keeping
+  its separators (`5h12` -> `5h7`), unless the carried note has separators
+  before it, which take their place. Rendering from the base keeps all of it undoable: the
   room exists only in the render.
 
 ### Chords on a column (`=`, `==`, spec [Tablature][[Editing]] 10)

@@ -87,15 +87,15 @@ Expect songwriter (6.7.4 x on a shared column turns the note and its separators 
   e|--3------7--|
   B|-----5------|
 
-Given songwriter (6.7.4 x keeps a separator joining two notes):
+Given songwriter (6.7.4 x takes the separator before the note):
   e|--5h7--|
 
-Execute (6.7.4 x keeps a separator joining two notes):
+Execute (6.7.4 x takes the separator before the note):
   call cursor(1, 7)
   normal x
 
-Expect songwriter (6.7.4 x keeps a separator joining two notes):
-  e|--5h--|
+Expect songwriter (6.7.4 x takes the separator before the note):
+  e|--5--|
 
 Given songwriter (6.7.3 xp swaps a note with the next one):
   e|--3--5--7--|
