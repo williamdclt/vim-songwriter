@@ -33,13 +33,6 @@ Execute ('continuation': a value recorded without a cursor does not hold):
   call songwriter#tab#state#Set('carry', {'n': 1})
   AssertEqual {}, songwriter#tab#state#Get('carry')
 
-Execute (Get with a lifetime: the value under that lifetime instead of its own):
-  call cursor(1, 3)
-  call songwriter#tab#state#Set('typing', {'n': 1, 'line': 1, 'col': 3})
-  call cursor(1, 6)
-  AssertEqual {}, songwriter#tab#state#Get('typing')
-  AssertEqual 1, songwriter#tab#state#Get('typing', 'change').n
-
 Execute ('on-note' (the move state): while the cursor is on a note of a tab line in tablature mode, edits included):
   call cursor(1, 5)
   call songwriter#tab#state#Set('move', {})

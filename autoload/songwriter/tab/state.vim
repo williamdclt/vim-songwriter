@@ -50,11 +50,9 @@ function! songwriter#tab#state#Set(name, value) abort
 endfunction
 
 " The value recorded under `name` while it holds, else {}. A 'read-once'
-" state is taken. `lifetime` (optional) reads it under that lifetime instead
-" of its own, for a reader that knowingly outlasts it (the undo join of
-" typing, tab/typing.vim).
-function! songwriter#tab#state#Get(name, ...) abort
-  let l:lifetime = a:0 ? a:1 : s:lifetime(a:name)
+" state is taken.
+function! songwriter#tab#state#Get(name) abort
+  let l:lifetime = s:lifetime(a:name)
   let l:value = get(b:, 'songwriter_' . a:name, {})
   if empty(l:value) || !s:holds(l:lifetime, l:value)
     return {}
