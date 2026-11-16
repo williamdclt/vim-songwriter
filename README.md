@@ -293,6 +293,8 @@ Remap the default keys through their `<Plug>` mappings:
   `$XDG_CACHE_HOME/vim-songwriter`, or `~/.cache/vim-songwriter`).
 - The `songwriterTimeColumn` highlight group (linked to `CursorColumn`) colors
   the current time column.
+- The `songwriterMovingNote` highlight group (linked to `Search`) colors the
+  note under the cursor in the move state (`m`).
 - To show `TAB INSERT` in your status line:
 
   ```vim

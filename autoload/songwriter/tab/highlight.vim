@@ -1,7 +1,9 @@
 " autoload/songwriter/tab/highlight.vim - the time column under the cursor,
 " highlighted on every string in tablature mode (spec [Tablature][[Rendering]] 4), so that it
-" is clear which notes column-wise operations act on. Highlighting only (a
-" window match on the group songwriterTimeColumn): the file is unchanged.
+" is clear which notes column-wise operations act on, and in the move state the
+" note under the cursor (spec [Tablature][[Editing]] 3.8.5), so that the state
+" shows where the eye is. Highlighting only (window matches on the groups
+" songwriterTimeColumn and songwriterMovingNote): the file is unchanged.
 
 " Pure. The positions [[lnum, col, len], ...] of the time column under the
 " cursor at column `col` of line `lin` of `block`: the column where the note
@@ -27,27 +29,40 @@ function! songwriter#tab#highlight#Positions(block, lin, col) abort
   return l:pos + map(range(len(a:block.lines)), {i, _ -> [a:block.start + i, l:c, l:width]})
 endfunction
 
-" Highlight the time column under the cursor in the current window, or
-" nothing outside tablature mode or off a tab line. Run on every cursor move,
-" so it changes the window's match only when the column does.
+" Pure. The position [[lnum, col, len]] of the note under the cursor at
+" column `col` of line `lin` of `block`, [] when it is on no note.
+function! songwriter#tab#highlight#NotePosition(block, lin, col) abort
+  let l:note = songwriter#tab#model#NoteAt(a:block.lines[a:lin], a:col)
+  return empty(l:note) ? [] : [[a:block.start + a:lin, l:note.col, len(l:note.text)]]
+endfunction
+
+" Highlight the time column under the cursor in the current window and, in the
+" move state (spec [Tablature][[Editing]] 3.8.5), the note under the cursor
+" over it; nothing outside tablature mode or off a tab line. Run on every
+" cursor move and change of state, so it changes the window's matches only
+" when what they cover does.
 function! songwriter#tab#highlight#Update() abort
-  let l:pos = []
+  let l:pos = {'column': [], 'note': []}
   if songwriter#keys#InTabMode()
     let l:c = songwriter#tab#model#Cursor()
     if !empty(l:c)
-      let l:pos = songwriter#tab#highlight#Positions(l:c.block, l:c.lin, l:c.col)
+      let l:pos.column = songwriter#tab#highlight#Positions(l:c.block, l:c.lin, l:c.col)
+      if songwriter#tab#mode#Current() ==# 'move'
+        let l:pos.note = songwriter#tab#highlight#NotePosition(l:c.block, l:c.lin, l:c.col)
+      endif
     endif
   endif
-  if l:pos ==# get(w:, 'songwriter_column_pos', [])
+  if l:pos ==# get(w:, 'songwriter_column_pos', {'column': [], 'note': []})
     return
   endif
   call songwriter#tab#highlight#Clear()
-  if !empty(l:pos)
-    " Vim 8.2 takes at most 8 positions per match.
-    let w:songwriter_column_match = map(range(0, len(l:pos) - 1, 8),
-          \ {_, i -> matchaddpos('songwriterTimeColumn', l:pos[i : i + 7])})
-    let w:songwriter_column_pos = l:pos
+  " Vim 8.2 takes at most 8 positions per match.
+  let w:songwriter_column_match = map(range(0, len(l:pos.column) - 1, 8),
+        \ {_, i -> matchaddpos('songwriterTimeColumn', l:pos.column[i : i + 7])})
+  if !empty(l:pos.note)
+    call add(w:songwriter_column_match, matchaddpos('songwriterMovingNote', l:pos.note, 11))
   endif
+  let w:songwriter_column_pos = l:pos
 endfunction
 
 " Remove the highlight from the current window.
