@@ -8,9 +8,34 @@ now, where it shows in the code, and the alternatives. When one is decided,
 delete its entry: a change goes to the spec (and refactors.md if it needs
 one), a "keep it" to design.md, with the reason.
 
-Roughly ordered by how much a change would simplify.
+Ordered by importance: how many bugs a behaviour can cause, and how much it
+gets in the way of new features. Each entry says why it stands where it
+does.
 
-## 1. Abandoned slots remove themselves with `:undo`
+## 1. Tabs that are not linted have no time columns
+
+**Why first.** It touches every edit: each one assumes columns are time, and
+on an unlinted tab nothing guarantees it. Check mode cannot see what goes
+wrong there, so bugs hide, and every new edit inherits the problem.
+
+**Now.** Columns stand for time only once the pipes are aligned, but every
+edit maps columns as if they did. Lint's column map follows the top
+string's pipes, wrong for the other strings of a misaligned tab; check mode
+can only check each string's notes in order there (`check.vim`
+`s:music_kept`); the fuzzer classifies any check failure on a tab that
+started unlinted as known. [[Bugs]] 6 (an edit acting beside the note under
+the cursor) is the same problem.
+
+**Alternative.** The first tablature-mode edit on an unlinted tab only lints
+it, as an undo step of its own, and the key is pressed again. Edits then
+only ever see linted tabs. Loses doing it in one keystroke on a messy tab.
+
+## 2. Abandoned slots remove themselves with `:undo`
+
+**Why second.** Any feature that opens a slot has to go through this
+machinery (mark, revert, keep the lint), and it depends on Vim's undo tree
+behaving as expected in macros, `:normal` and after `u`, which is hard to
+test and has already broken once.
 
 **Now.** Spec [Tablature][[Editing]] 4.3: an abandoned slot leaves no trace
 and no undo step. The slot is written to the buffer, then removed with
@@ -27,21 +52,11 @@ insert the dashes only when a digit is typed. `slots#Mark`, `s:revert`,
 properties or extmarks, and a cursor standing on a column that does not
 exist yet.
 
-## 2. Tabs that are not linted have no time columns
-
-**Now.** Columns stand for time only once the pipes are aligned, but every
-edit maps columns as if they did. Lint's column map follows the top
-string's pipes, wrong for the other strings of a misaligned tab; check mode
-can only check each string's notes in order there (`check.vim`
-`s:music_kept`); the fuzzer classifies any check failure on a tab that
-started unlinted as known. [[Bugs]] 6 (an edit acting beside the note under
-the cursor) is the same problem.
-
-**Alternative.** The first tablature-mode edit on an unlinted tab only lints
-it, as an undo step of its own, and the key is pressed again. Edits then
-only ever see linted tabs. Loses doing it in one keystroke on a messy tab.
-
 ## 3. Separators belong to notes in several ways
+
+**Why third.** The rules are applied in six places, and a new edit near a
+separator has to get all of them right; [[Bugs]] 7 and 9 are chains handled
+wrongly. A simpler ownership rule would shrink every one of those places.
 
 **Now.** A separator belongs to the note after it (`/5`), to the note before
 it (`7~`), or to neither when it joins two notes (`h` of `5h7`). Slots
@@ -59,19 +74,27 @@ check mode each apply these rules. Two consequences:
   opens `5--h7`, 3.1.3), so check mode cannot treat it as a broken rule.
   Should `>>`/`<<` inside a chain be refused, or move the whole chain?
 
-## 4. `gp` can add time
+## 4. Operators lint in a command of their own
 
-**Now.** Spec 6.14 says `gp` writes a column register "without adding
-time". To stop it joining a note to the one before it (`12` and `4` giving
-`124`), it writes each note as a carry does (`columns#PutNote`), which
-inserts a dash on every string when a note would touch the one before it:
-time is added.
+**Why fourth.** Every operator and target goes through the joined undo step
+and the re-typed count; a new operator or text object has to fit that, and
+getting the join wrong leaves two undo steps.
 
-**Alternative.** Refuse instead (`gp would join a note on string e`),
-keeping the promise of 6.14. The dash was chosen to match carries and
-chords.
+**Now.** Operators work on a linted tab (decided: a motion must never reach
+differently because the tab was not linted). The lint is a separate `<Cmd>`
+before `g@` (`operator#Start`, `Prelint`), whose undo step the operation
+joins through the changedtick, and which consumes the count, typed again
+after `g@` (`g@3w`).
+
+**Alternative.** Lint at other moments so that a tab being worked on is
+almost always linted already (leaving the insert state, entering tablature
+mode on a tab), and the operator's lint becomes a rare no-op. The rule that
+operators see a linted tab stays.
 
 ## 5. `x` with a count lints between erasures
+
+**Why fifth.** Local to one function, but it is a second rule for something
+`d3l` already does, and it needed the most special handling in check mode.
 
 **Now.** `3x` erases a note, lints, then erases the next one
 (`actions.vim` `s:erase`), while `d3l` erases them all and lints once
@@ -84,18 +107,20 @@ register for each note depended on the order of the erasures, until
 **Alternative.** `3x` is `d3l`: one rule, one function, and `colmap#Before`
 goes.
 
-## 6. Operators lint in a command of their own
+## 6. `gp` can add time
 
-**Now.** Operators work on a linted tab (decided: a motion must never reach
-differently because the tab was not linted). The lint is a separate `<Cmd>`
-before `g@` (`operator#Start`, `Prelint`), whose undo step the operation
-joins through the changedtick, and which consumes the count, typed again
-after `g@` (`g@3w`).
+**Why sixth.** A spec decision with no bug risk either way: the code is the
+same, only the outcome differs.
 
-**Alternative.** Lint at other moments so that a tab being worked on is
-almost always linted already (leaving the insert state, entering tablature
-mode on a tab), and the operator's lint becomes a rare no-op. The rule that
-operators see a linted tab stays.
+**Now.** Spec 6.14 says `gp` writes a column register "without adding
+time". To stop it joining a note to the one before it (`12` and `4` giving
+`124`), it writes each note as a carry does (`columns#PutNote`), which
+inserts a dash on every string when a note would touch the one before it:
+time is added.
+
+**Alternative.** Refuse instead (`gp would join a note on string e`),
+keeping the promise of 6.14. The dash was chosen to match carries and
+chords.
 
 ## 7. Smaller oddities
 
