@@ -14,7 +14,7 @@ Execute (changing a note's fret keeps every note on its time column):
     for g:inv_pos in g:InvNotePositions(g:inv_tab.lines)
       for g:inv_keys in ["\<C-A>", "\<C-X>", '1', '12']
         call g:InvLoad(g:inv_tab.lines, g:inv_pos)
-        silent! call feedkeys(g:inv_keys, 'xt')
+        call InvType(g:inv_keys)
         if g:InvColumnIndexes(g:InvTab()) !=# g:InvColumnIndexes(g:inv_tab.lines)
           call add(g:inv_failures, g:InvCase(g:inv_tab, g:inv_pos, g:inv_keys))
         endif

@@ -37,6 +37,30 @@ function! songwriter#tab#colmap#Then(a, b) abort
   return a:a + a:b
 endfunction
 
+"` positions` ({'lin', 'col'}, the notes an edit erased or wrote, check.vim)
+" taken through `map`, those whose column it deletes dropped.
+function! songwriter#tab#colmap#Positions(positions, map) abort
+  let l:res = []
+  for l:p in a:positions
+    let l:c = songwriter#tab#colmap#At(a:map, l:p.col)
+    if l:c > 0
+      call add(l:res, extend(copy(l:p), {'col': l:c}))
+    endif
+  endfor
+  return l:res
+endfunction
+
+" The column of lines `width` bytes wide that `map` takes to column `col`
+" (the first one, when several go there), or 0 when none does.
+function! songwriter#tab#colmap#Before(map, col, width) abort
+  for l:c in range(1, a:width)
+    if songwriter#tab#colmap#At(a:map, l:c) == a:col
+      return l:c
+    endif
+  endfor
+  return 0
+endfunction
+
 " Where column `col` goes through `map`, or 0 when it is deleted.
 function! songwriter#tab#colmap#At(map, col) abort
   let l:c = a:col

@@ -10,7 +10,7 @@ Execute (edits that only move time keep every string's music):
     for g:inv_pos in g:InvNotePositions(g:inv_tab.lines)
       for g:inv_keys in ['>>', '<<', "all\<Esc>", "ahh\<Esc>", "ihhh\<Esc>"]
         call g:InvLoad(g:inv_tab.lines, g:inv_pos)
-        silent! call feedkeys(g:inv_keys, 'xt')
+        call InvType(g:inv_keys)
         if g:InvMusic(g:InvTab()) !=# g:InvMusic(g:inv_tab.lines)
           call add(g:inv_failures, g:InvCase(g:inv_tab, g:inv_pos, g:inv_keys))
         endif

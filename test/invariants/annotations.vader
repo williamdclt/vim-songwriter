@@ -58,7 +58,7 @@ Execute (labels stay above their time columns through every edit, and come back 
       for g:inv_keys in g:inv_keyset
         call g:InvLoad(g:inv_buffer, [g:inv_pos[0] + 1, g:inv_pos[1]])
         let g:inv_tick = b:changedtick
-        silent! call feedkeys(g:inv_keys, 'xt')
+        call InvType(g:inv_keys)
         if b:changedtick == g:inv_tick
           continue
         endif
@@ -92,7 +92,7 @@ Execute (labels stay above their time columns through every edit, and come back 
             endif
           endfor
         endif
-        silent! call feedkeys("\<Esc>u", 'xt')
+        call InvType("\<Esc>u")
         if getline(1, '$') !=# g:inv_buffer
           call add(g:inv_failures, 'undo: ' . g:inv_case)
         endif

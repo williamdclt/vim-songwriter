@@ -31,6 +31,7 @@ function! s:erase(count, reg, ctx) abort
   let l:above = a:ctx.block.above
   let l:words = []
   let l:lone = 0
+  let l:erased = []
   for l:i in range(max([a:count, 1]))
     if l:i > 0 && empty(songwriter#tab#model#NoteAt(l:lines[a:ctx.lin], l:col))
       let l:next = filter(map(songwriter#tab#model#Notes(l:lines[a:ctx.lin]), 'v:val.col'), 'v:val > l:col')
@@ -43,6 +44,8 @@ function! s:erase(count, reg, ctx) abort
     if empty(l:res)
       break
     endif
+    let l:erased += [{'lin': a:ctx.lin, 'col': songwriter#tab#colmap#Before(l:map, l:res.col,
+          \ len(a:ctx.block.lines[a:ctx.lin]))}]
     let l:lone = len(l:res.lines[a:ctx.lin]) < len(l:lines[a:ctx.lin])
     let l:width = empty(l:rows) ? 0 : len(l:rows[0])
     for l:w in songwriter#tab#annotations#Cut(l:above, l:res.map)
@@ -60,7 +63,8 @@ function! s:erase(count, reg, ctx) abort
     return {}
   endif
   let l:annotations = songwriter#tab#annotations#Rows(l:words, 1)
-  return {'lines': l:lines, 'map': l:map, 'col': l:lone ? songwriter#tab#columns#NextColumn(l:lines, l:col) : l:col,
+  return {'lines': l:lines, 'map': l:map, 'erased': l:erased,
+        \ 'col': l:lone ? songwriter#tab#columns#NextColumn(l:lines, l:col) : l:col,
         \ 'register': {'name': a:reg, 'rows': l:annotations + l:rows, 'type': 'b',
         \   'names': songwriter#tab#model#Names(l:lines), 'above': len(l:annotations)}}
 endfunction

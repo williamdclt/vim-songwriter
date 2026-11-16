@@ -97,12 +97,18 @@ function! s:increment_in(ranges, n, ctx) abort
   endfor
   let l:lines = l:block.lines
   let l:map = []
+  let [l:erased, l:written] = [[], []]
+  " Right to left: what a note changes is right of the notes still to come,
+  " so their columns, and those of the notes erased, are the block's.
   for [l:c, l:lin] in reverse(sort(l:targets, {a, b -> a[0] - b[0]}))
     let l:res = songwriter#tab#frets#Add(l:lines, l:lin, l:c, a:n)
     if !has_key(l:res, 'error')
       let l:lines = l:res.lines
       let l:map = songwriter#tab#colmap#Then(l:map, l:res.map)
+      let l:erased += l:res.erased
+      let l:written = songwriter#tab#colmap#Positions(l:written, l:res.map) + l:res.written
     endif
   endfor
-  return l:lines ==# l:block.lines ? {} : {'lines': l:lines, 'map': l:map}
+  return l:lines ==# l:block.lines ? {} : {'lines': l:lines, 'map': l:map,
+        \ 'erased': l:erased, 'written': l:written}
 endfunction

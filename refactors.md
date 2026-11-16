@@ -11,8 +11,9 @@ inconsistent behaviour, so an entry points out where behaviour could be made
 more regular, as a question for the user.
 
 The safety net for all of them is `test/songwriter_invariants_*.vader`, on top of
-the per-feature tests: run `make test` after every step. Entries 1 and 4 make
-that net much wider, which is why they come first.
+the per-feature tests, and check mode (design.md "Checking the rules"), which
+checks the rules of the music on every edit of every test: run `make test`
+after every step.
 
 The one weakness behind most of these: a tab is edited as raw text, and the
 rules of the music (the notes of a time column start together; two chains of
@@ -20,32 +21,9 @@ a string never join into one; a string keeps its notes in order) are guarded
 by each primitive on its own. `columns#WriteNote` (`s:splits`, `s:in_chain`)
 and `columns#EraseNote` (`s:removable`) guard them; `columns#DeleteRange`,
 the row insertion of `paste.vim` and `paste#Overlay` do not, and lint pushes
-single notes. Every bug in the spec's [[Bugs]] is one of these gaps. The
-entries below first make a broken rule fail loudly anywhere (1, 4), then make
-it impossible by construction (5).
-
-## 1. Check the rules of the music inside `edit#Do`
-
-**Now.** The invariant tests check the rules over a corpus of tabs and
-cursor positions. The ~1000 per-feature cases check only the tab they
-expect, so an edit that joins two chains on a string no case looks at goes
-unnoticed (`gp` next to a two-digit fret, [[Bugs]] 4, was found by hand).
-
-**Change.** Behind a flag set by the test setup (`g:songwriter_check`),
-`edit#Do` checks every draft it writes against the block it started from,
-through the draft's column map: every note it did not rewrite is still a
-note with the same text where the map puts it; notes that started together
-still do; no chain holds two notes that were in different chains; once
-linted, the pipes are aligned. A broken rule throws, naming the edit. The
-edits that rewrite notes (a typed digit, `]`, a carry, a chord) say which,
-so the check knows what may change. The [[Bugs]] cases stay known
-exceptions, as in the invariant tests. The lint's fixed point (200 passes)
-and `s:make_room` (100) also throw in check mode when they hit their cap,
-rather than stopping silently.
-
-**Buys.** Every existing test case checks the rules, for free, and so does
-every case written for a new feature.
-
+single notes. Every bug in the spec's [[Bugs]] is one of these gaps. Check
+mode makes a broken rule fail loudly anywhere; the entries below find more
+of them (4), then make them impossible by construction (5).
 
 ## 4. Fuzz the key tables
 
@@ -55,7 +33,7 @@ only tested when someone thinks of them.
 
 **Change.** An invariant file that walks the corpus with a seeded random
 sequence of keys drawn from the tables of `keys.vim` (every mode of
-tablature mode, the annotation lines), with the check of 1 on, and reports
+tablature mode, the annotation lines), with check mode on, and reports
 the seed and the keys of a failing sequence. The seed is fixed in `make
 test` so the suite stays deterministic; a `make fuzz` target runs more
 seeds.
@@ -123,7 +101,7 @@ register and the side of the slot to open (a result key, so `c` is one
 edit); the cursor and the register are set by `Do` only. The first lint
 moves inside the operator function, the marks of `g@` following it through
 the lint's column map, so the separate `<Cmd>`, `s:join` and the count
-re-typed after `g@` go. In check mode (1), `Do` throws on a result key or
+re-typed after `g@` go. In check mode, `Do` throws on a result key or
 option it does not know. Cursor columns are display columns everywhere (on
 a string, the same as bytes, tab lines being ASCII).
 

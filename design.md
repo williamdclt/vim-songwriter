@@ -29,6 +29,7 @@ never relies on concealing or rendering.
 | `autoload/songwriter/selection.vim` | The visual selection, for actions that change the text from visual mode and select again (`Get`, `Spans`, `Select`). |
 | `autoload/songwriter/tab/newtab.vim` | New tabs: `o`/`O` and `:SongwriterNewTab`. |
 | `autoload/songwriter/tab/state.vim` | The buffer's named states (slot, insert and move states, digit being typed, carry, `.`, visual object...) and the one table of how long each holds, which `Get` honours. |
+| `autoload/songwriter/tab/check.vim` | The rules of the music, checked on every edit in check mode (`g:songwriter_check`, set by the test suite): pure `Errors`, and `Edit`, which throws. |
 | `autoload/songwriter/tab/lint.vim` | The linter, as a pure function over a block's lines. |
 | `autoload/songwriter/tab/highlight.vim` | The time column under the cursor, highlighted in tablature mode. |
 | `autoload/songwriter/tab.vim` | The tab commands that work outside tablature mode too: `_`, `\|\|`, `:SongwriterAddBar`, `:SongwriterAddDashes`, `:SongwriterTabChord`. |
@@ -120,6 +121,25 @@ snapshot (a slot closed, 4.3) writes it as it is. A draft without a map is an
 error, thrown, so no write path can lose track of where the tab went; every
 part of a block other than its strings is kept in step in `Derive` and
 `model#Write`, and nowhere else.
+
+**Checking the rules.** Each primitive keeps the rules of the music on its
+own (a note's time column, chains kept apart), so a primitive that forgets
+one breaks the music silently. With `g:songwriter_check` set (the Makefile
+sets it for every test), `edit#Do` checks the result of every edit against
+the lines it was given, through its column map (`tab/check.vim`): every note
+it did not erase is a note with the same text where the map puts it (so
+notes that started together still do, and none was joined to another), two
+of them that were in different chains still are, and every lint leaves the
+pipes aligned; a broken rule throws, naming the edit. What an edit changes
+on purpose it says in its result: `erased` (notes of the lines it was given)
+and `written` (where the notes it writes start, in its lines; a written note
+must be a note of its own, so a note written right after another one is
+caught). Composed edits carry them: positions of later steps' input are
+mapped back with `colmap#Before`, written ones forward with
+`colmap#Positions`. A tab whose pipes are not aligned has no time columns
+yet, so of its lint only each string's notes in order are checked. The
+lint's fixed point and the room made for labels throw in check mode when
+they hit their pass cap rather than stop silently.
 
 **Refusals.** A pure function that can refuse returns a dict, with 'error'
 (a message without the plugin's name) on a refusal, whatever it returns
@@ -1125,6 +1145,9 @@ Highlighting stays permissive and accepts false positives such as the word "A"
   actions of the key tables are strings, so a test checks that every function
   they call exists (`keys#Actions`): a misspelt name fails the suite rather
   than the key.
+- **Check mode** (`g:songwriter_check`, see "Checking the rules"): every
+  test runs with it, so every case checks the rules of the music on every
+  edit it makes, not only the tab it expects.
 - **Invariants** (`test/songwriter_invariants_*.vader`) are checked over a corpus
   of tabs and every relevant cursor position rather than one example: lint is
   idempotent and keeps each string's notes, the normal state never edits, an
@@ -1137,7 +1160,8 @@ Highlighting stays permissive and accepts false positives such as the word "A"
   edit's own lint shows no difference; unlinted tabs go only where the
   invariant must hold for them too (lint, 4.3). Keys are typed with
   `feedkeys(…, 'xt')` under `silent!` (one undo step per key sequence, and
-  no hit-enter prompt reading stdin). A case that breaks an invariant
+  no hit-enter prompt reading stdin). An edit throwing in check mode is
+  recorded as a failure of its case (`InvType`). A case that breaks an invariant
   because of a bug in the spec's [[Bugs]] is listed as a known exception,
   which must keep failing: fixing the bug means removing it from the list.
   Positions are limited to note starts and the dash after each note, and

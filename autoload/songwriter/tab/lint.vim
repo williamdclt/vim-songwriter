@@ -182,6 +182,9 @@ function! s:relax_bar(atoms, mincol) abort
       break
     endif
   endwhile
+  if l:changed
+    call songwriter#tab#check#Cap('lint', 200)
+  endif
   return l:work
 endfunction
 

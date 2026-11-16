@@ -109,6 +109,17 @@ Execute (corpus and helpers):
     endfor
     return l:skip
   endfunction
+  " Type `keys` as the user would (see the top). An edit breaking a rule of
+  " the music throws in check mode (tab/check.vim): that is recorded as a
+  " failure of the case (g:inv_tab, g:inv_pos), 'check: ...', and the keys
+  " stop there.
+  function! InvType(keys) abort
+    try
+      silent! call feedkeys(a:keys, 'xt')
+    catch /^songwriter: check:/
+      call add(g:inv_failures, 'check: ' . g:InvCase(g:inv_tab, g:inv_pos, a:keys))
+    endtry
+  endfunction
   " The cases of g:inv_failures that are not known, and the known ones that no
   " longer fail: both must be empty.
   let g:InvUnexpected = {-> filter(copy(g:inv_failures), 'index(g:inv_known, v:val) < 0')}

@@ -247,7 +247,8 @@ Given songwriter (a tab):
 
 Execute (a draft without a map is refused: every edit says where the tab went):
   AssertThrows call songwriter#tab#edit#Do({_ -> {'lines': ['e|--3--7--|']}}, {'prelint': 0, 'lint': 0})
-  call songwriter#tab#edit#Do({_ -> {'lines': ['e|--3--7--|'], 'map': []}}, {'prelint': 0, 'lint': 0})
+  call songwriter#tab#edit#Do({_ -> {'lines': ['e|--3--7--|'], 'map': [],
+        \ 'erased': [{'lin': 0, 'col': 8}], 'written': [{'lin': 0, 'col': 8}]}}, {'prelint': 0, 'lint': 0})
 
 Expect songwriter (the draft with a map is written):
   e|--3--7--|

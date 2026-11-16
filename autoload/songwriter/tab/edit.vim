@@ -13,6 +13,10 @@
 "            it, their columns of its lines (annotations#Apply): words it
 "            brings along ('put'), the chord label it writes ('label'), all
 "            of them cleared ('clear', `cap`, 6.3.1),
+"   'erased', 'written': with 'lines', the notes the edit erases (of the
+"            lines it was given, or its base) and writes (of its lines), as
+"            {'lin', 'col'}: every other note must be where its map puts it,
+"            which check mode verifies (tab/check.vim),
 "   'col':   the cursor column,
 "   'lin':   the cursor's 0-indexed line in the block (with 'col'; default:
 "            stays),
@@ -83,6 +87,8 @@ endfunction
 " the block keeps its column.
 function! songwriter#tab#edit#Linted(lines, lin, col) abort
   let l:result = songwriter#tab#lint#Lint(a:lines)
+  call songwriter#tab#check#Edit('lint', a:lines, l:result.lines, l:result.map, [], [])
+  call songwriter#tab#check#Lint('lint', l:result.lines)
   let l:col = a:lin >= 0 && a:lin < len(a:lines)
         \ ? songwriter#tab#lint#FollowColumn(a:lines, l:result, a:lin, a:col) : a:col
   return {'lines': l:result.lines, 'col': l:col, 'map': l:result.map}
@@ -206,6 +212,7 @@ function! songwriter#tab#edit#Do(Fn, ...) abort
   if empty(l:edit)
     return {}
   endif
+  let l:edit.Fn = a:Fn
   let l:result = a:Fn(l:edit.ctx)
   let l:edit.done = !empty(l:result) && !has_key(l:result, 'error')
   call s:write_result(l:edit, l:result)
@@ -267,6 +274,9 @@ endfunction
 " was written in `edit` ('post', the draft; 'written', the block).
 function! s:write_result(edit, result) abort
   let l:post = a:edit.pre
+  if a:edit.done && has_key(a:result, 'lines')
+    call s:check(a:edit, a:result)
+  endif
   if a:edit.done
     let l:post = s:resolve(l:post.lines, l:post.lin, l:post.col, a:result, get(a:edit.opts, 'lint', 1),
           \ len(a:edit.block.above))
@@ -280,6 +290,15 @@ function! s:write_result(edit, result) abort
   if a:edit.done || !has_key(a:edit.opts, 'open')
     let a:edit.written = s:write(a:edit.block, l:post, l:post.lin, l:post.col, a:edit.join)
   endif
+endfunction
+
+" Check mode (tab/check.vim): the result of the edit keeps the rules of the
+" music, from the lines it was given (or its base) to the lines it gives,
+" erasing and writing the notes it says ('erased', 'written').
+function! s:check(edit, result) abort
+  let l:old = has_key(a:result, 'base') ? a:result.base.lines : a:edit.pre.lines
+  call songwriter#tab#check#Edit(get(a:edit.opts, 'what', string(a:edit.Fn)), l:old, a:result.lines,
+        \ get(a:result, 'map', []), get(a:result, 'erased', []), get(a:result, 'written', []))
 endfunction
 
 " Pure. The annotation operations `ops` (annotations#Apply), their columns
@@ -296,7 +315,11 @@ endfunction
 function! s:make_room(block, draft) abort
   let l:rows = s:rows(get(a:draft, 'base', songwriter#tab#model#Snapshot(a:block)))
   let l:draft = copy(a:draft)
-  for l:_ in range(100)
+  for l:pass in range(101)
+    if l:pass == 100
+      call songwriter#tab#check#Cap('making room for labels', 100)
+      break
+    endif
     let l:placed = songwriter#tab#annotations#Apply(l:rows, l:draft.map,
           \ get(l:draft, 'annotations', []), l:draft.lines)
     let l:room = songwriter#tab#annotations#Room(l:placed, l:draft.lines)

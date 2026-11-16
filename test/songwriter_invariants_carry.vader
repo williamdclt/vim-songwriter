@@ -13,11 +13,11 @@ Execute (a carry then the opposite one gives the tab back as it was):
             \ ['sK', 'sJ'], ['sJ', 'sK'], ['Sk', 'Sj'], ['Sj', 'Sk'], ['ml', 'h'], ['mh', 'l']]
         call g:InvLoad(g:inv_tab.lines, g:inv_pos)
         let g:inv_tick = b:changedtick
-        silent! call feedkeys(g:inv_there, 'xt')
+        call InvType(g:inv_there)
         if b:changedtick == g:inv_tick
           continue
         endif
-        silent! call feedkeys(g:inv_back, 'xt')
+        call InvType(g:inv_back)
         if getline(1, '$') !=# g:inv_tab.lines
           call add(g:inv_failures, g:InvCase(g:inv_tab, g:inv_pos, g:inv_there . g:inv_back))
         endif

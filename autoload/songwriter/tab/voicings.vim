@@ -307,9 +307,11 @@ function! songwriter#tab#voicings#Place(lines, lin, col, voicing) abort
   let l:c = s:column(a:lines, a:lin, a:col)
   let l:lines = copy(a:lines)
   let l:map = []
+  let [l:erased, l:written] = [[], []]
   for l:i in range(len(l:lines))
     for l:n in songwriter#tab#model#Notes(l:lines[l:i])
       if l:n.col == l:c
+        call add(l:erased, {'lin': l:i, 'col': l:c})
         let l:lines[l:i] = strpart(l:lines[l:i], 0, l:c - 1) . repeat('-', l:n.len)
               \ . strpart(l:lines[l:i], l:c - 1 + l:n.len)
       endif
@@ -326,8 +328,9 @@ function! songwriter#tab#voicings#Place(lines, lin, col, voicing) abort
     endif
     let [l:lines, l:c] = [l:room.lines, l:room.col]
     let l:map = songwriter#tab#colmap#Then(l:map, l:room.map)
+    let l:written = songwriter#tab#colmap#Positions(l:written, l:room.map) + l:room.written
   endfor
-  return {'lines': l:lines, 'col': l:c, 'map': l:map}
+  return {'lines': l:lines, 'col': l:c, 'map': l:map, 'erased': l:erased, 'written': l:written}
 endfunction
 
 " Spec 10.4: the message for voicing `index` of `voicings` of `chord`.
