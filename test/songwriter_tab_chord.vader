@@ -1,6 +1,7 @@
 " :SongwriterTabChord (songwriter#tab#TabChord, spec [Tablature][[Annotations]]
 " 6): write a chord above the tab, aligned to the cursor column, on its
-" annotation line when it fits, else on a new one.
+" annotation line, the tab widened to make room when its neighbours are too
+" close, else on a new one.
 
 Given (insert chord above tab block at cursor column):
   e|-----------4--|--1-----------|
@@ -74,14 +75,40 @@ Given songwriter (a tab with an annotation line):
       Am
   e|--0--3--|
 
-Execute (6 the chord needs a space on each side, else it goes on a new line right above the strings):
+Execute (6 the chord needs a space on each side: the tab is widened before it):
   call cursor(2, 7)
   SongwriterTabChord C
-  AssertEqual [3, 7], [line('.'), col('.')]
+  AssertEqual [2, 8], [line('.'), col('.')]
 
 Expect songwriter:
-      Am
-        C
+      Am C
+  e|--0---3--|
+
+Given songwriter (a tab with labels):
+      Am G
+  e|--0--3--|
+
+Execute (6 the chord needs a space on each side: the tab is widened after it):
+  call cursor(2, 5)
+  SongwriterTabChord Cmaj7
+  AssertEqual [2, 5], [line('.'), col('.')]
+
+Expect songwriter:
+      Cmaj7 G
+  e|--0-----3--|
+
+Given songwriter (a tab with a span):
+      PM------
+  e|--0--3--|
+
+Execute (6 the chord goes on a new line when a span is in the way):
+  call cursor(2, 8)
+  SongwriterTabChord C
+  AssertEqual [3, 8], [line('.'), col('.')]
+
+Expect songwriter:
+      PM------
+         C
   e|--0--3--|
 
 Given (the chord is spelled canonically, other words as given):

@@ -38,7 +38,8 @@ endfunction
 " Spec [Tablature][[Annotations]] 6: write `chord` above the block, aligned
 " to the cursor column (past the string name and first pipe, so that it is an
 " annotation): in place of the column's chord label, else on the annotation
-" line right above the strings when it fits, else on a new one. A chord is
+" line right above the strings, the tab widened when its neighbours are too
+" close (edit.vim), else on a new one. A chord is
 " spelled as `=` writes it ([[Editing]] 10.9: `CM7` -> `Cmaj7`).
 function! songwriter#tab#TabChord(chord) abort
   call s:edit({ctx -> {'lines': ctx.block.lines, 'map': [],

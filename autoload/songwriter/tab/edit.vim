@@ -259,12 +259,66 @@ function! s:write_result(edit, result) abort
     if !has_key(l:post, 'base')
       let l:post.map = songwriter#tab#colmap#Then(a:edit.pre.map, l:post.map)
     endif
+    if has_key(l:post, 'label')
+      let l:post = s:make_room(a:edit.block, l:post)
+    endif
   endif
   let a:edit.post = l:post
   let a:edit.written = a:edit.block
   if a:edit.done || !has_key(a:edit.opts, 'open')
     let a:edit.written = s:write(a:edit.block, l:post, l:post.lin, l:post.col, a:edit.join)
   endif
+endfunction
+
+" Pure. The draft `post` of `block` widened so that its chord label fits on
+" its line (spec [Tablature][[Editing]] 10.9, [[Annotations]] 6): dashes
+" inserted right before the label's column and after the column's last note,
+" as annotations#Room says, the words following them; the label and the
+" cursor follow too.
+function! s:make_room(block, post) abort
+  let l:draft = copy(a:post)
+  unlet l:draft.label
+  let l:above = s:snapshot(a:block, l:draft).above
+  let l:label = a:post.label
+  let l:tab = songwriter#tab#model#Parse(0, a:post.lines)
+  let l:room = songwriter#tab#annotations#Room(l:above, l:label.col, l:label.text,
+        \ songwriter#tab#model#ColumnEnd(l:tab, l:label.col), l:label.add)
+  if l:room.before == 0 && l:room.after == 0
+    return a:post
+  endif
+  let l:after = songwriter#tab#model#InsertColumns(a:post.lines,
+        \ s:end_of_notes(l:tab, l:label.col), l:room.after, '-')
+  let l:before = songwriter#tab#model#InsertColumns(l:after.lines, l:label.col - 1, l:room.before, '-')
+  let l:map = songwriter#tab#colmap#Then(l:after.map, l:before.map)
+  let l:post = extend(copy(a:post), {'lines': l:before.lines,
+        \ 'map': songwriter#tab#colmap#Then(a:post.map, l:map),
+        \ 'col': songwriter#tab#colmap#At(l:map, a:post.col),
+        \ 'label': extend(copy(l:label), {'col': songwriter#tab#colmap#At(l:map, l:label.col)})})
+  if has_key(l:post, 'put')
+    let l:post.put = map(copy(l:post.put), {_, p -> extend(copy(p),
+          \ {'col': songwriter#tab#colmap#At(l:map, p.col)})})
+  endif
+  return l:post
+endfunction
+
+" Pure. The last column of time column `c` of `tab`, past any note of
+" another string that runs on from it, so that dashes inserted after it split
+" no note.
+function! s:end_of_notes(tab, c) abort
+  let l:e = songwriter#tab#model#ColumnEnd(a:tab, a:c)
+  let l:grown = 1
+  while l:grown
+    let l:grown = 0
+    for l:s in a:tab.strings
+      for l:n in l:s.notes
+        if l:n.col <= l:e && songwriter#tab#model#NoteEnd(l:n) > l:e
+          let l:e = songwriter#tab#model#NoteEnd(l:n)
+          let l:grown = 1
+        endif
+      endfor
+    endfor
+  endwhile
+  return l:e
 endfunction
 
 " Follow-up: select the selection target again, its columns following the
