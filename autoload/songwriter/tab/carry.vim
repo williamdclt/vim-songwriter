@@ -1,13 +1,14 @@
 " autoload/songwriter/tab/carry.vim - carrying notes across strings (spec
-" [Tablature][[Editing]] 3.6-3.8, 7): `<leader>k`/`<leader>j`, `s`/`S`, the
+" [Tablature][[Editing]] 3.6-3.8, 7): `<leader>k`/`<leader>j`,
+" `<leader>h`/`<leader>l`, `s`/`S`, the
 " copies of `<leader><leader>k`/`<leader><leader>j`, the keys of the move state
 " (tab/mode.vim) and visual `<leader>k`/`<leader>j`. Lift, Copy, Step, Render and Move are pure
 " (block lines in, lines and cursor out); the rest are entry points.
 "
 " A carry lifts notes out of the tab: what is left, the base, is kept for the
 " whole run with the notes. Each step moves every note the same number of
-" strings, or changes their texts (`S` keeps the pitch, the move state's
-" `h`/`l` change the fret), and the tab is rendered from the base with the
+" strings, or changes their texts (`S` keeps the pitch, `<leader>h`/`<leader>l`
+" and the move state's `h`/`l` change the fret), and the tab is rendered from the base with the
 " notes written there, over whatever their strings had: a note a carried note
 " replaced is back as soon as it moves on, and back where they started, the
 " tab is the one they were lifted from. Notes never change time column, so the

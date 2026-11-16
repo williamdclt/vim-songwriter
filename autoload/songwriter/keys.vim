@@ -89,11 +89,14 @@ let s:tabmode.n = {
       \ '+': 'call songwriter#tab#voicings#Plus()',
       \ '<leader>k': "call songwriter#tab#carry#Carry('note', -1, 0, 0)",
       \ '<leader>j': "call songwriter#tab#carry#Carry('note', 1, 0, 0)",
+      \ '<leader>h': "call songwriter#tab#carry#Carry('', 0, -1, 0)",
+      \ '<leader>l': "call songwriter#tab#carry#Carry('', 0, 1, 0)",
       \ '<leader><leader>k': 'call songwriter#tab#carry#Duplicate(-1)',
       \ '<leader><leader>j': 'call songwriter#tab#carry#Duplicate(1)',
       \ 'm': '=songwriter#tab#mode#MoveKey()',
       \ }
-" Spec 3.6, 3.7, 3.8: carrying notes across strings. Spec 7: `s` (keep the
+" Spec 3.6, 3.7, 3.8: carrying notes across strings; `<leader>h`/`<leader>l`
+" change the fret in the run (3.6.5). Spec 7: `s` (keep the
 " fret) / `S` (keep the pitch), then `k`/`j` (the note under the cursor) or
 " `K`/`J` (its whole time column), up/down a string.
 for [s:prefix, s:pitch] in [['s', 0], ['S', 1]]

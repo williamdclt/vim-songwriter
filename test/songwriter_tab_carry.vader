@@ -235,3 +235,57 @@ Then:
 Expect songwriter (3.6.4 refused when a selected note has no string that way):
   e|--3--|
   B|--5--|
+
+" === Changing the fret in the run (3.6.5) ===
+
+Given songwriter (3.6.5 <leader>h / <leader>l move the note a fret down / up):
+  e|--5--7--|
+
+Execute (3.6.5 <leader>h / <leader>l move the note a fret down / up):
+  call cursor(1, 5)
+  execute "normal \\l\\l"
+  call cursor(1, 8)
+  execute "normal \\h"
+
+Expect songwriter (3.6.5 <leader>h / <leader>l move the note a fret down / up):
+  e|--7--6--|
+
+Given songwriter (3.6.5 <leader>l is part of the run: the note replaced still comes back):
+  e|-----|
+  B|--3--|
+  G|--5--|
+
+Execute (3.6.5 <leader>l is part of the run: the note replaced still comes back):
+  call cursor(3, 5)
+  execute "normal \\k\\l"
+  AssertEqual ['e|-----|', 'B|--6--|', 'G|-----|'], getline(1, '$')
+  execute "normal \\k"
+
+Expect songwriter (3.6.5 <leader>l is part of the run: the note replaced still comes back):
+  e|--6--|
+  B|--3--|
+  G|-----|
+
+Given songwriter (3.6.5 back where it started with its fret, the tab is as it was):
+  e|--9--7--|
+
+Execute (3.6.5 back where it started with its fret, the tab is as it was):
+  call cursor(1, 5)
+  execute "normal \\l"
+  AssertEqual ['e|--10-7--|'], getline(1, '$')
+  execute "normal \\h"
+
+Expect songwriter (3.6.5 back where it started with its fret, the tab is as it was):
+  e|--9--7--|
+
+Given songwriter (3.6.5 a fret out of range, or no fret, is refused):
+  e|--0--x--|
+
+Execute (3.6.5 a fret out of range, or no fret, is refused):
+  call cursor(1, 5)
+  execute "normal \\h"
+  call cursor(1, 8)
+  execute "normal \\l"
+
+Expect songwriter (3.6.5 a fret out of range, or no fret, is refused):
+  e|--0--x--|

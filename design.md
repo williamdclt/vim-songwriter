@@ -673,7 +673,7 @@ columns it shared with the others (a different rhythm), and lint cannot tell:
 it aligns pipes and splits overlaps, but has no memory of which notes were
 together. So every edit that writes a note goes through one primitive,
 `columns#WriteNote`, whichever key changes its width (`]`/`[`, `<C-A>`, a
-digit, a carry keeping the pitch, the move state's `h`/`l`, a chord's frets):
+digit, a carry keeping the pitch, `<leader>h`/`<leader>l` and the move state's `h`/`l`, a chord's frets):
 one rule, so the same change of fret gives the same tab whatever key made it.
 `SetNote` rewrites a note in place, `PutNote` writes one on dashes, and a
 carry renders its notes with it, as rewriting the note it replaces, or the
@@ -715,8 +715,8 @@ while transcribing, so it has right-hand keys (`<leader>k`/`<leader>j`, with a
 - **One engine: lift, step, render.** A carry lifts notes out of the tab; the
   rest, the *base*, is kept in the carry state (tied to `b:changedtick`, so any
   other edit ends the run). A step moves every carried note the same number of
-  strings, or changes their texts (`S` keeps the pitch, the move state's
-  `h`/`l` change the fret), and the tab is rendered again from the base with
+  strings, or changes their texts (`S` keeps the pitch, `<leader>h`/`<leader>l`
+  and the move state's `h`/`l` change the fret), and the tab is rendered again from the base with
   the notes written there. Rendering from the base rather than editing the last
   result is what puts back a note the carried one replaced, with no
   bookkeeping of what was overwritten; when the notes are back where they
