@@ -11,25 +11,6 @@ Before:
 After:
   unlet! g:songwriter_player g:songwriter_play_bpm
 
-" === Pitches (12.3) ===
-
-Execute (12.3 standard tuning is E2 to E4):
-  AssertEqual {'midi': [64, 59, 55, 50, 45, 40]},
-        \ songwriter#tab#play#OpenPitches(split('eBGDAE', '\zs'))
-
-Execute (12.3 each string is less than an octave above the one below it):
-  AssertEqual [62, 57, 55, 50, 45, 38], songwriter#tab#play#OpenPitches(split('dAGDAD', '\zs')).midi
-
-Execute (12.3 the lowest string is between B1 and A#2):
-  AssertEqual [64, 59, 55, 50, 45, 40, 35], songwriter#tab#play#OpenPitches(split('eBGDAEB', '\zs')).midi
-  AssertEqual [55, 50, 45, 40], songwriter#tab#play#OpenPitches(split('GDAE', '\zs')).midi
-  AssertEqual [48, 36], songwriter#tab#play#OpenPitches(['C', 'C']).midi
-  AssertEqual [47, 46], songwriter#tab#play#OpenPitches(['B', 'A#']).midi
-
-Execute (12.3 a string name that is not a note):
-  AssertEqual {'error': 'string name X is not a note'},
-        \ songwriter#tab#play#OpenPitches(['e', 'X', 'G'])
-
 " === Steps (12.2) ===
 
 Execute (12.2 one step per time column, its notes from the lowest string up):

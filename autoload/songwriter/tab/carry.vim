@@ -86,7 +86,7 @@ function! songwriter#tab#carry#Step(carry, dlin, frets, keep_pitch) abort
       let l:frets += 1
       let l:fret = str2nr(l:text, 10) + a:frets
       if a:keep_pitch && l:from != l:to
-        let l:shift = s:interval(a:carry.base, l:from, l:to)
+        let l:shift = songwriter#tuning#Interval(songwriter#tab#model#Names(a:carry.base), l:from, l:to)
         if has_key(l:shift, 'error')
           return l:shift
         endif
@@ -107,26 +107,6 @@ function! songwriter#tab#carry#Step(carry, dlin, frets, keep_pitch) abort
     return {'error': 'no fret to change'}
   endif
   return l:carry
-endfunction
-
-" Spec 7.3: {'frets': the number of frets a note moving from string `from` to
-" string `to` changes by to keep its pitch}, or {'error'}. Strings are taken to be listed
-" from the highest to the lowest, neighbouring strings less than an octave
-" apart: the interval is read from pitch classes.
-function! s:interval(lines, from, to) abort
-  for l:lin in [a:from, a:to]
-    if songwriter#pitch#Class(songwriter#tab#model#Name(a:lines[l:lin])) < 0
-      return {'error': printf('string name %s is not a note', songwriter#tab#model#Name(a:lines[l:lin]))}
-    endif
-  endfor
-  let [l:hi, l:lo] = a:to < a:from ? [a:to, a:from] : [a:from, a:to]
-  let l:interval = (songwriter#pitch#Class(songwriter#tab#model#Name(a:lines[l:hi]))
-        \ - songwriter#pitch#Class(songwriter#tab#model#Name(a:lines[l:lo])) + 12) % 12
-  if l:interval == 0
-    return {'error': printf('cannot tell the interval between strings %s and %s',
-          \ songwriter#tab#model#Name(a:lines[l:hi]), songwriter#tab#model#Name(a:lines[l:lo]))}
-  endif
-  return {'frets': a:to < a:from ? -l:interval : l:interval}
 endfunction
 
 " Spec 3.6.1, 7.5: the tab with the notes of `carry` where they are: its base

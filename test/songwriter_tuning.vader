@@ -1,0 +1,49 @@
+" The tuning of a tab's string names (autoload/songwriter/tuning.vim): open
+" string pitches (spec [Tablature][[Editing]] 12.3) and the interval between
+" two strings (7.3).
+
+" === Pitches (12.3) ===
+
+Execute (12.3 standard tuning is E2 to E4):
+  AssertEqual {'pitches': [64, 59, 55, 50, 45, 40], 'standard': 1},
+        \ songwriter#tuning#Of(split('eBGDAE', '\zs'))
+
+Execute (12.3 each string is less than an octave above the one below it):
+  AssertEqual [62, 57, 55, 50, 45, 38], songwriter#tuning#Of(split('dAGDAD', '\zs')).pitches
+
+Execute (12.3 the lowest string is between B1 and A#2):
+  AssertEqual [64, 59, 55, 50, 45, 40, 35], songwriter#tuning#Of(split('eBGDAEB', '\zs')).pitches
+  AssertEqual [55, 50, 45, 40], songwriter#tuning#Of(split('GDAE', '\zs')).pitches
+  AssertEqual [48, 36], songwriter#tuning#Of(['C', 'C']).pitches
+  AssertEqual [47, 46], songwriter#tuning#Of(['B', 'A#']).pitches
+
+Execute (12.3 a string name that is not a note):
+  AssertEqual {'error': 'string name X is not a note'},
+        \ songwriter#tuning#Of(['e', 'X', 'G'])
+
+" === Standard tuning (10.2) ===
+
+Execute (10.2 standard is eBGDAE, whatever the case of the letters):
+  Assert songwriter#tuning#Of(split('EBGDAE', '\zs')).standard
+  Assert !songwriter#tuning#Of(split('dAGDAD', '\zs')).standard
+  Assert !songwriter#tuning#Of(split('eBGDAEB', '\zs')).standard
+  Assert !songwriter#tuning#Of(split('BGDAE', '\zs')).standard
+
+" === Interval (7.3) ===
+
+Execute (7.3 frets a note changes by to keep its pitch, down and up a string):
+  let g:names = split('eBGDAE', '\zs')
+  AssertEqual {'frets': 5}, songwriter#tuning#Interval(g:names, 0, 1)
+  AssertEqual {'frets': 4}, songwriter#tuning#Interval(g:names, 1, 2)
+  AssertEqual {'frets': -4}, songwriter#tuning#Interval(g:names, 2, 1)
+
+Execute (7.3 the interval is read from the two strings' pitch classes):
+  AssertEqual {'frets': 7}, songwriter#tuning#Interval(split('dAGDAD', '\zs'), 4, 5)
+
+Execute (7.3 a string name that is not a note):
+  AssertEqual {'error': 'string name X is not a note'},
+        \ songwriter#tuning#Interval(['e', 'X', 'G'], 0, 1)
+
+Execute (7.3 two strings of the same pitch class give no interval):
+  AssertEqual {'error': 'cannot tell the interval between strings E and e'},
+        \ songwriter#tuning#Interval(['E', 'e'], 1, 0)

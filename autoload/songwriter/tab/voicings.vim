@@ -37,8 +37,6 @@ let s:qualities = {
       \ 'sus2': 'sus2', 'sus4': 'sus4', 'sus': 'sus4', '5': '5',
       \ }
 
-let s:standard = ['e', 'b', 'g', 'd', 'a', 'e']
-
 " Spec 10.2-10.4, 10.6: the voicings of `chord` on strings `names` (top
 " first), in the order `==` goes through them from line `lin`: by root string,
 " `lin` first, then each lower string, then each higher one; on a string, by
@@ -59,10 +57,11 @@ function! songwriter#tab#voicings#Voicings(names, chord, lin) abort
     return {'error': printf('no chord shape for %s', a:chord)}
   endif
   let l:pc = songwriter#pitch#Class(l:root)
+  let l:tuning = songwriter#tuning#Of(a:names)
   if l:quality ==# '5'
     let l:all = s:power(a:names, l:pc)
-  elseif map(copy(a:names), 'tolower(v:val)') ==# s:standard
-    let l:all = s:shaped(a:names, l:pc, l:quality)
+  elseif get(l:tuning, 'standard', 0)
+    let l:all = s:shaped(l:tuning.pitches, l:pc, l:quality)
   else
     return {'error': 'chord shapes need standard tuning (eBGDAE); power chords follow any tuning'}
   endif
@@ -242,22 +241,22 @@ function! s:column(lines, lin, col) abort
 endfunction
 
 " Spec 10.2: the shaped voicings of the chord with root pitch class `pc` and
-" quality `quality`, on a standard 6-string tuning `names`.
-function! s:shaped(names, pc, quality) abort
+" quality `quality`, on the standard tuning of open string pitches `open`.
+function! s:shaped(open, pc, quality) abort
   let l:all = []
   for l:shape in s:shapes
     if !has_key(l:shape.q, a:quality)
       continue
     endif
-    let l:lin = len(a:names) - 1 - l:shape.root
-    let l:fret = (a:pc - songwriter#pitch#Class(a:names[l:lin]) + 12) % 12
+    let l:lin = len(a:open) - 1 - l:shape.root
+    let l:fret = (a:pc - a:open[l:lin] % 12 + 12) % 12
     if has_key(l:shape, 'at')
       let l:frets = l:fret == l:shape.at ? [l:fret] : []
     else
       let l:frets = l:fret == 0 ? [0, 12] : [l:fret]
     endif
     for l:f in l:frets
-      let l:v = repeat([-1], len(a:names))
+      let l:v = repeat([-1], len(a:open))
       let l:rel = l:shape.q[a:quality]
       for l:k in range(len(l:rel))
         let l:v[l:lin - l:k] = l:f + l:rel[l:k]
@@ -271,20 +270,18 @@ endfunction
 " Spec 10.3: power chords of root pitch class `pc` on strings `names`: on
 " every string with two strings above it, the root, the fifth on the next
 " string and the octave on the one after. The frets come from the intervals
-" between the strings, read from their names (as spec 7.3).
+" between the strings (tuning#Interval, spec 7.3); three strings without
+" both intervals give none.
 function! s:power(names, pc) abort
   let l:all = []
   for l:lin in range(2, len(a:names) - 1)
-    let l:pcs = map(a:names[l:lin - 2 : l:lin], 'songwriter#pitch#Class(v:val)')
-    if min(l:pcs) < 0
+    let l:up1 = songwriter#tuning#Interval(a:names, l:lin, l:lin - 1)
+    let l:up2 = songwriter#tuning#Interval(a:names, l:lin - 1, l:lin - 2)
+    if has_key(l:up1, 'error') || has_key(l:up2, 'error')
       continue
     endif
-    let l:up1 = (l:pcs[1] - l:pcs[2] + 12) % 12
-    let l:up2 = l:up1 + (l:pcs[0] - l:pcs[1] + 12) % 12
-    if l:up1 == 0 || l:up2 == l:up1
-      continue
-    endif
-    let l:fret = (a:pc - l:pcs[2] + 12) % 12
+    let [l:up1, l:up2] = [-l:up1.frets, -l:up1.frets - l:up2.frets]
+    let l:fret = (a:pc - songwriter#pitch#Class(a:names[l:lin]) + 12) % 12
     for l:f in (l:fret == 0 ? [0, 12] : [l:fret])
       let [l:fifth, l:octave] = [l:f + 7 - l:up1, l:f + 12 - l:up2]
       if l:fifth < 0 || l:octave < 0

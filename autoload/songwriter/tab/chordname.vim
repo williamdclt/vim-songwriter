@@ -8,13 +8,13 @@
 " notes are one note or fit no chord; {'error'} when it has no fretted note or
 " a string name is not a note.
 function! songwriter#tab#chordname#Names(lines, lin, col) abort
-  let l:open = songwriter#tab#play#OpenPitches(songwriter#tab#model#Names(a:lines))
-  if has_key(l:open, 'error')
-    return l:open
+  let l:tuning = songwriter#tuning#Of(songwriter#tab#model#Names(a:lines))
+  if has_key(l:tuning, 'error')
+    return l:tuning
   endif
   let l:note = songwriter#tab#model#NoteAt(a:lines[a:lin], a:col)
   let l:c = empty(l:note) ? a:col : l:note.col
-  let l:steps = songwriter#tab#play#Steps(a:lines, l:open.midi, range(len(a:lines)), l:c, l:c)
+  let l:steps = songwriter#tab#play#Steps(a:lines, l:tuning.pitches, range(len(a:lines)), l:c, l:c)
   if empty(l:steps)
     return {'error': 'no note on this time column'}
   endif
