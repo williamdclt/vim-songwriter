@@ -31,16 +31,17 @@ seeds.
 **Buys.** A key added to a table is fuzzed with no new test, and bugs that
 need two features together are found by the suite rather than by use.
 
-## 8. Later: the same layer for chords over lyrics
+## 8. Later: chords over lyrics on the annotation layer
 
-**Now.** `[Chord annotations]` (chords above lyrics) has editing features to
-come, and `:SongwriterChordAbove` places a chord by hand.
+**Now.** The annotation layer takes a host (design.md "Annotations"), with
+one host, the tab. `[Chord annotations]` (chords above lyrics) has editing
+features to come, not specified yet, and `:SongwriterChordAbove` places a
+chord by hand.
 
-**Change.** Annotations are anchored words with one layout and one set of
-operations (`annotations#Apply`, `Render`, `Room`), whose only tie to tabs is
-where the anchors come from and how room is made. Anchor them to character
-positions of a lyric line instead (room made by spaces in the lyric, or not
-at all) to give chords over lyrics the same following and room-making. A tab's
-anchors are its time columns; a lyric line's would be its characters.
+**Change.** Once those features are specified: a lyric host (anchored to the
+lyric line's characters, words from column 1, room made by spaces in the
+lyric or not at all), the edits of a lyric line giving column maps as the
+tab's do, and the layer moved out of `tab/` (`autoload/songwriter/
+annotations.vim`), since it is no longer about tabs.
 
 **Buys.** One annotation engine for both formats instead of a second one.
