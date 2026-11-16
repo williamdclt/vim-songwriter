@@ -137,8 +137,7 @@ function! songwriter#tab#visual#Op(op, reg) abort
   if !l:exact
     let [l:s, l:e] = songwriter#tab#objects#Snap(l:block.lines, l:lnum - l:block.start, l:s, l:e)
   endif
-  call cursor(l:lnum, l:s)
-  call songwriter#tab#operator#ApplyRange(a:op, a:reg, l:block, l:s, l:e, l:note)
+  call songwriter#tab#operator#ApplyRange(a:op, a:reg, l:lnum, l:s, l:e, l:note)
 endfunction
 
 " Spec 6.9.4: replace the selected columns with a blockwise register (rows

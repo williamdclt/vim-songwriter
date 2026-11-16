@@ -252,3 +252,32 @@ Execute (a draft without a map is refused: every edit says where the tab went):
 
 Expect songwriter (the draft with a map is written):
   e|--3--7--|
+
+Given songwriter (a tab):
+  e|--3--5--|
+
+Execute (in check mode, an edit result with a key edit#Do does not know throws):
+  AssertThrows call songwriter#tab#edit#Do({_ -> {'column': 5}}, {'prelint': 0, 'lint': 0})
+  Assert g:vader_exception =~# 'column'
+  let g:songwriter_check = 0
+  call songwriter#tab#edit#Do({_ -> {'column': 5}}, {'prelint': 0, 'lint': 0})
+  let g:songwriter_check = 1
+
+Execute (in check mode, an option edit#Do does not know throws):
+  AssertThrows call songwriter#tab#edit#Do({_ -> {}}, {'prelnt': 0})
+  Assert g:vader_exception =~# 'prelnt'
+
+Given songwriter (a tab):
+  e|--3--5--|
+
+Execute (a result's 'open' opens a slot of a bigger edit, after its lines, in the same edit):
+  call songwriter#tab#edit#Do({_ -> {'lines': ['e|--3--7--|'], 'map': [],
+        \ 'erased': [{'lin': 0, 'col': 8}], 'written': [{'lin': 0, 'col': 8}],
+        \ 'col': 5, 'open': 1}}, {'prelint': 0, 'lint': 0})
+  AssertEqual 7, col('.')
+  AssertEqual 'insert', songwriter#tab#mode#Current()
+  Assert !has_key(songwriter#tab#state#Get('slot'), 'from')
+  AssertEqual 7, songwriter#tab#state#Get('slot').col
+
+Expect songwriter (the lines, then the slot after the note):
+  e|--3---7--|

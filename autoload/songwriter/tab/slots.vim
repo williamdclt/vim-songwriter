@@ -1,6 +1,6 @@
 " autoload/songwriter/tab/slots.vim - slots: room opened for a note that is not
 " typed yet (spec [Tablature][[Editing]] 3.1, 4.3, 5, 6.6, 8). The pure functions
-" compute where a slot goes; Mark, Open, OpenHere, Forget and Abandon handle the
+" compute where a slot goes; Mark, Open, Forget and Abandon handle the
 " one open slot of a buffer, kept in tab/state.vim (see Open); AddNote (`a`,
 " `i`) and AddBarSlot (a new bar, spec 5) are the entry points that open one.
 
@@ -246,23 +246,6 @@ endfunction
 function! s:holds(snapshot) abort
   let l:block = songwriter#tab#model#ReadTop(a:snapshot.top)
   return !empty(l:block) && songwriter#tab#model#Snapshot(l:block) ==# a:snapshot
-endfunction
-
-" Spec 6.6: open a slot at the cursor: before its note (side -1, as `i`),
-" after it (+1, as `a`), or, side 0, in the cursor's empty bar.
-function! songwriter#tab#slots#OpenHere(side) abort
-  call songwriter#tab#edit#Do(function('s:open_here', [a:side]), {'prelint': 0, 'lint': 0})
-endfunction
-
-function! s:open_here(side, ctx) abort
-  if a:side < 0
-    let l:res = songwriter#tab#slots#Prepend(a:ctx.block, a:ctx.lin, a:ctx.col)
-  elseif a:side > 0
-    let l:res = songwriter#tab#slots#Append(a:ctx.block, a:ctx.lin, a:ctx.col)
-  else
-    let l:res = songwriter#tab#slots#EmptyBar(a:ctx.block.lines, a:ctx.lin, a:ctx.col)
-  endif
-  return empty(l:res) ? {} : extend(l:res, {'slot': 1})
 endfunction
 
 " Spec [Tablature][[Editing]] 3.1: open room for a new note on every string,

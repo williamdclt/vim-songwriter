@@ -30,9 +30,11 @@ function! s:insert_after_cursor(char) abort
   call s:edit({ctx -> songwriter#tab#model#InsertColumns(ctx.block.lines, ctx.col, 1, a:char)})
 endfunction
 
-" Spec [Tablature][[Editing]] 1: lint the block around the cursor.
+" Spec [Tablature][[Editing]] 1: lint the block around the cursor (the lint's
+" lines and map as the edit's result).
 function! songwriter#tab#Lint() abort
-  call s:edit({ctx -> songwriter#tab#lint#Lint(ctx.block.lines)})
+  call s:edit({ctx -> filter(songwriter#tab#lint#Lint(ctx.block.lines),
+        \ {k -> k ==# 'lines' || k ==# 'map'})})
 endfunction
 
 " Spec [Tablature][[Annotations]] 6: write `chord` above the block, aligned

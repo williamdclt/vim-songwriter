@@ -68,7 +68,7 @@ An operation is a thin buffer entry point around pure logic:
 2. a pure function computes the result: new lines with their column map
    (see "Column maps") and/or a cursor column (`{'lines': [...], 'map': [...],
    'col': n}`, `{}` for "nothing to do"), and what to record (`state`,
-   `register`);
+   `register`) or open (`open`, a slot);
 3. the result is written back.
 
 `edit#Do(Fn, opts)` is the one way an edit of a tab reaches the buffer, and the
@@ -89,10 +89,14 @@ on an actual write.
 Every entry point goes through it, with options for what it is not: an edit
 of another block than the cursor's (`lnum`: a slot closed from elsewhere,
 each tab of a line-wise `cap`, each block of a visual `<C-A>`), one that keeps
-the tab as it is (`prelint` and `lint` off: `_`, `:SongwriterAddBar`, a slot
-opened by `c`), an operator's edit (no first lint: `g@` runs after the lint
-of its own `<Cmd>`, whose undo step it joins), a lint alone (`||`, the
-operators' first lint: an edit that does nothing). A visual edit hands over
+the tab as it is (`prelint` and `lint` off: `_`, `:SongwriterAddBar`, the
+slot of a line-wise `cap`), an operator's edit (no first lint: `g@` runs
+after the lint of its own `<Cmd>`, whose undo step it joins; no lint after:
+the operator lints its own result, to put the cursor on what the lint left),
+a lint alone (`||`, the operators' first lint: an edit that does nothing).
+A slot that is part of a bigger edit (`c`, 6.6) is the result's `open` (the
+side, as `i`, `a` or an empty bar): `Do` opens it once the rest is linted and
+room made, in the same write, so `c` is one edit like any other. A visual edit hands over
 its selection (`selection`, `selection.vim`), which is selected again once
 written, its ends where the edit says they went (`sel`), followed through the
 column map: visual carries are a step like any other. `undojoin` is only in
@@ -139,7 +143,9 @@ mapped back with `colmap#Before`, written ones forward with
 `colmap#Positions`. A tab whose pipes are not aligned has no time columns
 yet, so of its lint only each string's notes in order are checked. The
 lint's fixed point and the room made for labels throw in check mode when
-they hit their pass cap rather than stop silently.
+they hit their pass cap rather than stop silently. `Do` also throws, in
+check mode, on a result key or an option it does not know (the lists at the
+top of `edit.vim`), so a misspelt key is not silently ignored.
 
 **Refusals.** A pure function that can refuse returns a dict, with 'error'
 (a message without the plugin's name) on a refusal, whatever it returns
@@ -192,7 +198,7 @@ code having to know. `Expire` drops a state that no longer holds, for the
 one place that shows its end (the move state's message).
 
 Two states are not there, because Vim puts them elsewhere: the pending
-operator (`s:pending`, `s:join` in `operator.vim`), since `'operatorfunc'`
+operator (`s:pending` in `operator.vim`), since `'operatorfunc'`
 takes no arguments, and the string names of a register
 (`g:songwriter_register_names`), since registers are global and hold while
 their content is the one recorded, which no buffer tick says.
@@ -704,10 +710,23 @@ The spec items carry the behaviour; this records why, and how it is built.
   `c`) times targets (columns, bars, motions) give every combination, plus
   registers and `.`, for free. They run through `operatorfunc`/`g@`. A `<Cmd>`
   before `g@` lints the block first (its undo step is joined to the
-  operation's with `:undojoin`); it consumes the count, so the count is given
-  again after `g@` (`g@3w`). `v:register` is not reliable inside the
+  operation's with `:undojoin`), so that the motion is computed on the linted
+  tab: a motion on an unlinted tab could reach other notes than the user
+  sees it reach once linted. The `<Cmd>` consumes the count, so the count is
+  given again after `g@` (`g@3w`). `v:register` is not reliable inside the
   operatorfunc, so the operator, register and "exact target" flag are kept in
   `s:pending`, a script variable since the operatorfunc takes no arguments.
+- **One edit per operator.** Each operator on columns or notes (a range, a
+  string motion, a note object, across strings) is a pure function of the
+  block, `edit#Do`'s Fn, returning one result: its lines, linted (it lints
+  them itself, since the cursor goes where the lint leaves things: the next
+  note column, 6.11), the register (`register`), the cursor and, for `c`,
+  the slot to open (`open`). `Do` sets the register and the cursor; nothing
+  in `operator.vim` moves the cursor between steps. A yank is the same
+  function with no lines in its result. Line-wise targets are not edits of a
+  tab (`dap` deletes buffer lines), except `cap`: each tab is cleared in an
+  edit of its own, then a last edit opens the slot (`open` alone) on the
+  cursor's tab.
 - **Spacing is rhythm.** The gap after a note belongs to it: `ac`, a snapped
   motion range and `x` on a lone note remove it with the note, so the
   previous note keeps its length and what follows moves earlier. Rests exist
@@ -768,7 +787,7 @@ The spec items carry the behaviour; this records why, and how it is built.
 - **`c` opens its slot** with the existing `a`/`i` slot logic, anchored on the
   note column that was next to the deleted range (before the next one,
   else after the previous one, else an empty 5-dash bar), followed through the
-  lint.
+  lint: the result's `open`, the side, which `Do` opens on the linted lines.
 - **`.`** Operators repeat natively. `g@` records every operator, including a
   yank, so after `ya|` a `.` repeats the yank (native `y` is not repeatable);
   accepted rather than reimplementing redo. `x`, `p`, `P`, `>>`, `<<` are `<Cmd>`
