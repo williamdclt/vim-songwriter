@@ -91,7 +91,11 @@ endfunction
 "   {'op': 'put', 'row' (0 for the line right above the strings, 1 for the
 "   one above it...), 'col', 'text'}: a word an edit brings along, anchored
 "   when it starts on a time column; a row past the top makes a new line,
-"   {'op': 'label', 'col', 'text', 'add'}: a chord label written (s:label).
+"   {'op': 'label', 'col', 'text', 'add'}: a chord label written (s:label),
+"   {'op': 'retype', 'row', 'col', 'width', 'text', 'line' (optional)}: the
+"   words of row `row` (counted as for 'put') starting in the `width` display
+"   columns from `col` replaced by `text` (spec 8.1, 8.2), the row's words
+"   being those of `line` when given (the line before it was typed into).
 function! songwriter#tab#annotations#Apply(rows, map, ops, lines) abort
   let l:cols = songwriter#tab#model#NoteColumns(songwriter#tab#model#Parse(0, a:lines))
   let l:put = filter(copy(a:ops), 'v:val.op ==# "put"')
@@ -120,7 +124,29 @@ function! songwriter#tab#annotations#Apply(rows, map, ops, lines) abort
     endfor
     call add(l:out, {'text': l:rows[l:i].text, 'moved': l:moved, 'words': l:words})
   endfor
+  for l:o in filter(copy(a:ops), 'v:val.op ==# "retype"')
+    call s:retype(l:out, l:o, a:map, l:cols)
+  endfor
   return empty(l:label) ? l:out : s:label(l:out, l:label[-1], a:lines)
+endfunction
+
+" Placed rows `rows` (Apply) with the 'retype' operation `op` done, `map`
+" being the edit's column map and `cols` the time columns of its lines.
+function! s:retype(rows, op, map, cols) abort
+  let l:i = len(a:rows) - 1 - a:op.row
+  if l:i < 0
+    return
+  endif
+  let l:r = a:rows[l:i]
+  let l:words = has_key(a:op, 'line')
+        \ ? map(songwriter#tab#annotations#Parse([a:op.line], a:cols)[0].words,
+        \   {_, w -> extend(s:place(w, a:map), {'anchored': w.anchored})})
+        \ : l:r.words
+  let l:words = filter(copy(l:words), {_, w -> s:start(w) < a:op.col || s:start(w) >= a:op.col + a:op.width})
+  for l:w in songwriter#tab#annotations#Words(repeat(' ', a:op.col - 1) . a:op.text)
+    call add(l:words, s:word(l:w.text, l:w.col, index(a:cols, l:w.col) >= 0))
+  endfor
+  let a:rows[l:i] = {'text': l:r.text, 'moved': 1, 'words': l:words}
 endfunction
 
 " A placed word (s:place) of `text` at column `col`.
@@ -434,21 +460,5 @@ function! songwriter#tab#annotations#Over(rows, col, count) abort
     endfor
   endfor
   return {}
-endfunction
-
-" Spec 8.1, 8.2: an annotation line with the `width` display columns from
-" column `col` replaced by `typed`, `prefix` and `rest` being the text before
-" and after them: the next word stays where it was, unless `typed` runs into
-" it, then it goes one space after it. No spaces at the end.
-function! songwriter#tab#annotations#Retype(prefix, rest, col, width, typed) abort
-  let l:words = substitute(a:rest, '^\s*', '', '')
-  let l:line = a:prefix . a:typed
-  if l:words !=# ''
-    let l:next = a:col + a:width + strdisplaywidth(a:rest) - strdisplaywidth(l:words)
-    let l:end = a:col + strdisplaywidth(a:typed)
-    let l:at = a:typed ==# '' ? l:next : max([l:next, l:end + 1])
-    let l:line .= repeat(' ', l:at - l:end) . l:words
-  endif
-  return substitute(l:line, '\s*$', '', '')
 endfunction
 

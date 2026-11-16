@@ -100,8 +100,31 @@ function! s:write(block, draft, lin, col, join) abort
     endif
     let l:block = songwriter#tab#model#Write(a:block, l:snapshot)
   endif
-  call cursor(a:lin >= 0 && a:lin < len(a:draft.lines) ? l:block.start + a:lin : line('.'), a:col)
+  if s:on_above(a:block, a:lin)
+    call s:cursor_above(l:block, a:lin, a:col)
+  else
+    call cursor(a:lin >= 0 && a:lin < len(a:draft.lines) ? l:block.start + a:lin : line('.'), a:col)
+  endif
   return l:block
+endfunction
+
+" True when line `lin` of `block` (as model#CursorLin counts) is one of its
+" annotation lines: -1 the one right above the strings, -2 the one above it...
+function! s:on_above(block, lin) abort
+  return a:lin < 0 && -a:lin <= len(a:block.above)
+endfunction
+
+" Put the cursor on annotation line `lin` of `block` (s:on_above), at display
+" column `col` (the line's end when shorter); on the nearest annotation line
+" when that one went, on the first string when none is left.
+function! s:cursor_above(block, lin, col) abort
+  if empty(a:block.above)
+    call cursor(a:block.start, 1)
+    return
+  endif
+  let l:lnum = max([a:block.start + a:lin, a:block.top])
+  let l:at = songwriter#tab#annotations#Bytes(getline(l:lnum), a:col, 1)
+  call cursor(l:lnum, empty(l:at) ? max([1, len(getline(l:lnum))]) : l:at[0])
 endfunction
 
 " Join the next change to the previous undo step, for a change that is not an
@@ -134,7 +157,7 @@ function! s:resolve(lines, lin, col, result, lint) abort
   endif
   if a:lint
     let l:linted = songwriter#tab#edit#Linted(l:lines, l:lin, l:col)
-    let [l:lines, l:col] = [l:linted.lines, l:linted.col]
+    let [l:lines, l:col] = [l:linted.lines, l:lin < 0 ? songwriter#tab#colmap#At(l:linted.map, l:col) : l:linted.col]
     let l:map = songwriter#tab#colmap#Then(l:map, l:linted.map)
   endif
   let l:r = {'lines': l:lines, 'lin': l:lin, 'col': l:col, 'map': l:map}
@@ -221,7 +244,8 @@ function! s:prepare(opts) abort
   if has_key(a:opts, 'open')
     let l:edit.mark = songwriter#tab#slots#Mark(a:opts.open)
   endif
-  let l:pre = s:resolve(l:block.lines, songwriter#tab#model#CursorLin(l:block), col('.'), {},
+  let l:lin = songwriter#tab#model#CursorLin(l:block)
+  let l:pre = s:resolve(l:block.lines, l:lin, s:on_above(l:block, l:lin) ? virtcol('.') : col('.'), {},
         \ get(a:opts, 'prelint', 1))
   let l:pre = s:make_room(l:block, l:pre)
   if has_key(a:opts, 'open')

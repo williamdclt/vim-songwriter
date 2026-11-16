@@ -99,13 +99,13 @@ Expect songwriter:
       C     G
   e|--0--3--0--|
 
-Execute (8.2 a longer word pushes the next one right):
+Execute (8.2 a longer word gets room: the next label stays over its column):
   call cursor(2, 5)
   execute "normal ciaEm7sus4\<Esc>"
 
 Expect songwriter:
       Em7sus4 G
-  e|--0--3--0--|
+  e|--0--3----0--|
 
 Execute (8.2 with no word above the column, cia starts typing at the column):
   call cursor(2, 8)

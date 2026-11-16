@@ -93,10 +93,19 @@ operators' first lint: an edit that does nothing). A visual edit hands over
 its selection (`selection`, `selection.vim`), which is selected again once
 written, its ends where the edit says they went (`sel`), followed through the
 column map: visual carries are a step like any other. `undojoin` is only in
-`edit.vim`; `JoinUndo` is there for the two changes that are not edits of a
-tab's strings but belong with one made in an earlier command: whole tabs
-deleted by a line-wise operator after its first lint, and an annotation line
-retyped when Vim's insert mode is left after `cia`.
+`edit.vim`; `JoinUndo` is there for the changes that are not edits of a tab
+but belong with one made in an earlier command: whole tabs deleted by a
+line-wise operator after its first lint, and the trailing spaces trimmed when
+Vim's insert mode is left after `cia` typed somewhere unexpected.
+
+**The cursor may be on an annotation line.** `Do`'s cursor line counts from
+the block's first string, so an annotation line is a negative one (-1 right
+above the strings), and on it the cursor column is a display column. It
+follows the edit's column map (and the lint's, and the room made) like a
+string's, so a cursor on a label stays on it, and it becomes bytes only when
+written back. An edit started from an annotation line (`=` on a label, the
+end of `cia`) is thus an ordinary edit, with its undo step, state and `.`,
+and no moving of the cursor to a string and back.
 
 **Drafts and snapshots.** What reaches the buffer is a draft: the block's new
 lines, and where each column of its base went in them (`{'lines', 'map',
@@ -300,10 +309,13 @@ part of the tab, and follow its music through every edit.
   (`operator#Pending` says which). `cia` hands over to Vim's own `c` (or
   `O`/`A`/`i` and padding spaces when there is no word yet): the keys are
   typed rather than the text set first, so the change and what is typed are
-  one undo step. When insert mode is left, the line is retyped so that the
-  next word is back where it was or pushed one space after the new text
-  (`annotations#Retype`), joined to that undo step. `.` does not repeat the
-  typed text: Vim does not record what is typed after an operator function.
+  one undo step. When insert mode is left, a `Do` edit joined to that undo
+  step retypes the word: a `retype` operation of `annotations#Apply`, from
+  the line as it was before the typing (`b:songwriter_annotating` keeps it),
+  so the next word is back where it was and the tab makes room for a label
+  as it does for any edit; `dia` is the same operation with nothing typed.
+  `.` does not repeat the typed text: Vim does not record what is typed after
+  an operator function.
 - **`gk`/`gj` keep the column** across short annotation lines and back to the
   string the moves started from, in tab/state.vim (`upward`, valid while the
   buffer is unchanged). With `nowrap`, Vim's own `gk`/`gj` are `k`/`j`, so
@@ -884,9 +896,10 @@ voicings in their cycle order out) and `Place()`, and the entry points.
   what was just written.
 - **From a label: lowest on the neck, unlinted.** There is no cursor string to
   root on, so the voicing is the lowest root fret (open shapes first), and
-  `==` goes on in the 10.4 order from its string. The entry point moves the
-  cursor to that string, runs the usual `=` edit, and comes back to the label,
-  so the whole of `edit#Do` (slot, undo, state) is reused. It does not lint:
+  `==` goes on in the 10.4 order from its string. It is the usual `=` edit
+  (`s:place`) told to root on that string at the label's column, the cursor
+  staying on the label (`edit#Do` follows it there), so the whole of
+  `edit#Do` (slot, undo, state) is reused. It does not lint:
   a progression typed over empty bars would lose the columns of the labels
   still to fill as the bars closed up. `.` on the annotation line repeats it
   (`repeat#Record`), so a progression is `=<CR>` then `w.` per chord.

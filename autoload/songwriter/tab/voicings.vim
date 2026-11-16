@@ -472,47 +472,46 @@ function! s:from_label(name) abort
   endfor
   let l:voicings = songwriter#tab#voicings#Voicings(l:names, l:chord, l:first.lin).voicings
   let l:index = index(l:voicings, l:first)
-  let l:label = {'col': l:word.col, 'off': l:vcol - l:word.col,
-        \ 'row': l:block.start - 1 - line('.')}
+  let l:label = {'col': l:word.col, 'off': l:vcol - l:word.col}
   if !empty(s:on_label(l:chord, l:voicings, l:index, 0, l:label))
     call songwriter#tab#repeat#Record(function('songwriter#tab#voicings#Enter'), [a:name])
   endif
 endfunction
 
 " Place voicing `index` of `voicings` under the chord label `label` ({'col',
-" 'off' (the cursor's display offset in it), 'row' (its annotation line, 0
-" right above the strings)}), as on the voicing's root string at that column,
-" unlinted, so that the labels still to fill keep their columns; then bring
-" the cursor back on the label. `==` goes on from there. Returns the written
-" block, {} for a refusal (the cursor stays).
+" 'off' (the cursor's display offset in it)}) under the cursor, as on the
+" voicing's root string at that column, unlinted, so that the labels still to
+" fill keep their columns; the cursor stays on the label (edit#Do follows it).
+" `==` goes on from there. Returns the written block, {} for a refusal.
 function! s:on_label(chord, voicings, index, join, label) abort
-  let l:pos = getcurpos()
   let l:block = songwriter#tab#model#Around(line('.'))
-  call cursor(l:block.start + a:voicings[a:index].lin, a:label.col)
-  let l:written = s:put(a:chord, a:voicings, a:index, a:join, 1, 0)
+  let l:written = songwriter#tab#edit#Do(function('s:place_label', [a:chord, a:voicings, a:index, a:label]),
+        \ {'lnum': l:block.start, 'slot': 'fill', 'join': a:join, 'prelint': 0, 'insert': 1, 'lint': 0})
   if empty(l:written)
-    call setpos('.', l:pos)
     return {}
   endif
-  let l:col = col('.')
-  let l:lnum = l:written.start - 1 - a:label.row
-  let l:bytes = songwriter#tab#annotations#Bytes(getline(l:lnum), l:col + a:label.off, 1)
-  call cursor(l:lnum, empty(l:bytes) ? l:col : l:bytes[0])
   let l:state = songwriter#tab#state#Get('voicing')
   call songwriter#tab#state#Set('voicing', extend(l:state, {'line': line('.'), 'col': col('.'),
-        \ 'label': extend(copy(a:label), {'col': l:col})}))
+        \ 'label': extend(copy(a:label), {'col': virtcol('.') - a:label.off})}))
   return l:written
+endfunction
+
+" The edit of s:on_label: s:place on the voicing's root string at the
+" label's column, the cursor left where it is, on the label.
+function! s:place_label(chord, voicings, index, label, ctx) abort
+  let l:result = s:place(a:chord, a:voicings, a:index, 1,
+        \ extend(copy(a:ctx), {'lin': a:voicings[a:index].lin, 'col': a:label.col}))
+  return has_key(l:result, 'error') ? l:result : extend(l:result, {'lin': a:ctx.lin, 'col': a:ctx.col})
 endfunction
 
 " Place voicing `index` of `voicings` on the cursor's column, then lint (10.5),
 " with the chord's label (10.9): replacing the column's chord label, or added
 " when there is none if `add` is set. It fills an open slot, joined to its
 " undo step, as is a cycle (`join`). In the insert state, the next digit
-" opens a slot after it (EnterNote). `lint` (default 1): lint the result.
-" Returns the written block (edit#Do).
-function! s:put(chord, voicings, index, join, add, ...) abort
+" opens a slot after it (EnterNote). Returns the written block (edit#Do).
+function! s:put(chord, voicings, index, join, add) abort
   return songwriter#tab#edit#Do(function('s:place', [a:chord, a:voicings, a:index, a:add]),
-        \ {'slot': 'fill', 'join': a:join, 'prelint': 0, 'insert': 1, 'lint': a:0 ? a:1 : 1})
+        \ {'slot': 'fill', 'join': a:join, 'prelint': 0, 'insert': 1})
 endfunction
 
 function! s:place(chord, voicings, index, add, ctx) abort

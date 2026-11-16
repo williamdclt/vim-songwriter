@@ -13,22 +13,6 @@ more regular, as a question for the user.
 The safety net for all of them is `test/songwriter_invariants_*.vader`, on top of
 the per-feature tests: run `make test` after every step.
 
-## 5. The cursor on an annotation line, inside the edit pipeline
-
-**Now.** `edit#Do`'s cursor is on the strings only. `=` on a label
-(`voicings.vim` `s:on_label`) moves the cursor to a string, runs the edit,
-then puts it back by converting bytes; `cia` keeps its own state
-(`b:songwriter_annotating`, prefix and rest matched on leaving insert mode);
-`annotate#Delete` writes the line itself.
-
-**Change.** The cursor of `edit#Do` may be on an annotation row, held as a
-word and an offset in it, and follows that word through the edit. `=` on a
-label, `dia` and the end of `cia` become ordinary edits (with refactor 4's
-operations).
-
-**Buys.** Undo, `.`, state and the cursor work the same on annotation lines
-as on strings, with no round trips.
-
 ## 6. Later: the same layer for chords over lyrics
 
 **Now.** `[Chord annotations]` (chords above lyrics) has editing features to
