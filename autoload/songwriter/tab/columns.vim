@@ -269,7 +269,7 @@ function! songwriter#tab#columns#WriteNote(lines, lin, c, old, text) abort
     let l:moved = a:old > l:w ? songwriter#tab#model#RowNotes(l:rest) : []
     return {'lines': l:lines, 'col': l:c, 'map': l:map,
           \ 'erased': l:erased + map(copy(l:moved), {_, n -> {'lin': a:lin, 'col': l:end + n.col}}),
-          \ 'written': [{'lin': a:lin, 'col': l:c}]
+          \ 'written': [{'lin': a:lin, 'col': l:c + s:note_offset(a:text)}]
           \   + map(copy(l:moved), {_, n -> {'lin': a:lin, 'col': l:c + l:w - 1 + n.col}})}
   endif
   let l:free = len(matchstr(l:t, songwriter#grammar#DashRun(), l:end))
@@ -300,7 +300,7 @@ function! songwriter#tab#columns#WriteNote(lines, lin, c, old, text) abort
   let l:t = songwriter#tab#model#Pad(l:lines[a:lin], l:c + l:w - 1)
   let l:lines[a:lin] = songwriter#tab#model#Splice(l:t, l:c, l:w, a:text)
   return {'lines': l:lines, 'col': l:c, 'map': l:map, 'erased': l:erased,
-        \ 'written': [{'lin': a:lin, 'col': l:c}]}
+        \ 'written': [{'lin': a:lin, 'col': l:c + s:note_offset(a:text)}]}
 endfunction
 
 " Write `text`, a note, on the dashes at column `c` of line `to`
@@ -314,6 +314,11 @@ endfunction
 function! songwriter#tab#columns#SetNote(lines, lin, c, text) abort
   return songwriter#tab#columns#WriteNote(a:lines, a:lin, a:c,
         \ songwriter#tab#model#NoteAt(a:lines[a:lin], a:c).len, a:text)
+endfunction
+
+" Where the note of `text` (a note with its separators) starts in it.
+function! s:note_offset(text) abort
+  return max([0, match(a:text, songwriter#grammar#Note())])
 endfunction
 
 " `lines` without line `lin`.

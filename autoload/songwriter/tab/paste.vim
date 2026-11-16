@@ -141,9 +141,11 @@ endfunction
 
 " Spec 6.14: write the notes of column register `rows` onto the time column at
 " `col` of line `lin`, without adding time: the register's first note column
-" lands on that column. Rows are matched as in Paste. Returns {'lines', 'col',
-" 'msg', 'map'} (no time column moves), or {'error'} for a bar register, no
-" column there, or a note that would replace anything but dashes.
+" lands on that column. Rows are matched as in Paste. Each note is written as
+" a note on dashes is (columns#PutNote), so it never joins a note ending
+" right before it: a dash is inserted there on every string. Returns
+" {'lines', 'col', 'msg', 'map', 'written'}, or {'error'} for a bar register,
+" no column there, or a note that would replace anything but dashes.
 function! songwriter#tab#paste#Overlay(lines, lin, col, rows, regnames) abort
   if !empty(filter(copy(a:rows), "stridx(v:val, '|') >= 0"))
     return {'error': 'gp pastes a column, not a bar'}
@@ -169,16 +171,29 @@ function! songwriter#tab#paste#Overlay(lines, lin, col, rows, regnames) abort
     return {'lines': copy(a:lines), 'col': l:c, 'msg': l:m.msg, 'map': []}
   endif
   let l:qmin = min(l:starts)
-  let l:out = copy(a:lines)
-  for l:i in range(len(l:out))
+  for l:i in range(len(a:lines))
     for l:a in l:atoms[l:i]
       let l:s = l:c + l:a.col - l:qmin
-      let l:line = songwriter#tab#model#Pad(l:out[l:i], l:s + l:a.len)
+      let l:line = songwriter#tab#model#Pad(a:lines[l:i], l:s + l:a.len)
       if strpart(l:line, l:s - 1, l:a.len) !~# songwriter#grammar#OnlyDashes()
         return {'error': printf('gp would replace a note on string %s', songwriter#tab#model#Name(a:lines[l:i]))}
       endif
-      let l:out[l:i] = songwriter#tab#model#Splice(l:line, l:s, l:a.len, l:a.text)
     endfor
   endfor
-  return {'lines': l:out, 'col': l:c, 'msg': l:m.msg, 'map': []}
+  let l:out = copy(a:lines)
+  let [l:map, l:written] = [[], []]
+  for l:i in range(len(l:out))
+    for l:a in l:atoms[l:i]
+      let l:s = songwriter#tab#colmap#At(l:map, l:c + l:a.col - l:qmin)
+      let l:res = songwriter#tab#columns#PutNote(l:out, l:i, l:s, l:a.text)
+      if has_key(l:res, 'error')
+        return l:res
+      endif
+      let l:out = l:res.lines
+      let l:map = songwriter#tab#colmap#Then(l:map, l:res.map)
+      let l:written = songwriter#tab#colmap#Positions(l:written, l:res.map) + l:res.written
+    endfor
+  endfor
+  return {'lines': l:out, 'col': songwriter#tab#colmap#At(l:map, l:c), 'msg': l:m.msg, 'map': l:map,
+        \ 'written': l:written}
 endfunction
