@@ -28,7 +28,7 @@ never relies on concealing or rendering.
 | `autoload/songwriter/tab/carry.vim` | Carrying notes across strings: the pure carry (`Lift`, `Copy`, `Step`, `Render`, `Move`), `<leader>k`/`<leader>j` and `s`/`S`, copies, visual carries and the move state (`m`). |
 | `autoload/songwriter/selection.vim` | The visual selection, for actions that change the text from visual mode and select again (`Get`, `Spans`, `Select`). |
 | `autoload/songwriter/tab/newtab.vim` | New tabs: `o`/`O` and `:SongwriterNewTab`. |
-| `autoload/songwriter/tab/state.vim` | Buffer state valid only while `b:changedtick` is unchanged (slot, insert state, digit being typed, carried note, `.`), and continuations (`Continuing`): state that also needs the cursor where it was left. |
+| `autoload/songwriter/tab/state.vim` | The buffer's named states (slot, insert and move states, digit being typed, carry, `.`, visual object...) and the one table of how long each holds, which `Get` honours. |
 | `autoload/songwriter/tab/lint.vim` | The linter, as a pure function over a block's lines. |
 | `autoload/songwriter/tab/highlight.vim` | The time column under the cursor, highlighted in tablature mode. |
 | `autoload/songwriter/tab.vim` | The tab commands that work outside tablature mode too: `_`, `\|\|`, `:SongwriterAddBar`, `:SongwriterAddDashes`, `:SongwriterTabChord`. |
@@ -146,6 +146,37 @@ little in a song file.
 
 `||` is not a double bar line (the format has none); it is the key that lints
 the block.
+
+### State and how long it holds
+
+What a key leaves for the keys that follow (the open slot, the insert state,
+the digit being typed, the action `.` repeats...) is a named state of
+`tab/state.vim`, and how long it holds is declared once, by name, in its
+table: `Get` returns the value only while it holds, so no reader writes the
+rule out again and a new state is one line of the table. The lifetimes are
+the ones the features need:
+
+| Lifetime | Holds | States |
+|---|---|---|
+| `change` | until the buffer changes | the slot (4.3), the insert state, `.`, `gk`'s origin (`upward`) |
+| `continuation` | straight after an action: buffer unchanged, cursor where the action left it | the digit being typed, the carry run, `==` cycling voicings or names |
+| `on-note` | while the cursor is on a note of a tab line in tablature mode, edits included | the move state |
+| `selection` | while visual mode and the selection are the ones recorded, edits included | the visual object (`vobj`) |
+| `read-once` | until read | the word `cia` changes, read when insert mode is left |
+
+Tying a state to `b:changedtick` rather than clearing it at each place that
+changes the buffer means any change, `u` included, ends it without the other
+code having to know. `Expire` drops a state that no longer holds, for the
+one place that shows its end (the move state's message). One reader
+knowingly outlasts its state: the undo join of a digit reads `typing` under
+`change` (a digit joins what was typed before it while the buffer is
+unchanged, even after a move), passed to `Get` as a lifetime of its own.
+
+Two states are not there, because Vim puts them elsewhere: the pending
+operator (`s:pending`, `s:join` in `operator.vim`), since `'operatorfunc'`
+takes no arguments, and the string names of a register
+(`g:songwriter_register_names`), since registers are global and hold while
+their content is the one recorded, which no buffer tick says.
 
 ## Format grammar
 
@@ -311,7 +342,7 @@ part of the tab, and follow its music through every edit.
   typed rather than the text set first, so the change and what is typed are
   one undo step. When insert mode is left, a `Do` edit joined to that undo
   step retypes the word: a `retype` operation of `annotations#Apply`, from
-  the line as it was before the typing (`b:songwriter_annotating` keeps it),
+  the line as it was before the typing (the `annotating` state keeps it),
   so the next word is back where it was and the tab makes room for a label
   as it does for any edit; `dia` is the same operation with nothing typed.
   `.` does not repeat the typed text: Vim does not record what is typed after
@@ -440,20 +471,21 @@ strings").
 
 - **Two kinds of state.** *States* are what the user sees and enters and
   leaves explicitly: normal, insert and move, one at a time, owned by
-  `tab/mode.vim` (`Current`, `Enter`, the message each shows). `keys.vim`
+  `tab/mode.vim` (`Current`, `Enter`, the message each shows) and recorded
+  in `tab/state.vim` (see "State and how long it holds"). `keys.vim`
   picks its tables from the current state, each falling back to the normal
   one, so a key's meaning follows from one value and a new state is a table
   and its entry in `mode.vim`. *Continuations* (below) hold only straight
   after an action. The keys typed straight after a note (separators,
   3.4.1.3) are a continuation inside the insert state: its table is checked
   first there.
-- **How long a state holds.** The insert state is valid only while
-  `b:changedtick` is unchanged: the edits made in it (opening, filling,
+- **How long a state holds.** The insert state holds until the buffer
+  changes (`change`): the edits made in it (opening, filling,
   closing a slot) record it again (`mode#Keep`), and any other change (`u`,
   `x`, an operator) ends it without the other code having to know about it.
   Opening a slot enters it (`slots#Open`), so `a`/`i`, `c`, `o`/`O` and
   `:SongwriterNewTab` all do; leaving it closes the slot (`<Esc>`). The move
-  mode holds while the cursor is on a note, edits included. Entering a state
+  mode holds while the cursor is on a note, edits included (`on-note`). Entering a state
   leaves the current one, so `m` leaves the insert state; a digit run in the
   normal or move state borrows the insert state to open its slot (3.4.1.1) and
   goes back to the state it was typed in. Entering shows the state
@@ -463,9 +495,9 @@ strings").
 - **Continuations.** Several keys carry on from the last action when pressed
   straight after it: the carry run (3.6.2), the digit being typed (3.4.1),
   `==` cycling voicings or names (10.4, 10.10). "Straight after" has one
-  definition, `state#Continuing(name)`: the value recorded under `name` while
-  the buffer is unchanged since and the cursor is where the action left it
-  (`edit#Do` records the cursor with every state). Anything else in between,
+  definition, the `continuation` lifetime of `tab/state.vim`: the value
+  recorded holds while the buffer is unchanged since and the cursor is where
+  the action left it (`edit#Do` records the cursor with every state). Anything else in between,
   a move included, ends it.
 - **`w`/`b`/`e`/`ge` (3.2)**: by word (a chain, see "Vim's units in a tab")
   on the current line: `w`/`b` stop on a word's first note, `e`/`ge` on its
@@ -525,9 +557,9 @@ strings").
 - **Digits (3.4)**: a digit on a dash replaces it; on a note it replaces the
   whole note (both digits of a `12`). To type a two-digit fret, a digit typed
   straight after another is appended to it instead (3.4.1): `EnterNote` records
-  `b:songwriter_typing = {line, col, tick}` after each digit, and the next
-  digit appends only when the cursor and `b:changedtick` still match
-  (`state#Continuing`, see "Continuations" below). Any move or edit ends the run, so coming back to a note replaces it. The block is then
+  the `typing` state after each digit, and the next digit appends only
+  while it holds, the cursor and `b:changedtick` unchanged (see
+  "Continuations" above). Any move or edit ends the run, so coming back to a note replaces it. The block is then
   linted (4.1, below), which fixes the spacing. `x` on a dash enters a muted
   note the same way (3.4.3); on a note it stays the erase of spec 6.7. Off tablature mode or a tab
   line, digits keep their count meaning. Digits work in both states and keep
@@ -621,7 +653,7 @@ The spec items carry the behaviour; this records why, and how it is built.
   operation's with `:undojoin`); it consumes the count, so the count is given
   again after `g@` (`g@3w`). `v:register` is not reliable inside the
   operatorfunc, so the operator, register and "exact target" flag are kept in
-  `s:pending`.
+  `s:pending`, a script variable since the operatorfunc takes no arguments.
 - **Spacing is rhythm.** The gap after a note belongs to it: `ac`, a snapped
   motion range and `x` on a lone note remove it with the note, so the
   previous note keeps its length and what follows moves earlier. Rests exist
