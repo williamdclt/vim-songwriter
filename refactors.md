@@ -13,15 +13,6 @@ more regular, as a question for the user.
 The safety net for all of them is `test/songwriter_invariants_*.vader`, on top of
 the per-feature tests: run `make test` after every step.
 
-## 7. One shape for refusals
-
-**Now.** Pure functions return a refusal as {'error'}, except some that return
-a list or an error dict (carry#Notes), which the caller tells apart by type.
-The `'songwriter: '` prefix is added by hand in about a dozen places.
-
-**Change.** Every pure function that can refuse returns a dict, with 'error'
-on a refusal; edit#Error adds the prefix.
-
 ## 8. Check the key tables
 
 **Now.** Every action in keys.vim is a string, so a misspelt function only

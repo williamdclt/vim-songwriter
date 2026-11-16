@@ -85,7 +85,7 @@ endfunction
 function! s:put(before, count, reg, ctx) abort
   let l:rows = songwriter#tab#register#BlockRows(a:reg)
   if empty(l:rows)
-    return {'error': 'songwriter: cannot paste a character-wise register into a tab'}
+    return {'error': 'cannot paste a character-wise register into a tab'}
   endif
   let l:reg = songwriter#tab#register#Split(a:reg)
   return songwriter#tab#paste#Paste(a:ctx.block.lines, a:ctx.lin, a:ctx.col, l:reg.rows,
@@ -152,7 +152,7 @@ endfunction
 function! s:overlay(reg, ctx) abort
   let l:rows = songwriter#tab#register#BlockRows(a:reg)
   if empty(l:rows)
-    return {'error': 'songwriter: gp pastes a column register'}
+    return {'error': 'gp pastes a column register'}
   endif
   " The notes only: the column keeps its own annotations.
   return songwriter#tab#paste#Overlay(a:ctx.block.lines, a:ctx.lin, a:ctx.col,

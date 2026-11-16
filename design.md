@@ -110,6 +110,12 @@ error, thrown, so no write path can lose track of where the tab went; every
 part of a block other than its strings is kept in step in `Derive` and
 `model#Write`, and nowhere else.
 
+**Refusals.** A pure function that can refuse returns a dict, with 'error'
+(a message without the plugin's name) on a refusal, whatever it returns
+otherwise (`{'notes'}`, `{'voicings'}`, a result), so callers test one key
+rather than a type; `edit#Error` (and `edit#Do` for an edit's result) shows
+it with the `songwriter: ` prefix, added in that one place.
+
 Pure functions are testable without buffer setup and composable: spec item 4
 (lint after an edit) is "edit, then lint, then follow the moved note", which is
 why `lint#Lint` reports where every note moved.

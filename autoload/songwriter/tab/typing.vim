@@ -64,7 +64,7 @@ function! s:enter_note(digit, here, after_separator, ctx) abort
     let l:text = l:append ? l:note.text . a:digit : a:digit
     let l:res = songwriter#tab#columns#SetNote(l:lines, a:ctx.lin, l:note.col, l:text)
     if has_key(l:res, 'error')
-      return {'error': 'songwriter: ' . l:res.error}
+      return l:res
     endif
     let [l:lines, l:map] = [l:res.lines, l:res.map]
     let l:col = l:note.col + (l:append ? len(l:text) - 1 : 0)

@@ -86,10 +86,10 @@ function! songwriter#tab#carry#Step(carry, dlin, frets, keep_pitch) abort
       let l:fret = str2nr(l:text, 10) + a:frets
       if a:keep_pitch && l:from != l:to
         let l:shift = s:interval(a:carry.base, l:from, l:to)
-        if type(l:shift) == v:t_dict
+        if has_key(l:shift, 'error')
           return l:shift
         endif
-        let l:fret += l:shift
+        let l:fret += l:shift.frets
       endif
       let l:max = get(g:, 'songwriter_max_fret', 24)
       if l:fret < 0
@@ -108,8 +108,8 @@ function! songwriter#tab#carry#Step(carry, dlin, frets, keep_pitch) abort
   return l:carry
 endfunction
 
-" Spec 7.3: the number of frets a note moving from string `from` to string `to`
-" changes by to keep its pitch, or {'error'}. Strings are taken to be listed
+" Spec 7.3: {'frets': the number of frets a note moving from string `from` to
+" string `to` changes by to keep its pitch}, or {'error'}. Strings are taken to be listed
 " from the highest to the lowest, neighbouring strings less than an octave
 " apart: the interval is read from pitch classes.
 function! s:interval(lines, from, to) abort
@@ -125,7 +125,7 @@ function! s:interval(lines, from, to) abort
     return {'error': printf('cannot tell the interval between strings %s and %s',
           \ songwriter#tab#model#Name(a:lines[l:hi]), songwriter#tab#model#Name(a:lines[l:lo]))}
   endif
-  return a:to < a:from ? -l:interval : l:interval
+  return {'frets': a:to < a:from ? -l:interval : l:interval}
 endfunction
 
 " Spec 3.6.1, 7.5: the tab with the notes of `carry` where they are: its base
@@ -182,14 +182,14 @@ endfunction
 
 " Spec 3.6, 7.1: the notes `s`/`S` take from column `col` of line `lin`: the
 " note covering it ('note'), or every note starting on the time column under
-" it ('column'), as carried notes (s:note), or {'error'}. For a column, the
+" it ('column'), as carried notes (s:note): {'notes'}, or {'error'}. For a column, the
 " cursor may be off its notes: on a column where a note of another string
 " starts, or under a note of another string covering it.
 function! songwriter#tab#carry#Notes(lines, lin, col, kind) abort
   if a:kind ==# 'note'
     let l:note = songwriter#tab#model#NoteAt(a:lines[a:lin], a:col)
     return empty(l:note) ? {'error': 'no note under the cursor'}
-          \ : [s:note(a:lines[a:lin], a:lin, l:note)]
+          \ : {'notes': [s:note(a:lines[a:lin], a:lin, l:note)]}
   endif
   let l:c = s:column_at(a:lines, a:lin, a:col)
   if l:c == 0
@@ -202,7 +202,7 @@ function! songwriter#tab#carry#Notes(lines, lin, col, kind) abort
       call add(l:notes, s:note(a:lines[l:i], l:i, l:note))
     endif
   endfor
-  return l:notes
+  return {'notes': l:notes}
 endfunction
 
 " The start of the note covering `col` on line `lin`; off a note, the column
@@ -231,10 +231,10 @@ endfunction
 " `keep_pitch`. Returns Render's {'lines', 'map', 'lin', 'col'}, or {'error'}.
 function! songwriter#tab#carry#Move(lines, lin, col, dir, keep_pitch, kind) abort
   let l:notes = songwriter#tab#carry#Notes(a:lines, a:lin, a:col, a:kind)
-  if type(l:notes) == v:t_dict
+  if has_key(l:notes, 'error')
     return l:notes
   endif
-  let l:carry = songwriter#tab#carry#Step(songwriter#tab#carry#Lift(a:lines, l:notes, a:kind, a:lin, a:col),
+  let l:carry = songwriter#tab#carry#Step(songwriter#tab#carry#Lift(a:lines, l:notes.notes, a:kind, a:lin, a:col),
         \ a:dir, 0, a:keep_pitch)
   return has_key(l:carry, 'error') ? l:carry : songwriter#tab#carry#Render(l:carry)
 endfunction
@@ -277,10 +277,10 @@ function! s:step(carry, kind, dir, frets, keep_pitch, ctx) abort
   let l:carry = a:carry
   if empty(l:carry)
     let l:notes = songwriter#tab#carry#Notes(a:ctx.block.lines, a:ctx.lin, a:ctx.col, a:kind)
-    if type(l:notes) == v:t_dict
-      return {'error': 'songwriter: ' . l:notes.error}
+    if has_key(l:notes, 'error')
+      return l:notes
     endif
-    let l:carry = songwriter#tab#carry#Lift(a:ctx.block.lines, l:notes, a:kind, a:ctx.lin, a:ctx.col)
+    let l:carry = songwriter#tab#carry#Lift(a:ctx.block.lines, l:notes.notes, a:kind, a:ctx.lin, a:ctx.col)
     let l:carry.saved = s:saved(a:ctx.block, l:carry)
   endif
   return s:result(songwriter#tab#carry#Step(l:carry, a:dir, a:frets, a:keep_pitch))
@@ -296,11 +296,11 @@ endfunction
 " The edit result of rendering `carry` (or its refusal).
 function! s:result(carry) abort
   if has_key(a:carry, 'error')
-    return {'error': 'songwriter: ' . a:carry.error}
+    return a:carry
   endif
   let l:res = songwriter#tab#carry#Render(a:carry)
   if has_key(l:res, 'error')
-    return {'error': 'songwriter: ' . l:res.error}
+    return l:res
   endif
   return {'lines': l:res.lines, 'map': l:res.map, 'lin': l:res.lin, 'col': l:res.col,
         \ 'base': l:res.home ? a:carry.saved.origin : a:carry.saved.base,

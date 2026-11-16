@@ -74,10 +74,11 @@ function! s:snapshot(block, draft) abort
   return l:snapshot
 endfunction
 
-" Show a refusal.
+" Show a refusal, `msg` as a pure function gives it ({'error'}), prefixed
+" with the plugin's name.
 function! songwriter#tab#edit#Error(msg) abort
   echohl ErrorMsg
-  echo a:msg
+  echo 'songwriter: ' . a:msg
   echohl None
 endfunction
 

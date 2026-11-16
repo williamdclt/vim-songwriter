@@ -1,5 +1,5 @@
 " Spec [Tablature][[Editing]] 10: a whole chord entered on a time column.
-" Pure cases call songwriter#tab#voicings#Voicings(names, chord, lin) (the
+" Pure cases call songwriter#tab#voicings#Voicings(names, chord, lin).voicings (the
 " voicings in their `==` order, rooted from line `lin`, 0-indexed) and
 " songwriter#tab#voicings#Place(lines, lin, col, voicing); key cases type
 " `=` in tablature mode.
@@ -16,50 +16,50 @@ After:
 " --- 10.2 / 10.4 voicings and their order ---
 
 Execute (10.4 A from the A string: open A, E shape, D shape, then the 12th fret):
-  let v = songwriter#tab#voicings#Voicings(g:std, 'A', 4)
+  let v = songwriter#tab#voicings#Voicings(g:std, 'A', 4).voicings
   AssertEqual [[4, 0, 'A'], [5, 5, 'E'], [3, 7, 'D'], [4, 12, 'A']],
         \ map(copy(v), '[v:val.lin, v:val.fret, v:val.shape]')
 
 Execute (10.2 the frets of a voicing, top string first, -1 where not played):
-  let v = songwriter#tab#voicings#Voicings(g:std, 'Am', 4)
+  let v = songwriter#tab#voicings#Voicings(g:std, 'Am', 4).voicings
   AssertEqual [0, 1, 2, 2, 0, -1], v[0].frets
   AssertEqual [5, 5, 5, 7, 7, 5], v[1].frets
   AssertEqual [8, 10, 9, 7, -1, -1], v[2].frets
 
 Execute (10.4 from the low E string, the E string comes first):
-  let v = songwriter#tab#voicings#Voicings(g:std, 'Am', 5)
+  let v = songwriter#tab#voicings#Voicings(g:std, 'Am', 5).voicings
   AssertEqual [[5, 5, 'E'], [4, 0, 'A'], [3, 7, 'D'], [4, 12, 'A']],
         \ map(copy(v), '[v:val.lin, v:val.fret, v:val.shape]')
 
 Execute (10.2 open C and open G come before the barre on their string):
-  let v = songwriter#tab#voicings#Voicings(g:std, 'C', 4)
+  let v = songwriter#tab#voicings#Voicings(g:std, 'C', 4).voicings
   AssertEqual [[4, 3, 'C'], [4, 3, 'A'], [5, 8, 'E'], [3, 10, 'D']],
         \ map(copy(v), '[v:val.lin, v:val.fret, v:val.shape]')
   AssertEqual [0, 1, 0, 2, 3, -1], v[0].frets
-  let v = songwriter#tab#voicings#Voicings(g:std, 'G', 5)
+  let v = songwriter#tab#voicings#Voicings(g:std, 'G', 5).voicings
   AssertEqual [3, 0, 0, 0, 2, 3], v[0].frets
   AssertEqual 'E', v[1].shape
 
 Execute (10.4 a string that roots nothing: the nearest lower one comes first):
-  let v = songwriter#tab#voicings#Voicings(g:std, 'Am', 1)
+  let v = songwriter#tab#voicings#Voicings(g:std, 'Am', 1).voicings
   AssertEqual [3, 7, 'D'], [v[0].lin, v[0].fret, v[0].shape]
 
 Execute (10.2 qualities and their spellings):
-  AssertEqual [0, 1, 0, 2, 0, -1], songwriter#tab#voicings#Voicings(g:std, 'Am7', 4)[0].frets
-  AssertEqual [0, 1, 0, 2, 0, -1], songwriter#tab#voicings#Voicings(g:std, 'Amin7', 4)[0].frets
-  AssertEqual [0, 2, 1, 2, 0, -1], songwriter#tab#voicings#Voicings(g:std, 'AM7', 4)[0].frets
-  AssertEqual [0, 2, 1, 2, 0, -1], songwriter#tab#voicings#Voicings(g:std, 'Amaj7', 4)[0].frets
-  AssertEqual [0, 2, 0, 2, 0, -1], songwriter#tab#voicings#Voicings(g:std, 'A7', 4)[0].frets
-  AssertEqual [0, 0, 2, 2, 0, -1], songwriter#tab#voicings#Voicings(g:std, 'Asus2', 4)[0].frets
-  AssertEqual [0, 3, 2, 2, 0, -1], songwriter#tab#voicings#Voicings(g:std, 'Asus4', 4)[0].frets
-  AssertEqual [0, 3, 2, 2, 0, -1], songwriter#tab#voicings#Voicings(g:std, 'Asus', 4)[0].frets
-  AssertEqual [2, 3, 2, 0, -1, -1], songwriter#tab#voicings#Voicings(g:std, 'D', 3)[0].frets
-  AssertEqual [0, 0, 1, 2, 2, 0], songwriter#tab#voicings#Voicings(g:std, 'E', 5)[0].frets
+  AssertEqual [0, 1, 0, 2, 0, -1], songwriter#tab#voicings#Voicings(g:std, 'Am7', 4).voicings[0].frets
+  AssertEqual [0, 1, 0, 2, 0, -1], songwriter#tab#voicings#Voicings(g:std, 'Amin7', 4).voicings[0].frets
+  AssertEqual [0, 2, 1, 2, 0, -1], songwriter#tab#voicings#Voicings(g:std, 'AM7', 4).voicings[0].frets
+  AssertEqual [0, 2, 1, 2, 0, -1], songwriter#tab#voicings#Voicings(g:std, 'Amaj7', 4).voicings[0].frets
+  AssertEqual [0, 2, 0, 2, 0, -1], songwriter#tab#voicings#Voicings(g:std, 'A7', 4).voicings[0].frets
+  AssertEqual [0, 0, 2, 2, 0, -1], songwriter#tab#voicings#Voicings(g:std, 'Asus2', 4).voicings[0].frets
+  AssertEqual [0, 3, 2, 2, 0, -1], songwriter#tab#voicings#Voicings(g:std, 'Asus4', 4).voicings[0].frets
+  AssertEqual [0, 3, 2, 2, 0, -1], songwriter#tab#voicings#Voicings(g:std, 'Asus', 4).voicings[0].frets
+  AssertEqual [2, 3, 2, 0, -1, -1], songwriter#tab#voicings#Voicings(g:std, 'D', 3).voicings[0].frets
+  AssertEqual [0, 0, 1, 2, 2, 0], songwriter#tab#voicings#Voicings(g:std, 'E', 5).voicings[0].frets
 
 Execute (10.1 the root's letter is case-insensitive; the quality is not):
-  AssertEqual [0, 1, 2, 2, 0, -1], songwriter#tab#voicings#Voicings(g:std, 'am', 4)[0].frets
-  AssertEqual [-1, -1, -1, 8, 8, 6], songwriter#tab#voicings#Voicings(g:std, 'bb5', 5)[0].frets
-  AssertEqual [0, 2, 1, 2, 0, -1], songwriter#tab#voicings#Voicings(g:std, 'aM7', 4)[0].frets
+  AssertEqual [0, 1, 2, 2, 0, -1], songwriter#tab#voicings#Voicings(g:std, 'am', 4).voicings[0].frets
+  AssertEqual [-1, -1, -1, 8, 8, 6], songwriter#tab#voicings#Voicings(g:std, 'bb5', 5).voicings[0].frets
+  AssertEqual [0, 2, 1, 2, 0, -1], songwriter#tab#voicings#Voicings(g:std, 'aM7', 4).voicings[0].frets
 
 Given songwriter (10.1 =am is A minor, named Am):
   e|-----|
@@ -84,11 +84,11 @@ Expect songwriter (10.1 =am is A minor, named Am):
   E|-----|
 
 Execute (10.2 the E shape has no sus2: E sus2 starts elsewhere):
-  let v = songwriter#tab#voicings#Voicings(g:std, 'Esus2', 5)
+  let v = songwriter#tab#voicings#Voicings(g:std, 'Esus2', 5).voicings
   Assert empty(filter(copy(v), 'v:val.shape ==# "E"'))
 
 Execute (10.3 power chords: root, fifth, octave, on any string with two above):
-  let v = songwriter#tab#voicings#Voicings(g:std, 'G5', 5)
+  let v = songwriter#tab#voicings#Voicings(g:std, 'G5', 5).voicings
   AssertEqual [-1, -1, -1, 5, 5, 3], v[0].frets
   AssertEqual [[5, 3], [4, 10], [3, 5], [2, 0], [2, 12]],
         \ map(copy(v), '[v:val.lin, v:val.fret]')
@@ -96,13 +96,13 @@ Execute (10.3 power chords: root, fifth, octave, on any string with two above):
   AssertEqual [3, 3, 0, -1, -1, -1], v[3].frets
 
 Execute (10.3 power chords follow the tuning: drop D):
-  let v = songwriter#tab#voicings#Voicings(['e', 'B', 'G', 'D', 'A', 'D'], 'D5', 5)
+  let v = songwriter#tab#voicings#Voicings(['e', 'B', 'G', 'D', 'A', 'D'], 'D5', 5).voicings
   AssertEqual [-1, -1, -1, 0, 0, 0], v[0].frets
-  let v = songwriter#tab#voicings#Voicings(['e', 'B', 'G', 'D', 'A', 'D'], 'F5', 5)
+  let v = songwriter#tab#voicings#Voicings(['e', 'B', 'G', 'D', 'A', 'D'], 'F5', 5).voicings
   AssertEqual [-1, -1, -1, 3, 3, 3], v[0].frets
 
 Execute (10.3 power chords on a bass):
-  let v = songwriter#tab#voicings#Voicings(['G', 'D', 'A', 'E'], 'A5', 3)
+  let v = songwriter#tab#voicings#Voicings(['G', 'D', 'A', 'E'], 'A5', 3).voicings
   AssertEqual [-1, 7, 7, 5], v[0].frets
 
 Execute (10.6 refusals):
@@ -115,30 +115,30 @@ Execute (10.6 refusals):
 " --- 10.5 placing a voicing ---
 
 Execute (10.5 on a dash, the chord is written on that column):
-  let v = songwriter#tab#voicings#Voicings(g:std, 'Am', 4)[0]
+  let v = songwriter#tab#voicings#Voicings(g:std, 'Am', 4).voicings[0]
   let r = songwriter#tab#voicings#Place(map(copy(g:std), 'v:val . "|-----|"'), 4, 5, v)
   AssertEqual ['e|--0--|', 'B|--1--|', 'G|--2--|', 'D|--2--|', 'A|--0--|', 'E|-----|'], r.lines
   AssertEqual 5, r.col
 
 Execute (10.5 on a note column, its notes are replaced; the others stay):
   let lines = ['e|--------|', 'B|--------|', 'G|--------|', 'D|--------|', 'A|--------|', 'E|--3--5--|']
-  let v = songwriter#tab#voicings#Voicings(g:std, 'A', 4)[0]
+  let v = songwriter#tab#voicings#Voicings(g:std, 'A', 4).voicings[0]
   let r = songwriter#tab#voicings#Place(lines, 4, 5, v)
   AssertEqual ['e|--0-----|', 'B|--2-----|', 'G|--2-----|', 'D|--2-----|', 'A|--0-----|', 'E|-----5--|'], r.lines
 
 Execute (10.5 a two-digit fret gets room):
-  let v = songwriter#tab#voicings#Voicings(g:std, 'C', 5)[0]
+  let v = songwriter#tab#voicings#Voicings(g:std, 'C', 5).voicings[0]
   let r = songwriter#tab#voicings#Place(map(copy(g:std), 'v:val . "|--3--|"'), 5, 5, v)
   Assert !has_key(r, 'error')
   AssertEqual ['8', '8', '9', '10', '10', '8'], map(copy(r.lines), 'matchstr(v:val, "\\d\\+", 4)')
 
 Execute (10.6 a note on another string covering the column refuses):
   let lines = ['e|--12--|', 'B|------|', 'G|------|', 'D|------|', 'A|------|', 'E|------|']
-  let v = songwriter#tab#voicings#Voicings(g:std, 'A', 4)[0]
+  let v = songwriter#tab#voicings#Voicings(g:std, 'A', 4).voicings[0]
   Assert has_key(songwriter#tab#voicings#Place(lines, 4, 6, v), 'error')
 
 Execute (10.6 on a pipe or the string name refuses):
-  let v = songwriter#tab#voicings#Voicings(g:std, 'A', 4)[0]
+  let v = songwriter#tab#voicings#Voicings(g:std, 'A', 4).voicings[0]
   Assert has_key(songwriter#tab#voicings#Place(map(copy(g:std), 'v:val . "|-----|"'), 4, 2, v), 'error')
   Assert has_key(songwriter#tab#voicings#Place(map(copy(g:std), 'v:val . "|-----|"'), 4, 1, v), 'error')
 
@@ -270,7 +270,7 @@ Execute (10.4 == wraps around to the first voicing):
   call cursor(5, 5)
   execute "normal =A\<CR>"
   normal ======
-  AssertEqual 'A: root on D, fret 7 (3/4)', songwriter#tab#voicings#Describe('A', songwriter#tab#voicings#Voicings(g:std, 'A', 4), 2, g:std)
+  AssertEqual 'A: root on D, fret 7 (3/4)', songwriter#tab#voicings#Describe('A', songwriter#tab#voicings#Voicings(g:std, 'A', 4).voicings, 2, g:std)
   normal ==
 
 Expect songwriter (10.4 == wraps around to the first voicing):

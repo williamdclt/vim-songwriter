@@ -21,7 +21,7 @@ function! songwriter#tab#paste#MatchRows(names, rows, regnames) abort
       continue
     endif
     if !empty(a:regnames) && a:regnames[l:j] !=# a:names[l:i]
-      return {'error': printf('songwriter: string names differ (register vs tab): %s vs %s',
+      return {'error': printf('string names differ (register vs tab): %s vs %s',
             \ a:regnames[l:j], a:names[l:i])}
     endif
     call add(l:out, l:rows[l:j])
@@ -133,7 +133,7 @@ endfunction
 " column there, or a note that would replace anything but dashes.
 function! songwriter#tab#paste#Overlay(lines, lin, col, rows, regnames) abort
   if !empty(filter(copy(a:rows), "stridx(v:val, '|') >= 0"))
-    return {'error': 'songwriter: gp pastes a column, not a bar'}
+    return {'error': 'gp pastes a column, not a bar'}
   endif
   let l:m = songwriter#tab#paste#MatchRows(songwriter#tab#model#Names(a:lines), a:rows, a:regnames)
   if has_key(l:m, 'error')
@@ -145,7 +145,7 @@ function! songwriter#tab#paste#Overlay(lines, lin, col, rows, regnames) abort
           \ songwriter#tab#model#Parse(0, a:lines), a:lin, a:col).cols, a:col)
   endif
   if l:c == 0
-    return {'error': 'songwriter: gp needs a note column under the cursor'}
+    return {'error': 'gp needs a note column under the cursor'}
   endif
   let l:atoms = map(copy(l:m.rows), 'songwriter#tab#model#RowChains(v:val)')
   let l:starts = []
@@ -162,7 +162,7 @@ function! songwriter#tab#paste#Overlay(lines, lin, col, rows, regnames) abort
       let l:s = l:c + l:a.col - l:qmin
       let l:line = songwriter#tab#model#Pad(l:out[l:i], l:s + l:a.len)
       if strpart(l:line, l:s - 1, l:a.len) !~# songwriter#grammar#OnlyDashes()
-        return {'error': printf('songwriter: gp would replace a note on string %s', songwriter#tab#model#Name(a:lines[l:i]))}
+        return {'error': printf('gp would replace a note on string %s', songwriter#tab#model#Name(a:lines[l:i]))}
       endif
       let l:out[l:i] = songwriter#tab#model#Splice(l:line, l:s, l:a.len, l:a.text)
     endfor

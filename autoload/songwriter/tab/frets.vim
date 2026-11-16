@@ -48,12 +48,12 @@ endfunction
 function! s:increment(n, ctx) abort
   let l:notes = songwriter#tab#frets#Targets(a:ctx.line, a:ctx.col, len(a:ctx.line))
   if empty(l:notes)
-    return {'error': 'songwriter: no fret under or after the cursor'}
+    return {'error': 'no fret under or after the cursor'}
   endif
   let l:note = l:notes[0]
   let l:res = songwriter#tab#frets#Add(a:ctx.block.lines, a:ctx.lin, l:note.col, a:n)
   if has_key(l:res, 'error')
-    return {'error': 'songwriter: ' . l:res.error}
+    return l:res
   endif
   let l:width = songwriter#tab#model#NoteAt(l:res.lines[a:ctx.lin], l:note.col).len
   let l:res.col = l:note.col + min([max([a:ctx.col - l:note.col, 0]), l:width - 1])

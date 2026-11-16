@@ -16,7 +16,7 @@ function! songwriter#tab#chordname#Names(lines, lin, col) abort
   let l:c = empty(l:note) ? a:col : l:note.col
   let l:steps = songwriter#tab#play#Steps(a:lines, l:open.midi, range(len(a:lines)), l:c, l:c)
   if empty(l:steps)
-    return {'error': 'songwriter: no note on this time column'}
+    return {'error': 'no note on this time column'}
   endif
   let l:midis = sort(map(copy(l:steps[0]), 'v:val.midi'), 'n')
   let l:names = songwriter#chord#Identify(l:midis)
@@ -30,14 +30,15 @@ function! songwriter#tab#chordname#Names(lines, lin, col) abort
     endif
   endfor
   let l:spelled = join(map(l:pcs, 'songwriter#pitch#Name(v:val)'))
-  return {'msg': (len(l:pcs) == 1 ? 'songwriter: one note, ' : 'songwriter: no chord for ') . l:spelled}
+  return {'msg': (len(l:pcs) == 1 ? 'one note, ' : 'no chord for ') . l:spelled}
 endfunction
 
 " Spec 13: the message `<leader>?` shows for the time column at column `col`
 " of line `lin` of `lines`: {'msg'}, or {'error'}.
 function! songwriter#tab#chordname#Message(lines, lin, col) abort
   let l:r = songwriter#tab#chordname#Names(a:lines, a:lin, a:col)
-  return has_key(l:r, 'names') ? {'msg': join(l:r.names, ' | ')} : l:r
+  return has_key(l:r, 'names') ? {'msg': join(l:r.names, ' | ')}
+        \ : has_key(l:r, 'msg') ? {'msg': 'songwriter: ' . l:r.msg} : l:r
 endfunction
 
 " Spec 13: `<leader>?`, echo the chord on the cursor's time column. Off a tab
