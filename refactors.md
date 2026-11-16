@@ -13,33 +13,6 @@ more regular, as a question for the user.
 The safety net for all of them is `test/songwriter_invariants_*.vader`, on top of
 the per-feature tests: run `make test` after every step.
 
-## 2. The states of tablature mode, in one place
-
-**Now.** The state of tablature mode is spread out: `b:songwriter_tabmode`,
-`b:songwriter_moving` (not tied to the buffer version, ended by its own
-autocommand, carry#Check), the insert state (tied to changedtick), the typed
-digit, the open slot, the carry run, and the `annotating`, `naming`,
-`voicing` and `upward` states. keys#Dispatch tests them in a fixed order, and
-keys#Mode() repeats that order. carry#StartMove leaves the insert state
-itself, and the move state shows its message with insert#Show.
-
-**Change.** Tell apart two kinds of state:
-- **modes**, which the user sees and enters and leaves explicitly: normal,
-  insert and move. One module (tab/mode.vim) owns the current mode, with an
-  enter and leave hook per mode and the message each shows. keys.vim picks its
-  table from the mode.
-- **continuations**, valid only while nothing else has happened (`state#Continuing`): the carry
-  run, the typed digit, the slot, cycling voicings, `.`.
-
-**Behaviour.** Which key wins when several states apply must stay as it is,
-unless the user agrees otherwise. Questions for the user: should the move
-state end on any change it did not make, like the insert state, rather than
-only when the cursor leaves the notes? Should the typed-digit keys be a state
-of the insert mode rather than a separate layer?
-
-**Buys.** A key's meaning follows from one value; a new mode is a table and
-two hooks.
-
 ## 3. One way to write an edit, visual mode included
 
 **Now.** edit#Do is the pipeline for an edit at the cursor, but there are

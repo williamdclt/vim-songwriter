@@ -3,7 +3,7 @@
 " wide as its widest note. Highlighting only: the file is unchanged.
 
 Before:
-  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_insert
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_mode
   let b:songwriter_tabmode = 1
   call songwriter#tab#highlight#Clear()
 

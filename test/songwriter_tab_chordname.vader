@@ -5,7 +5,7 @@
 
 Before:
   unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing
-  unlet! b:songwriter_insert b:songwriter_voicing
+  unlet! b:songwriter_mode b:songwriter_voicing
   let b:songwriter_tabmode = 1
 
 " --- 13.2 / 13.3 naming pitches ---

@@ -4,7 +4,7 @@
 " default `\`.
 
 Before:
-  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_insert b:songwriter_carry b:songwriter_repeat b:songwriter_moving
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_mode b:songwriter_carry b:songwriter_repeat
   let b:songwriter_tabmode = 1
 
 " === Entering and leaving ===
@@ -50,7 +50,7 @@ Execute (3.8 m leaves the insert state first):
   call cursor(1, 5)
   execute "normal a5m"
 Then:
-  Assert !songwriter#tab#insert#Active()
+  Assert songwriter#tab#mode#Current() !=# 'insert'
   AssertEqual 'TAB MOVE', songwriter#keys#Mode()
 
 Expect songwriter (3.8 m leaves the insert state first):
@@ -218,3 +218,15 @@ Then:
 Expect songwriter (3.8.4 other keys keep their meaning in the move state):
   e|--3-----|
   B|-----5--|
+
+Given songwriter (3.8.4 a run of digits typed in the move state keeps it):
+  e|--3--|
+
+Execute (3.8.4 a run of digits typed in the move state keeps it):
+  call cursor(1, 5)
+  normal m57
+Then:
+  AssertEqual 'TAB MOVE', songwriter#keys#Mode()
+
+Expect songwriter (3.8.4 a run of digits typed in the move state keeps it):
+  e|--5-7--|

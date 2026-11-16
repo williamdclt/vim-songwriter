@@ -1,7 +1,7 @@
 " autoload/songwriter/tab/carry.vim - carrying notes across strings (spec
 " [Tablature][[Editing]] 3.6-3.8, 7): `<leader>k`/`<leader>j`, `s`/`S`, the
-" copies of `<leader><leader>k`/`<leader><leader>j`, the move state (`m`) and
-" visual `<leader>k`/`<leader>j`. Lift, Copy, Step, Render and Move are pure
+" copies of `<leader><leader>k`/`<leader><leader>j`, the keys of the move state
+" (tab/mode.vim) and visual `<leader>k`/`<leader>j`. Lift, Copy, Step, Render and Move are pure
 " (block lines in, lines and cursor out); the rest are entry points.
 "
 " A carry lifts notes out of the tab: what is left, the base, is kept for the
@@ -392,49 +392,4 @@ function! s:lift_selection(block, sel) abort
   let l:carry.sel = extend(copy(a:sel), {'anchor': [a:sel.anchor[1] - a:block.start, a:sel.anchor[2]],
         \ 'cursor': [l:lin, a:sel.cursor[2]]})
   return l:carry
-endfunction
-
-" === The move state (spec 3.8) ===
-
-" Whether the move state is on: entered with `m`, the cursor on a note of a tab
-" line in tablature mode. `hjkl`, `J`/`K` and `<leader>j`/`<leader>k` then act
-" on that note (keys.vim).
-function! songwriter#tab#carry#Moving() abort
-  return get(b:, 'songwriter_moving', 0) && songwriter#keys#InTabMode()
-        \ && songwriter#grammar#IsTabLine(getline('.'))
-        \ && !empty(songwriter#tab#model#NoteAt(getline('.'), col('.')))
-endfunction
-
-" Spec 3.8: the keys for `m` in tablature mode: on a note, enter the move
-" state; elsewhere, Vim's own `m`.
-function! songwriter#tab#carry#MoveKey() abort
-  if empty(songwriter#tab#model#NoteAt(getline('.'), col('.')))
-    return 'm'
-  endif
-  return "\<Cmd>call songwriter#tab#carry#StartMove()\<CR>"
-endfunction
-
-" Spec 3.8: enter the move state, leaving the insert state first.
-function! songwriter#tab#carry#StartMove() abort
-  if songwriter#tab#insert#Active()
-    call songwriter#tab#insert#Escape()
-  endif
-  let b:songwriter_moving = 1
-  call songwriter#tab#insert#Show('-- TAB MOVE --')
-endfunction
-
-" Spec 3.8.4: leave the move state.
-function! songwriter#tab#carry#EndMove() abort
-  if get(b:, 'songwriter_moving', 0)
-    unlet b:songwriter_moving
-    call songwriter#tab#insert#Show('')
-  endif
-endfunction
-
-" Spec 3.8.4: the move state ends once the cursor has left the notes (run when
-" the cursor moves or the text changes).
-function! songwriter#tab#carry#Check() abort
-  if get(b:, 'songwriter_moving', 0) && !songwriter#tab#carry#Moving()
-    call songwriter#tab#carry#EndMove()
-  endif
 endfunction

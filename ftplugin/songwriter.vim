@@ -73,9 +73,9 @@ let b:undo_ftplugin .= '| exe "autocmd! songwriter_column * <buffer>" | call son
 " leaves the notes.
 augroup songwriter_move
   autocmd! * <buffer>
-  autocmd CursorMoved,TextChanged <buffer> call songwriter#tab#carry#Check()
+  autocmd CursorMoved,TextChanged <buffer> call songwriter#tab#mode#Check()
 augroup END
-let b:undo_ftplugin .= '| exe "autocmd! songwriter_move * <buffer>" | unlet! b:songwriter_moving'
+let b:undo_ftplugin .= '| exe "autocmd! songwriter_move * <buffer>" | unlet! b:songwriter_mode'
 
 augroup songwriter_annotate
   autocmd! * <buffer>

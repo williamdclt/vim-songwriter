@@ -213,7 +213,7 @@ endfunction
 " refusal, nothing to do).
 function! songwriter#tab#edit#Do(Fn, ...) abort
   let l:opts = a:0 ? a:1 : {}
-  let l:insert = songwriter#tab#insert#Active()
+  let l:insert = songwriter#tab#mode#Current() ==# 'insert'
   let l:slot = get(l:opts, 'slot', '')
   let l:join = get(l:opts, 'join', 0)
   if l:slot ==# 'close'
@@ -275,7 +275,7 @@ function! songwriter#tab#edit#Do(Fn, ...) abort
     endif
   endif
   if l:insert && get(l:opts, 'insert', 0) && !has_key(l:opts, 'open')
-    call songwriter#tab#insert#Keep()
+    call songwriter#tab#mode#Keep()
   endif
   return l:done ? songwriter#tab#model#ReadTop(l:block.top) : {}
 endfunction

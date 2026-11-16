@@ -70,7 +70,7 @@ Execute (corpus and helpers):
   " [lnum, col], as a fresh undo step.
   let g:InvLoad = {lines, pos -> [
         \ execute('silent %delete _'),
-        \ execute('unlet! b:songwriter_slot b:songwriter_typing b:songwriter_insert b:songwriter_carry b:songwriter_repeat b:songwriter_voicing b:songwriter_moving'),
+        \ execute('unlet! b:songwriter_slot b:songwriter_typing b:songwriter_mode b:songwriter_carry b:songwriter_repeat b:songwriter_voicing'),
         \ execute('let b:songwriter_tabmode = 1'),
         \ setline(1, lines),
         \ execute('let &undolevels = &undolevels'),
@@ -116,7 +116,7 @@ Execute (corpus and helpers):
   " The harness: keys reach the plugin's maps.
   call g:InvLoad(g:inv_tabs[0].lines, [1, 13])
   call feedkeys('a', 'xt')
-  Assert songwriter#tab#insert#Active()
+  Assert songwriter#tab#mode#Current() ==# 'insert'
   AssertEqual 192, len(g:InvPositions(g:inv_tabs[0].lines))
   " The main corpus is linted, so that an edit's own lint does not show as
   " a difference.

@@ -12,13 +12,13 @@ Execute (a or i then <Esc> gives the tab back as it was, with no undo step):
         call g:InvLoad(g:inv_tab.lines, g:inv_pos)
         let g:inv_seq = undotree().seq_cur
         silent! call feedkeys(g:inv_keys, 'xt')
-        if !songwriter#tab#insert#Active()
+        if songwriter#tab#mode#Current() !=# 'insert'
           " No slot opened: see the next block.
           continue
         endif
         silent! call feedkeys("\<Esc>", 'xt')
         if getline(1, '$') !=# g:inv_tab.lines || undotree().seq_cur != g:inv_seq
-              \ || songwriter#tab#insert#Active()
+              \ || songwriter#tab#mode#Current() ==# 'insert'
           call add(g:inv_failures, g:InvCase(g:inv_tab, g:inv_pos, g:inv_keys . "\<Esc>"))
         endif
       endfor
@@ -36,7 +36,7 @@ Execute (a or i where no slot can open change nothing):
         call g:InvLoad(g:inv_tab.lines, g:inv_pos)
         let g:inv_seq = undotree().seq_cur
         silent! call feedkeys(g:inv_keys, 'xt')
-        if !songwriter#tab#insert#Active()
+        if songwriter#tab#mode#Current() !=# 'insert'
               \ && (getline(1, '$') !=# g:inv_tab.lines || undotree().seq_cur != g:inv_seq)
           call add(g:inv_failures, g:InvCase(g:inv_tab, g:inv_pos, g:inv_keys))
         endif

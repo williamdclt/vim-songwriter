@@ -4,7 +4,7 @@
 " steps matter (`normal` makes one undo step of all its keys).
 
 Before:
-  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_insert b:songwriter_carry b:songwriter_moving
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_mode b:songwriter_carry
   let b:songwriter_tabmode = 1
 
 " === Duplicating ===
@@ -18,7 +18,7 @@ Execute (3.7 <leader><leader>k copies the note onto the string above, the cursor
   execute "normal \\\\k"
 Then:
   AssertEqual [1, 8], [line('.'), col('.')]
-  Assert !songwriter#tab#insert#Active()
+  Assert songwriter#tab#mode#Current() !=# 'insert'
   AssertEqual '', songwriter#keys#Mode()
 
 Expect songwriter (3.7 <leader><leader>k copies the note onto the string above, the cursor following it):

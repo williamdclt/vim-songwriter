@@ -183,7 +183,7 @@ function! songwriter#tab#slots#Open(...) abort
     let l:slot.seq_after = undotree().seq_cur
   endif
   call songwriter#tab#state#Set('slot', l:slot)
-  call songwriter#tab#insert#Enter()
+  call songwriter#tab#mode#Enter('insert')
 endfunction
 
 function! songwriter#tab#slots#Forget() abort
@@ -205,7 +205,7 @@ function! songwriter#tab#slots#Abandon(...) abort
   if empty(l:slot)
     return {}
   endif
-  let l:insert = songwriter#tab#insert#Active()
+  let l:insert = songwriter#tab#mode#Current() ==# 'insert'
   if has_key(l:slot, 'from')
     let l:top = l:slot.before.top
     let l:lnum = line('.')
@@ -228,7 +228,7 @@ function! songwriter#tab#slots#Abandon(...) abort
     call songwriter#tab#edit#LintAndFollow(songwriter#tab#model#Read(l:slot.line))
   endif
   if l:insert
-    call songwriter#tab#insert#Keep()
+    call songwriter#tab#mode#Keep()
   endif
   return l:slot
 endfunction

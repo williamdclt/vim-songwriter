@@ -3,7 +3,7 @@
 " Typed end-to-end with `normal`.
 
 Before:
-  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_insert
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_mode
   let b:songwriter_tabmode = 1
   call setreg('"', [])
 
@@ -128,7 +128,7 @@ Given songwriter (6.2.4 cj erases, then opens a slot where the column went):
 Execute (6.2.4 cj erases, then opens a slot where the column went):
   call cursor(1, 5)
   normal cj
-  Assert songwriter#tab#insert#Active()
+  Assert songwriter#tab#mode#Current() ==# 'insert'
   normal 7
 
 Expect songwriter (6.2.4 cj erases, then opens a slot where the column went):

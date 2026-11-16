@@ -3,7 +3,7 @@
 " steps matter (`normal` makes one undo step of all its keys).
 
 Before:
-  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_insert
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_mode
   unlet! g:songwriter_max_fret
   let b:songwriter_tabmode = 1
 
@@ -29,7 +29,7 @@ Execute (3.4.1.1 the cursor is on the new note):
   normal a57
 Then:
   AssertEqual 9, col('.')
-  Assert songwriter#tab#insert#Active()
+  Assert songwriter#tab#mode#Current() ==# 'insert'
 
 Given songwriter (3.4.1.1 a run of notes):
   e|--4--|
@@ -174,7 +174,7 @@ Execute (3.4.1.1 in the normal state a run of notes on a dash):
   call cursor(1, 5)
   normal 357
 Then:
-  Assert !songwriter#tab#insert#Active()
+  Assert songwriter#tab#mode#Current() !=# 'insert'
   AssertEqual 9, col('.')
 
 Expect songwriter (3.4.1.1 in the normal state a run of notes on a dash):

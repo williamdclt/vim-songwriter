@@ -39,7 +39,7 @@ endfunction
 " crossing bar pipes; with none that way, the cursor stays. In the insert state,
 " see s:insert_column.
 function! songwriter#tab#motion#MoveColumn(dir) abort
-  if songwriter#tab#insert#Active()
+  if songwriter#tab#mode#Current() ==# 'insert'
     call s:insert_column(a:dir)
     return
   endif

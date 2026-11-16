@@ -21,7 +21,7 @@ never relies on concealing or rendering.
 | `autoload/songwriter/tab/model.vim` | Tab block model: parse, queries (notes, time columns, bars), `Splice`/`Blank` and the column-insertion primitive, snapshots, and `Read`/`Write` (the buffer edges). |
 | `autoload/songwriter/tab/edit.vim` | The buffer side of a tablature edit: `Do` runs a whole edit at the cursor (slot, undo join, lints, one write, insert state, state for the next key, register, `.`); `Commit`, `LintAndFollow`, `Apply` and the pure `Linted` are its parts; `Write` is the one way a draft reaches the buffer. |
 | `autoload/songwriter/tab/slots.vim` | Slots: where a new note's room goes (pure), the buffer's one open slot with how to close it, and `a`/`i` and the new bar's slot (`AddNote`, `AddBarSlot`). |
-| `autoload/songwriter/tab/insert.vim` | The insert state of tablature mode: entering, keeping, leaving it, and `<Esc>`. |
+| `autoload/songwriter/tab/mode.vim` | The states of tablature mode (normal, insert, move): the current one, entering and leaving them, their messages, `m`. |
 | `autoload/songwriter/tab/typing.vim` | Typing notes and separators: digits, `x` on a dash, separators after a note (`EnterNote`, `EnterSeparator`). |
 | `autoload/songwriter/tab/motion.vim` | Tablature-mode motions at the cursor (`w`/`b`/`e`/`ge`, `l`/`h`, `L`/`H`, `W`/`B`/`E`), and the slots the insert state opens on the way. |
 | `autoload/songwriter/tab/stops.vim` | Where motions stop and what string motions cover after an operator, pure (`Stops`, `Advance`, `BarStop`, `StringMotion`), and the insert state's positions and how `l`/`h` step through them (`Step`). |
@@ -47,7 +47,7 @@ never relies on concealing or rendering.
 | `autoload/songwriter/sound9.vim` | The synthesis loop in compiled Vim9 script, used on Vim 9. |
 | `autoload/songwriter/chord.vim` | Chord model, chord editing, and naming the chord of some pitches (`Identify`). |
 | `autoload/songwriter/pitch.vim` | Pitch classes: note names to semitones and back (sharp spelling). Shared by chords and tab string intervals. |
-| `autoload/songwriter/keys.vim` | Context-dependent keys: tables and `Dispatch()`, tablature-mode flag and state (`Mode()`), tab-line `w`/`b`/`W`/`B`. |
+| `autoload/songwriter/keys.vim` | Context-dependent keys: tables per mode of tablature mode and `Dispatch()`, tablature-mode flag, `Mode()` for status lines, tab-line `w`/`b`/`W`/`B`. |
 | `plugin/songwriter.vim` | `:Songwriter*` commands and `<Plug>(songwriter-*)` maps. |
 | `ftplugin/songwriter.vim` | Buffer options and key bindings, with a complete `b:undo_ftplugin`. |
 | `syntax/songwriter.vim` | Highlighting, with patterns taken from the grammar. |
@@ -359,23 +359,38 @@ something, so that its keys keep their instinctive sense:
 A buffer-local flag, `b:songwriter_tabmode`, set on by the ftplugin when a
 buffer is opened (and unset by `b:undo_ftplugin`); unset means off.
 
-**Two states, as in Vim.** In the normal state moving never changes the file:
+**Modes, as in Vim.** In the normal state moving never changes the file:
 Vim's contract is that motions only move, and a motion that edits puts cursor
 moves in the undo history, marks a file modified just by reading it, and fills
 the change list. The insert state is for writing: there, moving across notes
 opens slots for new ones. It is a state of tablature mode rather than Vim's
 own insert mode so that `h`/`l` keep moving (in Vim's insert mode they would be
-text, and arrow keys would be needed).
+text, and arrow keys would be needed). The move state (`m`) is for building
+chords: keys act on the note under the cursor (see "Carrying notes across
+strings").
 
-- **The state** (`tab/insert.vim`) is kept in `tab/state.vim`, valid only while
-  `b:changedtick` is unchanged: the edits made in it (opening, filling, closing
-  a slot) record it again (`insert#Keep`), and any other change (`u`, `x`, an
-  operator) ends it without the other code having to know about it. Opening a
-  slot enters it (`slots#Open`), so `a`/`i`, `c`, `o`/`O` and
-  `:SongwriterNewTab` all do; `<Esc>` closes the slot and leaves it.
-  Entering shows `-- TAB INSERT --`, after a `redraw` so that repeated state
-  changes replace each other instead of piling up into a hit-enter prompt;
-  `songwriter#keys#Mode()` is there for status lines.
+- **Two kinds of state.** *States* are what the user sees and enters and
+  leaves explicitly: normal, insert and move, one at a time, owned by
+  `tab/mode.vim` (`Current`, `Enter`, the message each shows). `keys.vim`
+  picks its tables from the current state, each falling back to the normal
+  one, so a key's meaning follows from one value and a new state is a table
+  and its entry in `mode.vim`. *Continuations* (below) hold only straight
+  after an action. The keys typed straight after a note (separators,
+  3.4.1.3) are a continuation inside the insert state: its table is checked
+  first there.
+- **How long a state holds.** The insert state is valid only while
+  `b:changedtick` is unchanged: the edits made in it (opening, filling,
+  closing a slot) record it again (`mode#Keep`), and any other change (`u`,
+  `x`, an operator) ends it without the other code having to know about it.
+  Opening a slot enters it (`slots#Open`), so `a`/`i`, `c`, `o`/`O` and
+  `:SongwriterNewTab` all do; leaving it closes the slot (`<Esc>`). The move
+  mode holds while the cursor is on a note, edits included. Entering a state
+  leaves the current one, so `m` leaves the insert state; a digit run in the
+  normal or move state borrows the insert state to open its slot (3.4.1.1) and
+  goes back to the state it was typed in. Entering shows the state
+  (`-- TAB INSERT --`), after a `redraw` so that repeated changes replace each
+  other instead of piling up into a hit-enter prompt; `songwriter#keys#Mode()`
+  is there for status lines.
 - **Continuations.** Several keys carry on from the last action when pressed
   straight after it: the carry run (3.6.2), the digit being typed (3.4.1),
   `==` cycling voicings or names (10.4, 10.10). "Straight after" has one
@@ -515,7 +530,7 @@ note and inside the bar. Notes before/after the cursor stay before/after it, so
 `a`/`i` find the same anchor after the lint as before. `||` lints without
 moving the cursor.
 
-`<Esc>` is a context key like the others (`insert#Escape`). Outside tablature mode `Dispatch`
+`<Esc>` is a context key like the others (`mode#Enter('normal')`). Outside tablature mode `Dispatch`
 returns the key itself. Special keys are written in `<>` notation in the
 tables, and the ftplugin passes them to `Dispatch` as `<lt>Esc>`, since
 `<Esc>` would otherwise be translated in the map's right side.
@@ -689,11 +704,11 @@ while transcribing, so it has right-hand keys (`<leader>k`/`<leader>j`, with a
   instead of carry", inside the move state as outside it.
 - **The move state (`m`).** Building a chord is copy, set the fret, copy again:
   many steps in a row, so they get keys without a leader. `m` enters the state
-  and `m` leaves it (also `<Esc>`); it is a buffer flag, checked by `Dispatch`
-  first (`s:moving`), and it holds while the cursor is on a note, so it needs
-  no bookkeeping of edits: `[`/`]`, typing a fret or `w` keep it, and a
-  `CursorMoved`/`TextChanged` autocmd (`carry#Check`) ends it once the cursor
-  is off the notes. There, `h`/`l` change the fret as a step of the run (a
+  and `m` leaves it (also `<Esc>`); it is a state of tablature mode
+  (`tab/mode.vim`, its keys in `s:moving`), and it holds while the cursor is
+  on a note, so it needs no bookkeeping of edits: `[`/`]`, typing a fret or
+  `w` keep it, and a `CursorMoved`/`TextChanged` autocmd (`mode#Check`)
+  clears its message once the cursor is off the notes. There, `h`/`l` change the fret as a step of the run (a
   replaced note still comes back), unlike `[`/`]`, which are their own edit.
   Off a note, `m` is Vim's mark command. There is no exit on a lone
   `<leader>`: it would make Vim wait 'timeoutlen' after every leader key.
