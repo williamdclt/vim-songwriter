@@ -11,6 +11,9 @@
 " reliable inside 'operatorfunc'.
 
 let s:pending = {'op': 'd', 'reg': '"', 'exact': 0, 'note': 0, 'across': {}, 'cancel': 0, 'tick': -1}
+" Whether the edit of the operator being applied joins the previous undo step
+" (Opfunc).
+let s:join = 0
 
 " === Operators ===
 
@@ -60,7 +63,7 @@ endfunction
 
 function! songwriter#tab#operator#Prelint() abort
   let l:tick = b:changedtick
-  call songwriter#tab#edit#LintAndFollow(songwriter#tab#model#Read())
+  call songwriter#tab#edit#Do({_ -> {}})
   let s:pending.tick = b:changedtick != l:tick ? b:changedtick : -1
 endfunction
 
@@ -73,10 +76,22 @@ function! songwriter#tab#operator#Opfunc(type) abort
   if l:p.cancel
     return
   endif
-  if l:p.tick == b:changedtick
-    silent! undojoin
-  endif
+  " The edit joins the undo step of the lint before g@ (Start).
+  let s:join = l:p.tick == b:changedtick
+  try
+    call s:apply(a:type, l:p)
+  finally
+    let s:join = 0
+  endtry
+endfunction
+
+" Apply the pending operator `p` to the marks of g@ ('operatorfunc' `type`).
+function! s:apply(type, p) abort
+  let l:p = a:p
   if a:type ==# 'line'
+    if s:join
+      call songwriter#tab#edit#JoinUndo()
+    endif
     call songwriter#tab#operator#ApplyLines(l:p.op, l:p.reg, line("'["), line("']"))
   else
     let l:lnum = line("'[")
@@ -145,15 +160,21 @@ function! s:write_deleted(op, block, res, s) abort
   let l:anchor = s:slot_anchor(a:res.lines, songwriter#tab#model#CursorLin(a:block), a:s)
   let l:res = {'lines': a:res.lines, 'map': a:res.map}
   if a:op ==# 'c'
-    call songwriter#tab#edit#Commit(a:block, extend(l:res, {'col': l:anchor[0]}))
+    call s:commit(extend(l:res, {'col': l:anchor[0]}))
     if l:anchor[1] == 0
       call cursor(line('.'), col('.') + 1)
     endif
     call songwriter#tab#slots#OpenHere(l:anchor[1])
   else
-    call songwriter#tab#edit#Commit(a:block, l:res)
+    call s:commit(l:res)
     call s:to_next_column()
   endif
+endfunction
+
+" Write `result`, computed from the block at the cursor, linted with the
+" cursor following the music (edit#Do).
+function! s:commit(result) abort
+  call songwriter#tab#edit#Do({_ -> a:result}, {'prelint': 0, 'join': s:join})
 endfunction
 
 " Spec 6.1.4, 6.1.5, 6.2.2: `op` on the notes in columns [s, e] of the
@@ -181,7 +202,7 @@ function! s:noteop(op, reg, block, s, e, exact) abort
   if l:res.removed
     call s:write_deleted(a:op, a:block, l:res, l:res.col)
   else
-    call songwriter#tab#edit#Commit(a:block, {'lines': l:res.lines, 'map': l:res.map})
+    call s:commit({'lines': l:res.lines, 'map': l:res.map})
   endif
 endfunction
 
@@ -218,7 +239,7 @@ function! s:across(op, reg, block, a) abort
   if l:res.removed
     call s:write_deleted(a:op, a:block, l:res, l:res.col)
   else
-    call songwriter#tab#edit#Commit(a:block, {'lines': l:res.lines, 'map': l:res.map})
+    call s:commit({'lines': l:res.lines, 'map': l:res.map})
   endif
 endfunction
 
@@ -273,8 +294,8 @@ function! songwriter#tab#operator#ApplyLines(op, reg, l1, l2) abort
         let l:lnum += 1
         continue
       endif
-      let l:lines = songwriter#tab#lint#Lint(songwriter#tab#columns#ClearNotes(l:block.lines)).lines
-      let l:new = songwriter#tab#model#Write(l:block, {'top': l:block.top, 'above': [], 'lines': l:lines})
+      let l:new = songwriter#tab#edit#Do({ctx -> {'lines': songwriter#tab#columns#ClearNotes(ctx.block.lines),
+            \ 'map': [], 'above': []}}, {'lnum': l:lnum, 'prelint': 0})
       let l:shift = l:new.end - l:block.end
       if l:cur >= l:block.start
         let l:cur += l:shift
@@ -465,7 +486,8 @@ function! songwriter#tab#operator#Put(before, count, reg) abort
           \ {'repeat': l:repeat, 'count': a:count})
     return
   endif
-  let l:block = songwriter#tab#edit#LintAndFollow(songwriter#tab#model#Read())
+  call songwriter#tab#edit#Do({_ -> {}})
+  let l:block = songwriter#tab#model#Read()
   if !empty(l:block)
     call s:put_lines(l:block, getreg(a:reg, 1, 1), a:before, a:count)
     call songwriter#tab#repeat#Record(l:repeat, a:count)

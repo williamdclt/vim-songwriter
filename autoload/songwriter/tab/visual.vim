@@ -180,5 +180,6 @@ function! songwriter#tab#visual#Put(reg) abort
     let l:res.map = songwriter#tab#colmap#Then(l:del.map, l:res.map)
   endif
   let l:res.lin = l:lnum - l:block.start
-  call songwriter#tab#edit#Commit(l:block, l:res)
+  call cursor(l:lnum, l:s)
+  call songwriter#tab#edit#Do({_ -> l:res}, {'prelint': 0})
 endfunction

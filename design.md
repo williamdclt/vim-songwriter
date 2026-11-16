@@ -19,7 +19,7 @@ never relies on concealing or rendering.
 | `autoload/songwriter/tab/colmap.vim` | Column maps: where each column of a block went through an edit, pure. |
 | `autoload/songwriter/tab/annotations.vim` | Annotation lines: their words, and how they follow an edit through its column map, pure. |
 | `autoload/songwriter/tab/model.vim` | Tab block model: parse, queries (notes, time columns, bars), `Splice`/`Blank` and the column-insertion primitive, snapshots, and `Read`/`Write` (the buffer edges). |
-| `autoload/songwriter/tab/edit.vim` | The buffer side of a tablature edit: `Do` runs a whole edit at the cursor (slot, undo join, lints, one write, insert state, state for the next key, register, `.`); `Commit`, `LintAndFollow`, `Apply` and the pure `Linted` are its parts; `Write` is the one way a draft reaches the buffer. |
+| `autoload/songwriter/tab/edit.vim` | The buffer side of a tablature edit: `Do`, the one pipeline every edit of a tab goes through (slot, first lint, the pure edit, lint, one write with its undo join, then the follow-ups: selection, state for the next key, register, slot, `.`, insert state); the pure `Linted`; `JoinUndo` for the changes that are not tab edits. |
 | `autoload/songwriter/tab/slots.vim` | Slots: where a new note's room goes (pure), the buffer's one open slot with how to close it, and `a`/`i` and the new bar's slot (`AddNote`, `AddBarSlot`). |
 | `autoload/songwriter/tab/mode.vim` | The states of tablature mode (normal, insert, move): the current one, entering and leaving them, their messages, `m`. |
 | `autoload/songwriter/tab/typing.vim` | Typing notes and separators: digits, `x` on a dash, separators after a note (`EnterNote`, `EnterSeparator`). |
@@ -67,26 +67,42 @@ An operation is a thin buffer entry point around pure logic:
    `register`);
 3. the result is written back.
 
-`edit#Do(Fn, opts)` is the whole sequence for an edit at the cursor, and the
+`edit#Do(Fn, opts)` is the one way an edit of a tab reaches the buffer, and the
 one place that applies the rules of spec 4 (linting after edits) and 4.3
 (slots): what happens to an open slot (closed, closed keeping the lint,
 filled), whether the edit joins the previous undo step, lints before and
 after, opens a slot, keeps the insert state, and records itself for `.`. An
 entry point states these as options instead of writing them out, so a rule is
-never forgotten in one place. The lints and the edit are computed in memory
-(`edit#Linted` is lint plus cursor-following, pure) and written once, and
-`model#Write` sets only the lines that differ: an edit that changes nothing
-leaves no undo step, and the undo join happens only on an actual write. Entry
-points that are not one edit at the cursor (operators, which run through
-`g@`; slots closed by motions) use its parts: `Commit` (lint, follow, write),
-`LintAndFollow`, `Apply` (write, no lint).
+never forgotten in one place. It runs in stages: prepare (the slot, the first
+lint), the pure edit, write (the lint, the column map, the undo step), then
+the follow-ups, each a small function (the selection, the state for the next
+key, the register, a slot opened, `.`, the insert state). The lints and the
+edit are computed in memory (`edit#Linted` is lint plus cursor-following,
+pure) and written once, and `model#Write` sets only the lines that differ: an
+edit that changes nothing leaves no undo step, and the undo join happens only
+on an actual write.
+
+Every entry point goes through it, with options for what it is not: an edit
+of another block than the cursor's (`lnum`: a slot closed from elsewhere,
+each tab of a line-wise `cap`, each block of a visual `<C-A>`), one that keeps
+the tab as it is (`prelint` and `lint` off: `_`, `:SongwriterAddBar`, a slot
+opened by `c`), an operator's edit (no first lint: `g@` runs after the lint
+of its own `<Cmd>`, whose undo step it joins), a lint alone (`||`, the
+operators' first lint: an edit that does nothing). A visual edit hands over
+its selection (`selection`, `selection.vim`), which is selected again once
+written, its ends where the edit says they went (`sel`), followed through the
+column map: visual carries are a step like any other. `undojoin` is only in
+`edit.vim`; `JoinUndo` is there for the two changes that are not edits of a
+tab's strings but belong with one made in an earlier command: whole tabs
+deleted by a line-wise operator after its first lint, and an annotation line
+retyped when Vim's insert mode is left after `cia`.
 
 **Drafts and snapshots.** What reaches the buffer is a draft: the block's new
 lines, and where each column of its base went in them (`{'lines', 'map',
 'base'}`). The base is the snapshot (`model#Snapshot`, the block as written:
 its first line and lines) the edit started from: by default the block being
 written; for a carry, the origin or the base it saved, since it renders from
-those rather than from what is in the buffer. `edit#Write` turns a draft into
+those rather than from what is in the buffer. `edit#Do` turns a draft into
 a snapshot (`edit#Derive`) and `model#Write` writes it; restoring a saved
 snapshot (a slot closed, 4.3) writes it as it is. A draft without a map is an
 error, thrown, so no write path can lose track of where the tab went; every

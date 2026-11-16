@@ -74,27 +74,31 @@ function! songwriter#tab#frets#IncrementIn(ranges, n) abort
       continue
     endif
     let l:done[l:block.start] = 1
-    let l:targets = []
-    for [l:l, l:f, l:e] in a:ranges
-      if l:l >= l:block.start && l:l <= l:block.end
-        for l:note in songwriter#tab#frets#Targets(l:block.lines[l:l - l:block.start], l:f, l:e)
-          call add(l:targets, [l:note.col, l:l - l:block.start])
-        endfor
-      endif
-    endfor
-    let l:lines = l:block.lines
-    let l:map = []
-    for [l:c, l:lin] in reverse(sort(l:targets, {a, b -> a[0] - b[0]}))
-      let l:res = songwriter#tab#frets#Add(l:lines, l:lin, l:c, a:n)
-      if !has_key(l:res, 'error')
-        let l:lines = l:res.lines
-        let l:map = songwriter#tab#colmap#Then(l:map, l:res.map)
-      endif
-    endfor
-    if l:lines !=# l:block.lines
-      let l:lint = songwriter#tab#lint#Lint(l:lines)
-      call songwriter#tab#edit#Write(l:block, {'lines': l:lint.lines,
-            \ 'map': songwriter#tab#colmap#Then(l:map, l:lint.map)})
+    call songwriter#tab#edit#Do(function('s:increment_in', [a:ranges, a:n]),
+          \ {'lnum': l:lnum, 'prelint': 0})
+  endfor
+endfunction
+
+" Pure. The frets of `ranges` in the block of `ctx` changed by `n`, as an edit
+" result (edit.vim), {} when none changes.
+function! s:increment_in(ranges, n, ctx) abort
+  let l:block = a:ctx.block
+  let l:targets = []
+  for [l:l, l:f, l:e] in a:ranges
+    if l:l >= l:block.start && l:l <= l:block.end
+      for l:note in songwriter#tab#frets#Targets(l:block.lines[l:l - l:block.start], l:f, l:e)
+        call add(l:targets, [l:note.col, l:l - l:block.start])
+      endfor
     endif
   endfor
+  let l:lines = l:block.lines
+  let l:map = []
+  for [l:c, l:lin] in reverse(sort(l:targets, {a, b -> a[0] - b[0]}))
+    let l:res = songwriter#tab#frets#Add(l:lines, l:lin, l:c, a:n)
+    if !has_key(l:res, 'error')
+      let l:lines = l:res.lines
+      let l:map = songwriter#tab#colmap#Then(l:map, l:res.map)
+    endif
+  endfor
+  return l:lines ==# l:block.lines ? {} : {'lines': l:lines, 'map': l:map}
 endfunction

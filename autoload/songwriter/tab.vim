@@ -5,12 +5,14 @@
 
 " Append `--` to every string of the block.
 function! songwriter#tab#AddDashes() abort
-  let l:block = songwriter#tab#model#Read()
-  if empty(l:block)
-    return
-  endif
-  call songwriter#tab#edit#Write(l:block, {'lines': map(copy(l:block.lines), "v:val . '--'"),
-        \ 'map': songwriter#tab#colmap#Insert(max(map(copy(l:block.lines), 'len(v:val)')), 2)})
+  call s:edit({ctx -> {'lines': map(copy(ctx.block.lines), "v:val . '--'"),
+        \ 'map': songwriter#tab#colmap#Insert(max(map(copy(ctx.block.lines), 'len(v:val)')), 2)}})
+endfunction
+
+" Fn's edit of the block at the cursor (edit#Do), as it is: no lint, the
+" cursor where it is.
+function! s:edit(Fn) abort
+  call songwriter#tab#edit#Do(a:Fn, {'prelint': 0, 'lint': 0})
 endfunction
 
 " Spec [Tablature][[Editing]] 2: insert a dash after the cursor column on
@@ -25,21 +27,12 @@ function! songwriter#tab#AddBar() abort
 endfunction
 
 function! s:insert_after_cursor(char) abort
-  let l:block = songwriter#tab#model#Read()
-  if empty(l:block)
-    return
-  endif
-  call songwriter#tab#edit#Write(l:block,
-        \ songwriter#tab#model#InsertColumns(l:block.lines, col('.'), 1, a:char))
+  call s:edit({ctx -> songwriter#tab#model#InsertColumns(ctx.block.lines, ctx.col, 1, a:char)})
 endfunction
 
 " Spec [Tablature][[Editing]] 1: lint the block around the cursor.
 function! songwriter#tab#Lint() abort
-  let l:block = songwriter#tab#model#Read()
-  if empty(l:block)
-    return
-  endif
-  call songwriter#tab#edit#Write(l:block, songwriter#tab#lint#Lint(l:block.lines))
+  call s:edit({ctx -> songwriter#tab#lint#Lint(ctx.block.lines)})
 endfunction
 
 " Spec [Tablature][[Annotations]] 6: write `chord` above the block, aligned
@@ -48,12 +41,7 @@ endfunction
 " line right above the strings when it fits, else on a new one. A chord is
 " spelled as `=` writes it ([[Editing]] 10.9: `CM7` -> `Cmaj7`).
 function! songwriter#tab#TabChord(chord) abort
-  let l:block = songwriter#tab#model#Read()
-  if empty(l:block)
-    return
-  endif
-  let l:col = max([col('.'), songwriter#tab#model#BodyOffset() + 1])
-  call songwriter#tab#model#Write(l:block, extend(songwriter#tab#model#Snapshot(l:block),
-        \ {'above': songwriter#tab#annotations#Label(l:block.above, l:col,
-        \ songwriter#tab#voicings#Spelled(a:chord), 1)}))
+  call s:edit({ctx -> {'lines': ctx.block.lines, 'map': [],
+        \ 'label': {'col': max([ctx.col, songwriter#tab#model#BodyOffset() + 1]),
+        \   'text': songwriter#tab#voicings#Spelled(a:chord), 'add': 1}}})
 endfunction

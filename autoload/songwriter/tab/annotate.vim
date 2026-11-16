@@ -127,7 +127,7 @@ function! songwriter#tab#annotate#Leave() abort
     let l:new = substitute(l:line, '\s*$', '', '')
   endif
   if l:new !=# l:line
-    silent! undojoin
+    call songwriter#tab#edit#JoinUndo()
     call s:set(l:m.lnum, l:new)
   endif
 endfunction

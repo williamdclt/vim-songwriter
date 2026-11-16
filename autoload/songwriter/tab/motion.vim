@@ -150,15 +150,10 @@ endfunction
 " Move the cursor to column `target` of its line, opening the slot of the
 " empty bar there if it is one (3.3.4).
 function! s:land(block, target) abort
+  call cursor(line('.'), a:target)
   if index(songwriter#tab#stops#EmptyBarStops(getline('.'), songwriter#tab#model#NoteColumns(a:block)), a:target) >= 0
-    let l:mark = songwriter#tab#slots#Mark(0)
-    call cursor(line('.'), a:target)
-    let l:mark.from = a:target
-    call songwriter#tab#edit#Apply(a:block, songwriter#tab#slots#EmptyBar(a:block.lines,
-          \ songwriter#tab#model#CursorLin(a:block), a:target))
-    call songwriter#tab#slots#Open(l:mark)
-  else
-    call cursor(line('.'), a:target)
+    call songwriter#tab#edit#Do({ctx -> songwriter#tab#slots#EmptyBar(ctx.block.lines, ctx.lin, ctx.col)},
+          \ {'open': 0, 'prelint': 0, 'lint': 0})
   endif
 endfunction
 

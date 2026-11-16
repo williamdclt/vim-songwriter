@@ -225,7 +225,7 @@ function! songwriter#tab#slots#Abandon(...) abort
     endif
     call cursor(l:lnum, l:keep ? l:slot.linted_col : l:slot.from)
   else
-    call songwriter#tab#edit#LintAndFollow(songwriter#tab#model#Read(l:slot.line))
+    call songwriter#tab#edit#Do({_ -> {}}, {'lnum': l:slot.line})
   endif
   if l:insert
     call songwriter#tab#mode#Keep()
@@ -257,23 +257,18 @@ endfunction
 " Spec 6.6: open a slot at the cursor: before its note (side -1, as `i`),
 " after it (+1, as `a`), or, side 0, in the cursor's empty bar.
 function! songwriter#tab#slots#OpenHere(side) abort
-  let l:c = songwriter#tab#model#Cursor()
-  if empty(l:c)
-    return
-  endif
-  let l:block = l:c.block
+  call songwriter#tab#edit#Do(function('s:open_here', [a:side]), {'prelint': 0, 'lint': 0})
+endfunction
+
+function! s:open_here(side, ctx) abort
   if a:side < 0
-    let l:res = songwriter#tab#slots#Prepend(l:block, l:c.lin, l:c.col)
+    let l:res = songwriter#tab#slots#Prepend(a:ctx.block, a:ctx.lin, a:ctx.col)
   elseif a:side > 0
-    let l:res = songwriter#tab#slots#Append(l:block, l:c.lin, l:c.col)
+    let l:res = songwriter#tab#slots#Append(a:ctx.block, a:ctx.lin, a:ctx.col)
   else
-    let l:res = songwriter#tab#slots#EmptyBar(l:block.lines, l:c.lin, l:c.col)
+    let l:res = songwriter#tab#slots#EmptyBar(a:ctx.block.lines, a:ctx.lin, a:ctx.col)
   endif
-  if empty(l:res)
-    return
-  endif
-  call songwriter#tab#edit#Apply(l:block, l:res)
-  call songwriter#tab#slots#Open()
+  return empty(l:res) ? {} : extend(l:res, {'slot': 1})
 endfunction
 
 " Spec [Tablature][[Editing]] 3.1: open room for a new note on every string,

@@ -13,28 +13,6 @@ more regular, as a question for the user.
 The safety net for all of them is `test/songwriter_invariants_*.vader`, on top of
 the per-feature tests: run `make test` after every step.
 
-## 3. One way to write an edit, visual mode included
-
-**Now.** edit#Do is the pipeline for an edit at the cursor, but there are
-four other ways to write one (edit#Commit, edit#Apply, edit#Write,
-edit#LintAndFollow), and several entry points lint, compose column maps,
-`undojoin` and write by hand: carry#Visual (which repeats carry.vim's
-`s:result`), frets#IncrementIn, the operator ranges, tab.vim, annotate.vim.
-Undo steps are joined in three places. Do itself has grown to 11 result keys
-and 8 options.
-
-**Change.** Split Do into stages: prepare (slot, first lint), run the pure
-edit, write (lint, column map, undo step), then the follow-ups (state,
-register, opening a slot, `.`, the insert state), each follow-up a small
-function rather than a branch of Do. The target is the cursor or a
-selection: a visual edit hands over its selection (selection.vim), which the
-pipeline maps through the edit's column map and selects again. Every entry
-point goes through it; `undojoin` lives only there.
-
-**Buys.** carry#Visual becomes a few lines, visual `<C-A>` stops being a
-special case, and every edit lints, maps annotations and joins undo steps the
-same way.
-
 ## 4. A note and the separators that belong to it, in the model
 
 **Now.** Rule 3.1.3 (the separators of a chain with no note beyond them

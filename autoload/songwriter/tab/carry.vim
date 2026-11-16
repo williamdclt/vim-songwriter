@@ -334,40 +334,35 @@ endfunction
 function! songwriter#tab#carry#Visual(dir) abort
   let l:sel = songwriter#selection#Get()
   execute "normal! \<Esc>"
-  let l:block = songwriter#tab#model#Read(l:sel.cursor[1])
+  let l:block = songwriter#tab#model#Read()
   if empty(l:block)
     return songwriter#selection#Select(l:sel)
   endif
   let l:carry = s:running(l:block.top)
   let l:going = !empty(l:carry) && l:carry.kind ==# 'visual'
-  if !l:going
-    let l:carry = s:lift_selection(l:block, l:sel)
-    if empty(l:carry.notes)
-      return songwriter#selection#Select(l:sel)
-    endif
+  call songwriter#tab#edit#Do(function('s:visual', [l:going ? l:carry : {}, a:dir]),
+        \ {'selection': l:sel, 'join': l:going, 'prelint': 0})
+endfunction
+
+" Pure. A step of `carry`, or of the notes the selection of `ctx` touches,
+" lifted, when it is {}, as an edit result (edit.vim), the selection's ends
+" moved with them.
+function! s:visual(carry, dir, ctx) abort
+  let l:carry = empty(a:carry) ? s:lift_selection(a:ctx.block, a:ctx.sel) : a:carry
+  if empty(l:carry.notes)
+    return {}
   endif
   let l:step = songwriter#tab#carry#Step(l:carry, a:dir, 0, 0)
-  let l:res = has_key(l:step, 'error') ? l:step : songwriter#tab#carry#Render(l:step)
+  let l:res = s:result(l:step)
   if has_key(l:res, 'error')
-    call songwriter#selection#Select(l:sel)
-    return songwriter#tab#edit#Error('songwriter: ' . l:res.error)
+    return l:res
   endif
-  let l:lint = songwriter#tab#lint#Lint(l:res.lines)
-  let l:map = songwriter#tab#colmap#Then(l:res.map, l:lint.map)
-  if l:going
-    silent! undojoin
-  endif
-  call songwriter#tab#edit#Write(l:block, {'lines': l:lint.lines, 'map': l:map,
-        \ 'base': l:res.home ? l:step.saved.origin : l:step.saved.base})
-  let l:new = copy(l:step.sel)
+  let l:res.sel = copy(l:step.sel)
   for l:end in ['anchor', 'cursor']
     let [l:lin, l:col] = l:step.sel[l:end]
-    let l:lin = max([0, min([l:lin + l:step.dlin, len(l:block.lines) - 1])])
-    let l:new[l:end] = [0, l:block.start + l:lin, max([1, songwriter#tab#colmap#At(l:map, l:col)]), 0]
+    let l:res.sel[l:end] = [max([0, min([l:lin + l:step.dlin, len(a:ctx.block.lines) - 1])]), l:col]
   endfor
-  let l:new.cursor += [l:new.cursor[2]]
-  call songwriter#selection#Select(l:new)
-  call songwriter#tab#state#Set('carry', extend(l:step, {'line': line('.'), 'col': col('.')}))
+  return l:res
 endfunction
 
 " The carry of the notes of `block` that selection `sel` touches, with the
