@@ -73,36 +73,164 @@ function! s:part(word, byte, text, fill) abort
 endfunction
 
 " Spec 4: annotation lines `above` once the edit of column map `map` is made
-" to the tab under them. A label goes where its column goes, and with it; a
-" span covers the columns it still covers, its labels at its ends, and goes
-" with the last of them. Words are laid out left to right, one space at
-" least between them, never in the first two columns; a line whose words did
-" not move is kept as it is, and a line left with no word is dropped.
-" `put` (optional) adds words: [{'row' (0 for the line right above the
-" strings, 1 for the one above it...), 'col' (in the edited tab), 'text'}];
-" a row past the top makes a new line there.
+" to the tab under them, with the words `put` (optional) added (see Apply):
+" Apply then Render, for annotations whose anchors do not matter.
 function! songwriter#tab#annotations#Follow(above, map, ...) abort
-  let l:put = a:0 ? a:1 : []
-  let l:rows = max([len(a:above)] + map(copy(l:put), 'v:val.row + 1'))
-  let l:lines = repeat([''], l:rows - len(a:above)) + a:above
+  return songwriter#tab#annotations#Render(songwriter#tab#annotations#Apply(
+        \ songwriter#tab#annotations#Parse(a:above, []), a:map, a:0 ? a:1 : [], {}, []))
+endfunction
+
+" Spec 4: the annotation rows `rows` (Parse) once the edit of column map `map`
+" is made to the tab under them, its lines being `lines`: the words placed
+" where they want to go, before the layout, as rows, top first: {'text' (the
+" line before), 'moved', 'words': placed words (s:place) with 'anchored'}. A
+" label goes where its column goes, and with it; a span covers the columns it
+" still covers, its labels at its ends, and goes with the last of them.
+" `put` adds words: [{'row' (0 for the line right above the strings, 1 for
+" the one above it...), 'col' (in `lines`), 'text'}], anchored when they
+" start on a time column of `lines`; a row past the top makes a new line
+" there. `label` ({} for none) writes a chord label (s:label).
+function! songwriter#tab#annotations#Apply(rows, map, put, label, lines) abort
+  let l:cols = songwriter#tab#model#NoteColumns(songwriter#tab#model#Parse(0, a:lines))
+  let l:n = max([len(a:rows)] + map(copy(a:put), 'v:val.row + 1'))
+  let l:rows = repeat([{'text': '', 'words': []}], l:n - len(a:rows)) + a:rows
   let l:out = []
-  for l:i in range(l:rows)
-    let l:row = l:rows - 1 - l:i
-    let l:words = map(songwriter#tab#annotations#Words(l:lines[l:i]), 's:place(v:val, a:map)')
-    let l:moved = !empty(filter(copy(l:words), 'empty(v:val) || v:val.moved'))
-    let l:words = filter(l:words, '!empty(v:val)')
-    for l:p in filter(copy(l:put), 'v:val.row == l:row')
-      call add(l:words, {'moved': 1, 'pieces': [{'text': l:p.text,
-            \ 'width': strdisplaywidth(l:p.text), 'from': l:p.col}]})
+  for l:i in range(l:n)
+    let l:row = l:n - 1 - l:i
+    let l:words = []
+    let l:moved = 0
+    for l:w in l:rows[l:i].words
+      let l:p = s:place(l:w, a:map)
+      if empty(l:p)
+        let l:moved = 1
+      else
+        let l:moved = l:moved || l:p.moved
+        call add(l:words, extend(l:p, {'anchored': l:w.anchored}))
+      endif
+    endfor
+    for l:p in filter(copy(a:put), 'v:val.row == l:row')
+      call add(l:words, s:word(l:p.text, l:p.col, index(l:cols, l:p.col) >= 0))
       let l:moved = 1
     endfor
-    if !l:moved
-      call add(l:out, l:lines[l:i])
-    elseif !empty(l:words)
-      call add(l:out, s:layout(l:words).text)
+    call add(l:out, {'text': l:rows[l:i].text, 'moved': l:moved, 'words': l:words})
+  endfor
+  return empty(a:label) ? l:out : s:label(l:out, a:label, a:lines)
+endfunction
+
+" A placed word (s:place) of `text` at column `col`.
+function! s:word(text, col, anchored) abort
+  return {'moved': 1, 'anchored': a:anchored, 'pieces': [{'text': a:text,
+        \ 'width': strdisplaywidth(a:text), 'from': a:col}]}
+endfunction
+
+" True when placed word `word` is a label that is a chord.
+function! s:is_chord(word) abort
+  return len(a:word.pieces) == 1 && !has_key(a:word.pieces[0], 'fill')
+        \ && !empty(songwriter#grammar#ParseChord(a:word.pieces[0].text))
+endfunction
+
+" Spec [Tablature][[Editing]] 10.9, [[Annotations]] 6: placed rows `rows`
+" (Apply) with `label.text` as the chord label of column `label.col`, which
+" it stands for: in place of the column's chord label (the first label,
+" looking up from the line right above the strings, that starts on that
+" column and is a chord), else, when `label.add` is set, on the line right
+" above the strings, unless a word there is in the way however the tab is
+" widened (one over the column, or starting over its notes): then on a new
+" line under the others.
+function! s:label(rows, label, lines) abort
+  let l:new = s:word(a:label.text, a:label.col, 1)
+  for l:i in range(len(a:rows) - 1, 0, -1)
+    for l:k in range(len(a:rows[l:i].words))
+      let l:w = a:rows[l:i].words[l:k]
+      if s:is_chord(l:w) && s:start(l:w) == a:label.col
+        let a:rows[l:i].words[l:k] = l:new
+        let a:rows[l:i].moved = 1
+        return a:rows
+      endif
+    endfor
+  endfor
+  if !a:label.add
+    return a:rows
+  endif
+  let l:end = songwriter#tab#model#ColumnEnd(songwriter#tab#model#Parse(0, a:lines), a:label.col)
+  if !empty(a:rows) && empty(filter(copy(s:layout(a:rows[-1].words).words),
+        \ {_, w -> w.at <= a:label.col && w.end >= a:label.col || w.at > a:label.col && w.at <= l:end}))
+    call add(a:rows[-1].words, l:new)
+    let a:rows[-1].moved = 1
+    return a:rows
+  endif
+  return a:rows + [{'text': '', 'moved': 1, 'words': [l:new]}]
+endfunction
+
+" The annotation lines of placed rows `rows` (Apply), laid out: a row whose
+" words did not move is kept as it is, one left with no word is dropped.
+function! songwriter#tab#annotations#Render(rows) abort
+  let l:out = []
+  for l:r in a:rows
+    if !l:r.moved
+      call add(l:out, l:r.text)
+    elseif !empty(l:r.words)
+      call add(l:out, s:layout(l:r.words).text)
     endif
   endfor
   return l:out
+endfunction
+
+" Spec 4.4: where the tab under placed rows `rows` (Apply), its lines being
+" `lines`, must widen so that an anchored word the layout would push right
+" stays on its column: {'offset', 'n'}, `n` dashes to insert after byte
+" `offset` (right before the word's column, outside any note), the leftmost
+" such place; {} for none. A word whose room would widen or move the word
+" before it (a span over that place) stays pushed.
+function! songwriter#tab#annotations#Room(rows, lines) abort
+  let l:tab = songwriter#tab#model#Parse(0, a:lines)
+  let l:best = {}
+  for l:r in filter(copy(a:rows), 'v:val.moved')
+    let l:laid = s:layout(l:r.words).words
+    for l:k in range(1, max([len(l:laid) - 1, 0]))
+      let l:w = l:laid[l:k]
+      let l:want = s:start(l:w)
+      if !l:w.anchored || l:w.at <= l:want
+        continue
+      endif
+      let l:offset = s:outside_notes(l:tab, l:want - 1)
+      if l:offset < songwriter#tab#model#BodyOffset() || s:last(l:laid[l:k - 1]) > l:offset
+        continue
+      endif
+      if empty(l:best) || l:offset < l:best.offset
+        let l:best = {'offset': l:offset, 'n': l:w.at - l:want}
+      endif
+    endfor
+  endfor
+  return l:best
+endfunction
+
+" The byte offset `offset` of `tab`'s lines, or before it, where no note runs
+" across: inserting there splits none.
+function! s:outside_notes(tab, offset) abort
+  let l:offset = a:offset
+  let l:again = 1
+  while l:again
+    let l:again = 0
+    for l:s in a:tab.strings
+      for l:n in l:s.notes
+        if l:n.col <= l:offset && songwriter#tab#model#NoteEnd(l:n) > l:offset
+          let [l:offset, l:again] = [l:n.col - 1, 1]
+        endif
+      endfor
+    endfor
+  endwhile
+  return l:offset
+endfunction
+
+" The last column placed word `word` stands for: its start for a label, its
+" end for a span.
+function! s:last(word) abort
+  let l:last = s:start(a:word)
+  for l:p in a:word.pieces
+    let l:last = max([l:last, has_key(l:p, 'fill') ? l:p.to : l:p.from])
+  endfor
+  return l:last
 endfunction
 
 " Spec 4.2, 4.5: the words of `above` that the edit of column map `map`
@@ -250,24 +378,6 @@ function! songwriter#tab#annotations#FromRows(rows, col) abort
   return l:put
 endfunction
 
-" Spec 6: annotation lines `above` with `text` written at column `col`: on the
-" last line (right above the strings) when it fits there, with a blank or the
-" line's end on each side, else on a new line under the others. Edits make the
-" room first when they can (Room).
-function! songwriter#tab#annotations#Add(above, col, text) abort
-  let l:width = strdisplaywidth(a:text)
-  let l:last = empty(a:above) ? '' : a:above[-1]
-  let l:free = !empty(a:above) && empty(filter(songwriter#tab#annotations#Words(l:last),
-        \ {_, w -> w.col <= a:col + l:width && w.col + w.width - 1 >= a:col - 1}))
-  if !l:free
-    return a:above + [repeat(' ', a:col - 1) . a:text]
-  endif
-  let l:at = s:byte_at(l:last, a:col)
-  let l:line = l:at < 0 ? l:last . repeat(' ', a:col - 1 - strdisplaywidth(l:last)) . a:text
-        \ : strpart(l:last, 0, l:at) . a:text . strpart(l:last, l:at + l:width)
-  return a:above[: -2] + [l:line]
-endfunction
-
 " The byte index where display column `col` of `line` starts, -1 past its end.
 function! s:byte_at(line, col) abort
   let l:vcol = 0
@@ -336,69 +446,3 @@ function! songwriter#tab#annotations#Retype(prefix, rest, col, width, typed) abo
   return substitute(l:line, '\s*$', '', '')
 endfunction
 
-" Spec [Tablature][[Editing]] 10.9: the chord label of column `col` in
-" annotation lines `above`: the first label, looking up from the line right
-" above the strings, that starts on that column and is a chord. {'i' (its
-" line in `above`), 'word'}, or {}.
-function! songwriter#tab#annotations#ChordLabel(above, col) abort
-  for l:i in range(len(a:above) - 1, 0, -1)
-    for l:w in songwriter#tab#annotations#Words(a:above[l:i])
-      if l:w.col == a:col && !l:w.span && !empty(songwriter#grammar#ParseChord(l:w.text))
-        return {'i': l:i, 'word': l:w}
-      endif
-    endfor
-  endfor
-  return {}
-endfunction
-
-" Spec [Tablature][[Editing]] 10.9, [[Annotations]] 6: the room the tab must
-" make so that `text`, the chord label of column `col` written as Label does
-" (`add` as there), keeps one space from the words on each side on its line:
-" {'before': columns to insert right before `col`, 'after': columns to insert
-" after `end` (the column's last)}. The words must follow the music: none for
-" a word that a widened tab does not move away (a span over `col`, a word
-" starting on the column), for which Add writes on a new line instead.
-function! songwriter#tab#annotations#Room(above, col, text, end, add) abort
-  let l:none = {'before': 0, 'after': 0}
-  let l:label = songwriter#tab#annotations#ChordLabel(a:above, a:col)
-  if !empty(l:label)
-    let l:words = songwriter#tab#annotations#Words(a:above[l:label.i])
-  elseif a:add && !empty(a:above)
-    let l:words = songwriter#tab#annotations#Words(a:above[-1])
-  else
-    return l:none
-  endif
-  let l:prev = filter(copy(l:words), 'v:val.col < a:col')
-  let l:next = filter(copy(l:words), 'v:val.col > a:col')
-  if !empty(filter(copy(l:words), 'v:val.col == a:col')) && empty(l:label)
-        \ || !empty(l:prev) && l:prev[-1].col + l:prev[-1].width > a:col
-        \ || !empty(l:next) && l:next[0].col <= a:end
-    return l:none
-  endif
-  let l:room = copy(l:none)
-  if !empty(l:prev)
-    let l:room.before = max([0, l:prev[-1].col + l:prev[-1].width + 1 - a:col])
-  endif
-  if !empty(l:next)
-    let l:room.after = max([0, a:col + strdisplaywidth(a:text) + 1 - l:next[0].col])
-  endif
-  return l:room
-endfunction
-
-" Spec [Tablature][[Editing]] 10.9, [[Annotations]] 6: annotation lines
-" `above` with `text` as the chord label of column `col`: in place of the
-" column's chord label, the next word staying where it is unless `text` runs
-" into it (Retype), else, when `add` is set, written as Add does. Unchanged
-" when there is no chord label and `add` is not set.
-function! songwriter#tab#annotations#Label(above, col, text, add) abort
-  let l:label = songwriter#tab#annotations#ChordLabel(a:above, a:col)
-  if empty(l:label)
-    return a:add ? songwriter#tab#annotations#Add(a:above, a:col, a:text) : a:above
-  endif
-  let l:line = a:above[l:label.i]
-  let [l:byte, l:len] = songwriter#tab#annotations#Bytes(l:line, l:label.word.col, l:label.word.width)
-  let l:above = copy(a:above)
-  let l:above[l:label.i] = songwriter#tab#annotations#Retype(strpart(l:line, 0, l:byte - 1),
-        \ strpart(l:line, l:byte - 1 + l:len), l:label.word.col, l:label.word.width, a:text)
-  return l:above
-endfunction

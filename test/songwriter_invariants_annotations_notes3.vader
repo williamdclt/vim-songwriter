@@ -8,11 +8,5 @@ Execute (the edits checked here):
   let g:inv_dash_keys = []
   let g:inv_range_keys = ['da|']
   let g:inv_known = []
-  " Spec [[Bugs]] 4: a label pushed off its column by the label before it.
-  let g:inv_known += [
-        \ 'moved c: two-digit frets, 1:9, daw', 'moved d: two-digit frets, 1:9, daw', 'moved e: two-digit frets, 1:9, daw', 'moved d: two-digit frets, 2:11, daw',
-        \ 'moved e: two-digit frets, 2:11, daw', 'moved d: two-digit frets, 3:11, sk', 'moved e: two-digit frets, 3:11, sk', 'moved e: separators, 1:18, daw',
-        \ 'moved f: separators, 1:18, daw', 'moved c: separators, 2:8, daw', 'moved d: separators, 2:8, daw', 'moved e: separators, 2:8, daw',
-        \ 'moved f: separators, 2:8, daw']
 
 Include: invariants/annotations.vader

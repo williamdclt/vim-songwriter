@@ -44,7 +44,7 @@ Execute (4.2 an annotation line left empty is deleted):
   AssertEqual ['      C'], Follow(['    Am', '      C'], songwriter#tab#colmap#Then(
         \ songwriter#tab#colmap#Delete(5, 6), songwriter#tab#colmap#Insert(4, 2)))
 
-Execute (4.4 a word running into the previous one is pushed right, an extender keeps two characters):
+Execute (4.4 on its own, a word running into the previous one is pushed right, an extender keeps two characters):
   AssertEqual ['    Am C'], Follow(['    Am C'], songwriter#tab#colmap#Delete(7, 7))
   AssertEqual ['    PM--|'], Follow(['    PM---|'], songwriter#tab#colmap#Delete(7, 9))
 
@@ -70,6 +70,56 @@ Expect songwriter:
       Am C
   e|--0--5--|
   B|--1-----|
+
+Given songwriter (labels filling their gaps):
+      Am7   G
+  e|--0--3--3--|
+  B|--1--0--0--|
+
+Execute (4.4 a label that would run into the one before stays on its column: the tab is widened):
+  call cursor(2, 8)
+  normal dd
+
+Expect songwriter:
+      Am7 G
+  e|--0---3--|
+  B|--1---0--|
+
+Given songwriter (labels filling their gaps):
+      Am G
+  e|--0--3--|
+  B|--1--0--|
+
+Execute (4.4 << cannot bring a label closer than the one before allows):
+  call cursor(2, 8)
+  normal <<
+
+Expect songwriter:
+      Am G
+  e|--0--3--|
+  B|--1--0--|
+
+Given songwriter (a word in a gap):
+      G x
+  e|--------|
+  B|--------|
+  G|--------|
+  D|--------|
+  A|--------|
+  E|--------|
+
+Execute (4.4 a word that stands for no column is pushed right):
+  call cursor(6, 5)
+  execute "normal =Am7\<CR>"
+
+Expect songwriter:
+      Am7 x
+  e|--0--|
+  B|--1--|
+  G|--0--|
+  D|--2--|
+  A|--0--|
+  E|-----|
 
 Given songwriter (labels over the columns):
       Am x     C

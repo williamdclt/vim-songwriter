@@ -238,14 +238,34 @@ part of the tab, and follow its music through every edit.
   label is anchored on its first column, so `Am7` never splits; a span covers
   its columns, its rigid parts at its ends (`PM`, `|`). One fill character is
   not an extender, so `P.M.` and `1-2` are labels.
-- **Following is the column map applied to words** (`annotations#Follow`, in
-  `edit#Derive`, so every write path has it): a label goes where its column
-  goes and is deleted with it (a label stands for its column, as `x` deletes
-  a note's gap with it); a span's ends go to the first and last columns it
-  still covers. Words are then laid out left to right with a space between
-  them, never in the first two columns, so that a line stays an annotation
-  line. A line none of whose words moved is kept byte for byte, whitespace
-  included: an edit that does not touch it leaves no trace in it.
+- **Parsed once, anchors explicit.** A block carries its annotation lines
+  parsed (`block.annotations`, `annotations#Parse`): rows of words, each
+  knowing whether it is anchored, i.e. starts on a time column, which it then
+  stands for. Queries (`Over`, the word under the cursor) read the rows;
+  display columns become bytes only where a line is read or written
+  (`Bytes`).
+- **Following is the column map applied to words**, in two steps.
+  `annotations#Apply` places each word where its column goes (a label is
+  deleted with its column, as `x` deletes a note's gap with it; a span's ends
+  go to the first and last columns it still covers), adds the words an edit
+  brings (`put`) and writes a chord label (`label`); `annotations#Render`
+  lays each row out (`s:layout`, the one layout: left to right, a space
+  between words, never in the first two columns, so that a line stays an
+  annotation line). A line none of whose words moved is kept byte for byte,
+  whitespace included: an edit that does not touch it leaves no trace in it.
+  `edit#Derive` does both, so every write path has it.
+- **A label is never moved off its column: the tab makes room.** The file is
+  plain text, so a label's position is the only record of the column it
+  stands for; pushing it right (as the layout would when it runs into the
+  word before) loses that for good. So between placing and laying out,
+  `annotations#Room` finds the first anchored word the layout would push and
+  says where to insert dashes (right before its column, outside any note),
+  and `edit.vim` (`s:make_room`, on the first lint and on the result) inserts
+  them, the map, the cursor, the words put and the label following, until
+  nothing is pushed. A tab is thus never narrower than its labels need: `<<`
+  against a label changes nothing, a chord name too wide for its gap widens
+  it. Words that stand for no column (in a gap) are still pushed, and so is a
+  word whose room would widen the span before it, which no insertion helps.
 - **Exact restores stay exact.** A slot's mark and a carry's origin are
   snapshots, annotations included, so giving the tab back gives them back. A
   carry renders from its base snapshot, which has the origin's columns, so
@@ -260,7 +280,7 @@ part of the tab, and follow its music through every edit.
   them out.
 - **`:SongwriterTabChord` and the highlight** use the same lines: a chord
   replaces the column's chord label, else goes on the annotation line closest
-  to the strings, widening the tab when its neighbours are too close, and
+  to the strings (the tab making room around it), and
   the time column highlight covers the annotations, converting their display
   columns to the bytes `matchaddpos` wants. Vim 8.2 takes at most 8 positions
   per match, so the highlight is added 8 lines at a time.
@@ -831,20 +851,16 @@ voicings in their cycle order out) and `Place()`, and the entry points.
   keeps an existing label true. The label is a draft field (`label`, beside
   `put`): `edit#Derive` writes it after the annotations followed the edit, so
   it lands on the chord's column wherever the lint put it, and in the same
-  undo step. `annotations#Label` is the one way a chord name is written
-  (`=`, `+`, `=<CR>`, `:SongwriterTabChord`): it replaces the column's chord
-  label (a label starting on the column that is a chord), else places the
-  name as spec 6 says.
+  undo step. The draft's `label` is the one way a chord name is written
+  (`=`, `+`, `=<CR>`, `:SongwriterTabChord`): `annotations#Apply` replaces
+  the column's chord label (a label starting on the column that is a chord),
+  else places the name as spec 6 says.
 - **A chord name makes room in the tab, not on a new line.** A name too wide
-  for its gap (`Am7` over `0-3` with a `C` above the 3) would otherwise land
-  on a new annotation line, splitting a progression over two lines. Since
-  words follow their columns, inserting dashes after the chord's column (or
-  right before it, for the word on its left) moves the neighbour aside and
-  keeps the line one progression. `edit.vim` does it on the draft once the
-  edit is resolved (`s:make_room`), so the label, the cursor and the other
-  words follow the inserted columns like any edit's; `annotations#Room` says
-  how many columns each side needs, and none when the obstacle would not move
-  with the tab (a span over the column), where the new line remains.
+  for its gap (`Am7` over `0-3` with a `C` above the 3) is the general case
+  of a label that would be pushed (see Annotations): the tab widens, so a
+  progression stays on one line. A new line is only for a name with a word in
+  the way that no widening moves (one over the column or starting over its
+  notes).
 - **A label is spelled as `<leader>?` would name it.** `M7`, `min` or `sus`
   are convenient to type, but the names `chord#Identify` gives are `maj7`,
   `m`, `sus4`, so `voicings#Spelled` writes each quality as `s:qualities`

@@ -13,52 +13,6 @@ more regular, as a question for the user.
 The safety net for all of them is `test/songwriter_invariants_*.vader`, on top of
 the per-feature tests: run `make test` after every step.
 
-## 2. Annotations parsed once, with explicit anchors, and one layout
-
-**Now.** A block's `above` is raw strings, and `annotations#Words` re-parses
-them wherever they are read: `Follow`, `Label`, `Add`, `Room`, `ChordLabel`,
-`Over`, `highlight.vim`, `voicings.vim` (`=` on a label), `annotate.vim`.
-`model.vim` parses the strings once; annotations do not. Four routines decide
-the spacing of a line, each its own way: `s:render` (Follow), `Retype` (a word
-replaced), the fit check of `Add`, and `Room`. Display and byte columns are
-converted in many places (`Bytes`, `s:byte_at`, `virtcol`).
-
-**Change.** The block model parses its annotation lines once into
-`block.annotations`: rows (0 right above the strings) of words, each with an
-explicit anchor: a time column for a label, its first and last columns for a
-span, a free position for a word in a gap or past the last pipe. One pure
-layout turns rows of anchored words back into lines (a line none of whose
-words moved kept byte for byte, as now), and replaces the four routines.
-Queries (`ChordLabel`, `Over`, the word under a display column) work on the
-model. Display columns are converted to bytes only when lines are read and
-written.
-
-**Buys.** One place that decides where a word goes, so the routines cannot
-disagree; no re-parsing; anchors that are data, which refactors 3 to 5 build
-on. No behaviour change.
-
-## 3. A label is never moved off its column: the tab makes room
-
-**Now.** When words would run into each other after an edit, the layout
-pushes the later one right (spec [[Annotations]] 4.4). A pushed label is no
-longer over its column, and as the text is the only record of the link, it is
-lost: [[Bugs]] 4. Chord names written by `=`, `+`, `=<CR>` and
-`:SongwriterTabChord` avoid it by widening the tab (`annotations#Room`,
-`edit.vim` `s:make_room`), but only them.
-
-**Change.** The layout of refactor 2 never displaces an anchored word: it
-returns the room it needs (columns to insert, and where), and the edit
-pipeline inserts dashes there, the annotations following. `Room` and
-`s:make_room` become this general case. A new annotation line remains only
-where widening cannot help (two words anchored on one column of one line, a
-span over the column). Words with a free position may still be pushed.
-
-**Behaviour change (to check with the user).** Spec [[Annotations]] 4.4 no
-longer pushes labels: `dd` between `Am7` and `G` leaves the tab a column wider
-than now, rather than moving `G` into a gap. Fixes [[Bugs]] 4.
-
-**Buys.** The invariant of refactor 1 holds by construction.
-
 ## 4. One vocabulary for annotation changes in a draft
 
 **Now.** A draft changes annotations three ways (`put`, `label`, `above`),
