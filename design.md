@@ -32,6 +32,7 @@ never relies on concealing or rendering.
 | `autoload/songwriter/tab/check.vim` | The rules of the music, checked on every edit in check mode (`g:songwriter_check`, set by the test suite): pure `Errors`, and `Edit`, which throws. |
 | `autoload/songwriter/tab/lint.vim` | The linter, as a pure function over a block's lines. |
 | `autoload/songwriter/tab/highlight.vim` | The time column under the cursor, highlighted in tablature mode. |
+| `autoload/songwriter/tab/unlinted.vim` | The string names of the tabs with no time columns, highlighted. |
 | `autoload/songwriter/tab.vim` | The tab commands that work outside tablature mode too: `_`, `\|\|`, `:SongwriterAddBar`, `:SongwriterAddDashes`, `:SongwriterTabChord`. |
 | `autoload/songwriter/tab/columns.vim` | Editing time columns, pure: extract, delete, erase (any set of notes, `EraseSet`), shift, make room for a note, rewrite a note in place (`SetNote`), and the guards that keep chains apart (`KeepApart`, `WriteNote`). |
 | `autoload/songwriter/tab/frets.vim` | `<C-A>`/`<C-X>` in tablature mode: pure `Add()` and the normal and visual entry points. |
@@ -134,14 +135,15 @@ the lines it was given, through its column map (`tab/check.vim`): every note
 it did not erase is a note with the same text where the map puts it (so
 notes that started together still do, and none was joined to another), two
 of them that were in different chains still are, and every lint leaves the
-pipes aligned; a broken rule throws, naming the edit. What an edit changes
+tab with time columns (`model#Timed`); a broken rule throws, naming the edit. What an edit changes
 on purpose it says in its result: `erased` (notes of the lines it was given)
 and `written` (where the notes it writes start, in its lines; a written note
 must be a note of its own, so a note written right after another one is
 caught). Composed edits carry them: positions of later steps' input are
 mapped back with `colmap#Before`, written ones forward with
-`colmap#Positions`. A tab whose pipes are not aligned has no time columns
-yet, so of its lint only each string's notes in order are checked. The
+`colmap#Positions`. A tab with no time columns cannot be edited but by
+`||` (see "Tabs with no time columns"), so of that lint only each string's
+notes in order are checked. The
 lint's fixed point and the room made for labels throw in check mode when
 they hit their pass cap rather than stop silently. `Do` also throws, in
 check mode, on a result key or an option it does not know (the lists at the
@@ -418,8 +420,8 @@ These guards replace a time-grid model (the tab parsed into time columns and
 rendered back, the only code writing text), considered for the same purpose:
 with them, every known way of joining notes is closed in one place each, and
 check mode covers the rest on every test, whereas the grid would rewrite the
-column code around separators (which belong to no column) and unlinted tabs
-(which have no columns yet) for the same guarantee. The linter moves time
+column code around separators (which belong to no column) for the same
+guarantee. The linter moves time
 columns as a whole for the same reason (see "Linter").
 
 ### Column insertion (`_`, `:SongwriterAddBar`)
@@ -691,6 +693,25 @@ Tablature-mode edits lint the block:
 - **4.3.1**: a digit typed into a slot, or appended to a fret being typed, is
   joined to the previous undo step (`:undojoin`), so `a7` or `a12` is one undo
   step and `u` gives back the tab as it was before `a`.
+
+**Tabs with no time columns are refused** (spec 4.5). A column is a moment
+only once the pipes are aligned and no note starts inside a note of another
+string (`model#Timed`). Before that, a column map, which is one map for every
+string, cannot say where the music went: the lint's map follows the top
+string's pipes, wrong for the others, and check mode could only check each
+string's notes in order, so an edit's mistakes there went unseen. Rather than
+lint and edit in one key, `edit#Do` refuses such a tab (`edit#Untimed`, a
+message pointing to `||`) unless its caller says it takes one (`'untimed'`,
+only `||`), and the operators refuse in their lint before `g@`
+(`operator#Prelint`, which cancels the pending operator, so its target is
+still typed and dropped). Every other edit then sees a tab with time
+columns, and its column maps always mean time. A tab that has them but is
+not otherwise linted (loose dashes, an unclosed last bar) still lints and
+edits in one key: those lints only move whole time columns, which the map
+says exactly. So that a refusal is never a surprise, `tab/unlinted.vim`
+shows the string names of such tabs in `songwriterUnlinted` (white on red),
+window matches recomputed on every change over the whole buffer (a few
+short lines per tab, cheap) and replaced only when they move.
 
 **The cursor follows the music** (`lint#FollowColumn`): on a note it stays on
 the same digit of that note; elsewhere in a bar it keeps its distance from the
@@ -1220,7 +1241,7 @@ Highlighting stays permissive and accepts false positives such as the word "A"
   was above. They catch the interactions between
   features that hand-written cases miss. The main corpus is linted, so an
   edit's own lint shows no difference; unlinted tabs go only where the
-  invariant must hold for them too (lint, 4.3). Keys are typed with
+  invariant must hold for them too (lint, 4.3, the refusal of 4.5). Keys are typed with
   `feedkeys(…, 'xt')` under `silent!` (one undo step per key sequence, and
   no hit-enter prompt reading stdin). An edit throwing in check mode is
   recorded as a failure of its case (`InvType`). A case that breaks an invariant
@@ -1243,7 +1264,7 @@ Highlighting stays permissive and accepts false positives such as the word "A"
   any key: no error (check mode's or Vim's: keys are typed under `silent`,
   not `silent!`, which would carry on past an error and show only its
   aftermath), every line a tab line, an annotation line or blank, the tab
-  around the cursor with aligned pipes; after the walk, undo gives the tab
+  around the cursor with time columns; after the walk, undo gives the tab
   back. Each walk starts afresh (registers, buffer states, undo history), so
   a failure is reported with its seed, tab, start and keys, and shrunk to the
   fewest keys that fail the same way. A failure of a bug in the spec's

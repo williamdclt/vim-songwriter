@@ -6,12 +6,14 @@ if exists('g:loaded_songwriter_plugin')
 endif
 let g:loaded_songwriter_plugin = 1
 
-" Spec [Tablature][[Rendering]] 4: the time column under the cursor, and
-" [[Editing]] 3.8.5: that column in the move state (defaults that
-" a color scheme or the user can override).
+" Spec [Tablature][[Rendering]] 4: the time column under the cursor,
+" [[Editing]] 3.8.5: that column in the move state, and [[Rendering]] 5: the
+" string names of a tab with no time columns (defaults that a color scheme or
+" the user can override).
 function! s:colors() abort
   highlight default link songwriterTimeColumn CursorColumn
   highlight default link songwriterMoveColumn Search
+  highlight default songwriterUnlinted ctermfg=White ctermbg=Red guifg=White guibg=Red
 endfunction
 call s:colors()
 augroup songwriter_colors

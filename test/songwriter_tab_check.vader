@@ -45,7 +45,7 @@ Execute (notes that started together and no longer do break the rule):
   AssertEqual ['note B 5 (5) -> 5: -'], songwriter#tab#check#Errors(old, ['e|--3--|', 'B|---5-|'], [], [], [])
 
 Execute (pipes out of line after a lint break the rule):
-  AssertEqual ['pipes not aligned'], songwriter#tab#check#Linted(['e|--3--|', 'B|---|'])
+  AssertEqual ['no time columns'], songwriter#tab#check#Linted(['e|--3--|', 'B|---|'])
   AssertEqual [], songwriter#tab#check#Linted(['e|--3--|', 'B|-----|'])
 
 Execute (a broken rule throws in check mode, naming the edit):

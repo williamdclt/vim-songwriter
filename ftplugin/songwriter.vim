@@ -66,6 +66,15 @@ augroup songwriter_column
 augroup END
 let b:undo_ftplugin .= '| exe "autocmd! songwriter_column * <buffer>" | call songwriter#tab#highlight#Clear()'
 
+" Spec [Tablature][[Rendering]] 5: the string names of a tab with no time
+" columns, kept up to date as the buffer changes.
+augroup songwriter_unlinted
+  autocmd! * <buffer>
+  autocmd BufWinEnter,WinEnter,TextChanged,TextChangedI <buffer> call songwriter#tab#unlinted#Update()
+  autocmd BufWinLeave,WinLeave <buffer> call songwriter#tab#unlinted#Clear()
+augroup END
+let b:undo_ftplugin .= '| exe "autocmd! songwriter_unlinted * <buffer>" | call songwriter#tab#unlinted#Clear()'
+
 " Spec [Tablature][[Annotations]] 8.2: an annotation changed with `cia` is
 " tidied when insert mode is left.
 " Spec [Tablature][[Editing]] 3.8.4: the move state ends when the cursor

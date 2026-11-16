@@ -15,8 +15,8 @@
 "
 " After every step, whatever the key: no error (a check of check mode,
 " 'songwriter: check: ...', or a Vim error), every line is a tab line, an
-" annotation line or blank, and the tab around the cursor has its pipes
-" aligned (unless it is the unlinted tab it started as). After the sequence,
+" annotation line or blank, and the tab around the cursor has time columns
+" (unless it is the unlinted tab it started as). After the sequence,
 " undo back to the start gives the tab back.
 "
 " Seeds: $FUZZ_SEED (one seed, to reproduce a failure), else $FUZZ_SEEDS
@@ -101,7 +101,7 @@ Execute (random keys of the tables keep the tab parsing and the music checked):
     endif
     let l:tab = g:InvTab()
     if !empty(l:tab) && l:tab !=# a:start && !empty(songwriter#tab#check#Linted(l:tab))
-      call add(l:errors, 'pipes not aligned: ' . string(l:tab))
+      call add(l:errors, 'no time columns: ' . string(l:tab))
     endif
     return l:errors
   endfunction
@@ -122,10 +122,7 @@ Execute (random keys of the tables keep the tab parsing and the music checked):
   " The bug of the spec's [[Bugs]] that explains `failure` (FuzzRun), ''
   " when none. A bug is recognised by the key that fails and how it fails
   " (its message), so that another failure of the same key is not taken
-  " for it. 6 is any check failure on a tab that started unlinted: its first
-  " edit can leave notes joined unseen (the check of an edit of an unlinted
-  " tab only compares each string's notes), for a later key to trip on.
-  " When a bug is fixed and renumbered away, its branch goes.
+  " for it. When a bug is fixed and renumbered away, its branch goes.
   function! FuzzKnown(failure) abort
     let [l:step, l:error] = [a:failure.step, a:failure.error]
     if l:step ==# '+' && l:error =~# 'E727:'
@@ -139,16 +136,14 @@ Execute (random keys of the tables keep the tab parsing and the music checked):
       return '4: digits rewriting a note in the insert state'
     elseif l:error =~# 'E790:'
       return '5: a note typed after an undo'
-    elseif get(a:failure.tab, 'unlinted', 0) && l:error =~# '^songwriter: check:'
-      return '6: an edit of an unlinted tab'
     elseif l:error =~# "enter_separator.*: note \\S\\+ \\d\\+ (\\d\\d\\+) -> "
-      return '7: a separator splitting a two-digit fret'
+      return '6: a separator splitting a two-digit fret'
     elseif l:step ==# 'gp' && l:error =~# '^songwriter: check:'
-      return '8: gp past the closing pipe'
+      return '7: gp past the closing pipe'
     elseif l:error =~# "_step', .*: chains \\S\\+ \\d\\+, \\d\\+ joined"
-      return '9: a fret changed in a chain'
+      return '8: a fret changed in a chain'
     elseif l:step =~# '^[0-9x]$' && l:error =~# 'enter_note.*: chains \S\+ \d\+, \d\+ joined'
-      return '10: a note typed between two notes'
+      return '9: a note typed between two notes'
     endif
     return ''
   endfunction

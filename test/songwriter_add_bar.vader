@@ -21,23 +21,23 @@ Expect:
   E|--3---------|--|--1-----------|
 
 Given (add bar pads short lines with dashes before inserting |):
-  e|--4--|
-  B|------|
-  G|------|
-  D|------|
-  A|------|
-  E|------|
+  e|--4---
+  B|---
+  G|---
+  D|---
+  A|---
+  E|---
 
 Execute (add bar pads short lines with dashes before inserting |):
   call cursor(1, 6)
   call songwriter#tab#AddBar()
 Expect:
-  e|--4-|-|
-  B|----|--|
-  G|----|--|
-  D|----|--|
-  A|----|--|
-  E|----|--|
+  e|--4-|--
+  B|----|
+  G|----|
+  D|----|
+  A|----|
+  E|----|
 
 Given (add bar does nothing on non-tab lines):
   some prose line

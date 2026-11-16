@@ -21,11 +21,11 @@ Then:
 
 Given (insert chord at column 1 (start of tab)):
   e|--4--|--1--|
-  B|------|-----|
-  G|------|-----|
-  D|------|-----|
-  A|------|-----|
-  E|------|-----|
+  B|-----|-----|
+  G|-----|-----|
+  D|-----|-----|
+  A|-----|-----|
+  E|-----|-----|
 
 Execute (on the string name, the chord goes to the first column that keeps it an annotation):
   call cursor(1, 1)
@@ -36,11 +36,11 @@ Then:
 
 Given (insert chord in middle of tab block):
   e|--4--|--1--|
-  B|------|-----|
-  G|------|-----|
-  D|------|-----|
-  A|------|-----|
-  E|------|-----|
+  B|-----|-----|
+  G|-----|-----|
+  D|-----|-----|
+  A|-----|-----|
+  E|-----|-----|
 
 Execute (insert chord in middle of tab block):
   call cursor(3, 8)

@@ -12,27 +12,9 @@ Ordered by importance: how many bugs a behaviour can cause, and how much it
 gets in the way of new features. Each entry says why it stands where it
 does.
 
-## 1. Tabs that are not linted have no time columns
+## 1. Abandoned slots remove themselves with `:undo`
 
-**Why first.** It touches every edit: each one assumes columns are time, and
-on an unlinted tab nothing guarantees it. Check mode cannot see what goes
-wrong there, so bugs hide, and every new edit inherits the problem.
-
-**Now.** Columns stand for time only once the pipes are aligned, but every
-edit maps columns as if they did. Lint's column map follows the top
-string's pipes, wrong for the other strings of a misaligned tab; check mode
-can only check each string's notes in order there (`check.vim`
-`s:music_kept`); the fuzzer classifies any check failure on a tab that
-started unlinted as known. [[Bugs]] 6 (an edit acting beside the note under
-the cursor) is the same problem.
-
-**Alternative.** The first tablature-mode edit on an unlinted tab only lints
-it, as an undo step of its own, and the key is pressed again. Edits then
-only ever see linted tabs. Loses doing it in one keystroke on a messy tab.
-
-## 2. Abandoned slots remove themselves with `:undo`
-
-**Why second.** Any feature that opens a slot has to go through this
+**Why first.** Any feature that opens a slot has to go through this
 machinery (mark, revert, keep the lint), and it depends on Vim's undo tree
 behaving as expected in macros, `:normal` and after `u`, which is hard to
 test and has already broken once.
@@ -52,10 +34,10 @@ insert the dashes only when a digit is typed. `slots#Mark`, `s:revert`,
 properties or extmarks, and a cursor standing on a column that does not
 exist yet.
 
-## 3. Separators belong to notes in several ways
+## 2. Separators belong to notes in several ways
 
-**Why third.** The rules are applied in six places, and a new edit near a
-separator has to get all of them right; [[Bugs]] 7 and 9 are chains handled
+**Why second.** The rules are applied in six places, and a new edit near a
+separator has to get all of them right; [[Bugs]] 6 and 8 are chains handled
 wrongly. A simpler ownership rule would shrink every one of those places.
 
 **Now.** A separator belongs to the note after it (`/5`), to the note before
@@ -74,9 +56,9 @@ check mode each apply these rules. Two consequences:
   opens `5--h7`, 3.1.3), so check mode cannot treat it as a broken rule.
   Should `>>`/`<<` inside a chain be refused, or move the whole chain?
 
-## 4. Operators lint in a command of their own
+## 3. Operators lint in a command of their own
 
-**Why fourth.** Every operator and target goes through the joined undo step
+**Why third.** Every operator and target goes through the joined undo step
 and the re-typed count; a new operator or text object has to fit that, and
 getting the join wrong leaves two undo steps.
 
@@ -91,9 +73,9 @@ almost always linted already (leaving the insert state, entering tablature
 mode on a tab), and the operator's lint becomes a rare no-op. The rule that
 operators see a linted tab stays.
 
-## 5. `x` with a count lints between erasures
+## 4. `x` with a count lints between erasures
 
-**Why fifth.** Local to one function, but it is a second rule for something
+**Why fourth.** Local to one function, but it is a second rule for something
 `d3l` already does, and it needed the most special handling in check mode.
 
 **Now.** `3x` erases a note, lints, then erases the next one
@@ -107,9 +89,9 @@ register for each note depended on the order of the erasures, until
 **Alternative.** `3x` is `d3l`: one rule, one function, and `colmap#Before`
 goes.
 
-## 6. `gp` can add time
+## 5. `gp` can add time
 
-**Why sixth.** A spec decision with no bug risk either way: the code is the
+**Why fifth.** A spec decision with no bug risk either way: the code is the
 same, only the outcome differs.
 
 **Now.** Spec 6.14 says `gp` writes a column register "without adding
@@ -122,7 +104,7 @@ time is added.
 keeping the promise of 6.14. The dash was chosen to match carries and
 chords.
 
-## 7. Smaller oddities
+## 6. Smaller oddities
 
 - **`cap` on several tabs is several edits.** An edit touches one block, so
   each tab is cleared in an edit of its own, joined into one undo step by
