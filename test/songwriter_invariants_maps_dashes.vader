@@ -5,14 +5,6 @@ Include: invariants/setup.vader
 
 Execute (the edits checked here):
   let g:inv_map_kinds = ['dash', 'lint']
-  " Spec [[Bugs]] 1 (Paste): notes joined.
-  let g:inv_known = [
-        \ 'two-digit frets, 1:20, Paste column before: note 0:18 -> 18',
-        \ 'two-digit frets, 2:20, Paste column before: note 0:18 -> 18',
-        \ 'two-digit frets, 3:19, Paste column: note 0:18 -> 18',
-        \ 'separators, 1:8, Paste column before: note 0:7 -> 7',
-        \ 'separators, 2:8, Paste column before: note 0:7 -> 7',
-        \ 'separators, 2:9, Paste column before: note 0:7 -> 7',
-        \ ]
+  let g:inv_known = []
 
 Include: invariants/maps.vader

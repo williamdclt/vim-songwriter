@@ -292,3 +292,30 @@ Execute (6.10 x is one undo step):
   normal u
 Expect songwriter:
   e|-----3--5--|
+
+Given songwriter (6.5.1 a pasted column never joins a note of the tab):
+  e|--10-12--|
+  B|----5----|
+
+Execute (6.5.1 yyp on the 10, whose gap ends where the 5 starts):
+  let b:songwriter_tabmode = 1
+  call cursor(1, 5)
+  normal yyp
+
+Expect songwriter (a dash between the two 10s):
+  e|--10-10-12--|
+  B|-------5----|
+
+Given songwriter (6.5.1 P never joins a pasted note to the note before the column):
+  e|--10-12--|
+  B|----5----|
+
+Execute (6.5.1 P of a column on the 5):
+  let b:songwriter_tabmode = 1
+  call setreg('a', ['7--', '---'], 'b')
+  call cursor(2, 7)
+  normal "aP
+
+Expect songwriter (a dash between the 10 and the 7):
+  e|--10-7---12--|
+  B|--------5----|

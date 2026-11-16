@@ -117,7 +117,7 @@ A note is a fret (digits: `12` is one note) or `x` (a muted note). Anything else
         6.3.2 `p` of a line-wise register puts it after the end of the tab (`P`: before its start), never between strings. Tab lines pasted next to the tab are kept apart from it by a blank line. ✓
     6.4 Registers: column and bar yanks are stored as normal Vim blockwise registers (one row per string), so they interoperate with native Vim (`<C-v>` yanks, pasting outside tablature mode). The string names of the source tab are recorded alongside the register (ignored if the register has changed since). Named registers (`"a`) work as usual. ✓
     6.5 `p` / `P` paste a blockwise register. ✓
-        6.5.1 Column register (no pipe in it): inserted after (`p`) / before (`P`) the cursor's note column and its gap. The yanked gap comes along, so spacing is preserved (register `5--`, cursor on 3: `e|--3--7--|` -> `e|--3--5--7--|`). ✓
+        6.5.1 Column register (no pipe in it): inserted after (`p`) / before (`P`) the cursor's note column and its gap. The yanked gap comes along, so spacing is preserved (register `5--`, cursor on 3: `e|--3--7--|` -> `e|--3--5--7--|`). A pasted note never joins a note it lands next to: a dash is added between them on every string (`yyp` on the 10 of `10-12` gives `10-10-12`). ✓
         6.5.2 Bar register (contains a pipe): inserted after the end (`p`) / before the start (`P`) of the cursor's bar; a bar is never split. ✓
         6.5.3 When the register has a different number of rows than the tab, rows are matched from the bottom string (a bass tab `GDAE` lands on the lowest 4 strings of a guitar tab; extra strings get dashes; extra rows are dropped). If the source string names are known and differ where they meet (drop D vs E, 5-string bass, 7-string guitar), refuse with a message. If unknown, paste and say rows were matched by position. If dropped rows contained notes, paste and say how many notes were dropped. ✓
         6.5.4 A character-wise register is refused with a message. ✓
@@ -219,8 +219,7 @@ e|--0--0--0--|--0-------------|
 
 [[Bugs]]
 These are known bugs that need fixing.
-1. Pasting a column (`p` / `P`, 6.5.1) right after the end of a note joins it with a note the register has at its start on that string: with `e|--10-12--|` over `B|----5----|`, `yyp` on the 10 gives `1010` (the 10's gap ends where the 5 starts). `P` joins it the same way with a note the line has right before the column: `P` of a column `7--` on the 5 gives `e|--107---12--|`. ✗
-2. `gp` (6.14) writes a note right after a note ending on the column before, joining them: with `e|--12-----|` over `B|----3----|`, `gp` of a column with a `4` on e, on the 3, gives `e|--124----|`. A note written on dashes should keep apart from the chain before it, as a carried note does (7.5). ✗
+1. `gp` (6.14) writes a note right after a note ending on the column before, joining them: with `e|--12-----|` over `B|----3----|`, `gp` of a column with a `4` on e, on the 3, gives `e|--124----|`. A note written on dashes should keep apart from the chain before it, as a carried note does (7.5). ✗
 
 [Chords]
 

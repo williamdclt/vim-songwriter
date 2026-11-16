@@ -101,7 +101,9 @@ function! songwriter#tab#paste#PasteAt(lines, offset, rows, regnames, ...) abort
 endfunction
 
 " Insert `count` copies of `rows` after byte `offset` on every line, the
-" annotation rows `above` above each copy. Returns {'lines', 'col': the first
+" annotation rows `above` above each copy. At each edge of a copy, two chains
+" of a string never meet (columns#KeepApart): a pasted note never joins a
+" note of the tab or of the next copy. Returns {'lines', 'col': the first
 " inserted note on any string, 'map', 'annotations'}.
 function! s:insert_rows(lines, offset, rows, count, above) abort
   let l:width = len(a:rows[0])
@@ -122,8 +124,19 @@ function! s:insert_rows(lines, offset, rows, count, above) abort
       let l:first = l:p + 1
     endif
   endfor
-  return {'lines': l:out, 'col': a:offset + max([l:first, 1]),
-        \ 'map': songwriter#tab#colmap#Insert(a:offset, len(l:rows[0])), 'annotations': l:put}
+  let l:col = a:offset + max([l:first, 1])
+  let l:map = songwriter#tab#colmap#Insert(a:offset, len(l:rows[0]))
+  " Right to left, so that a dash put at an edge leaves the others where they
+  " are.
+  let l:apart = []
+  for l:k in range(max([a:count, 1]), 0, -1)
+    let l:res = songwriter#tab#columns#KeepApart(l:out, a:offset + l:k * l:width)
+    let l:out = l:res.lines
+    let l:apart = songwriter#tab#colmap#Then(l:apart, l:res.map)
+  endfor
+  call map(l:put, {_, p -> extend(p, {'col': songwriter#tab#colmap#At(l:apart, p.col)})})
+  return {'lines': l:out, 'col': songwriter#tab#colmap#At(l:apart, l:col),
+        \ 'map': songwriter#tab#colmap#Then(l:map, l:apart), 'annotations': l:put}
 endfunction
 
 " Spec 6.14: write the notes of column register `rows` onto the time column at
