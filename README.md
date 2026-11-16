@@ -139,6 +139,7 @@ name already there. `+` keeps a name that is there up to date, but adds none.
 | Key                          | Action                                                  |
 |------------------------------|---------------------------------------------------------|
 | `<leader>k` / `<leader>j`    | Carry the note one string up / down, same fret (also `sk` / `sj`; in visual, every selected note) |
+| `<leader>h` / `<leader>l`    | Move the note a fret down / up, in the run of carries   |
 | `<leader><leader>k` / `<leader><leader>j` | Copy the note one string up / down, cursor on the copy |
 | `Sk` / `Sj`                  | Carry the note, keeping its pitch                       |
 | `sK` `sJ` `SK` `SJ`          | Same, for the whole time column                         |
