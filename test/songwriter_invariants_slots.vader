@@ -2,9 +2,9 @@
 
 Include: invariants/setup.vader
 
-" === An abandoned slot leaves no trace (spec 4.3) ===
+" === An abandoned slot gives the tab back, in its own undo step (spec 4.3) ===
 
-Execute (a or i then <Esc> gives the tab back as it was, with no undo step):
+Execute (a or i then <Esc> gives the tab back as it was, in one undo step):
   let g:inv_known = []
   let g:inv_failures = []
   for g:inv_tab in g:inv_tabs + g:inv_unlinted
@@ -18,7 +18,7 @@ Execute (a or i then <Esc> gives the tab back as it was, with no undo step):
           continue
         endif
         call InvType("\<Esc>")
-        if getline(1, '$') !=# g:inv_tab.lines || undotree().seq_cur != g:inv_seq
+        if getline(1, '$') !=# g:inv_tab.lines || undotree().seq_cur != g:inv_seq + 1
               \ || songwriter#tab#mode#Current() ==# 'insert'
           call add(g:inv_failures, g:InvCase(g:inv_tab, g:inv_pos, g:inv_keys . "\<Esc>"))
         endif
