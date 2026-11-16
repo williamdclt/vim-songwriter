@@ -129,9 +129,11 @@ function! s:interval(lines, from, to) abort
 endfunction
 
 " Spec 3.6.1, 7.5: the tab with the notes of `carry` where they are: its base
-" with each note (and its separators) written on its string, over the note
-" starting on its time column there if any, room made for it
-" (columns#PutNote). Returns {'lines', 'map'
+" with each note (and its separators) written on its string as a note that
+" changes width is (columns#WriteNote, 11.2): in place of the note starting
+" on its time column there if any (blanked first when the carried note has
+" separators before it), or back where it was lifted with another fret, or
+" on dashes. Returns {'lines', 'map'
 " (where the columns of the base went), 'lin', 'col' (the cursor), 'home' (1
 " when the notes are back where they started: the origin, untouched)}, or
 " {'error'}.
@@ -147,10 +149,18 @@ function! songwriter#tab#carry#Render(carry) abort
     let l:to = l:n.lin + a:carry.dlin
     let l:c = songwriter#tab#colmap#At(l:map, l:n.col)
     let l:there = songwriter#tab#model#NoteAt(l:lines[l:to], l:c + len(l:n.pre))
+    let l:old = 0
     if !empty(l:there) && l:there.col == l:c + len(l:n.pre)
-      let l:lines[l:to] = songwriter#tab#model#Blank(l:lines[l:to], l:there)
+      if empty(l:n.pre)
+        let l:old = l:there.len
+      else
+        let l:lines[l:to] = songwriter#tab#model#Blank(l:lines[l:to], l:there)
+      endif
+    elseif a:carry.dlin == 0
+      " Lifted from there: its columns are dashes in the base.
+      let l:old = len(l:n.pre . l:n.text0 . l:n.post)
     endif
-    let l:room = songwriter#tab#columns#PutNote(l:lines, l:to, l:c, l:n.pre . l:n.text . l:n.post)
+    let l:room = songwriter#tab#columns#WriteNote(l:lines, l:to, l:c, l:old, l:n.pre . l:n.text . l:n.post)
     if has_key(l:room, 'error')
       return l:room
     endif

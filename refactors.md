@@ -13,31 +13,6 @@ more regular, as a question for the user.
 The safety net for all of them is `test/songwriter_invariants_*.vader`, on top of
 the per-feature tests: run `make test` after every step.
 
-## 5. One way to change a fret
-
-**Now.** `]`/`[` and `<C-A>`/`<C-X>` change a fret with frets#Add, which makes
-room for a wider fret by spec 11.2 (columns#SetNote). In the move state,
-`h`/`l` change it as a carry step, which makes room by 7.5
-(columns#PutNote). The two can differ when the wider fret runs into another
-string's column.
-
-**Behaviour.** Decided with the user: one rule for a note that gets wider,
-wherever it gets wider (`]`/`[`, `<C-A>`/`<C-X>`, a carry keeping the pitch,
-the move state's `h`/`l`). The proposal is 11.2's, the more precise of the
-two: take a dash of the gap after the note while one stays before the next
-note on its string and it covers no other string's time column, otherwise
-insert dashes on every string right after it. 7.5 then refers to 11.2. To
-settle with the user before implementing: whether a note that gets narrower
-in a carry also closes up its chain as 11.2 says (a carried note is rendered
-on the base, so today it just leaves dashes).
-
-**Change.** One pure function makes room for a note's new text (where
-columns#SetNote and columns#PutNote now disagree); frets#Add and
-carry#Render both use it. The move state can keep changing the fret as a
-carry step, so the run and its exact restore are unchanged.
-
-**Buys.** One rule for making room, one function.
-
 ## 6. Split operator.vim
 
 **Now.** operator.vim (550 lines) holds the operator machinery (`g@`,

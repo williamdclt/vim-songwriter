@@ -298,7 +298,7 @@ endfunction
 " Spec 10.5, 10.6: write `voicing` on the time column at column `col` of line
 " `lin`: the column of the note under the cursor, or `col` itself on a dash.
 " Every note starting on that column is replaced; a fret that needs room gets
-" it as in spec 7.5. Returns {'lines', 'col', 'map'}, or {'error'} on a pipe or the
+" it as in spec 11.2 (columns#PutNote). Returns {'lines', 'col', 'map'}, or {'error'} on a pipe or the
 " string name, or when a note on another string covers the column.
 function! songwriter#tab#voicings#Place(lines, lin, col, voicing) abort
   if songwriter#tab#columns#OnPipeOrName(a:lines[a:lin], a:col)

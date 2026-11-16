@@ -1,6 +1,6 @@
 " autoload/songwriter/tab/columns.vim - editing time columns (spec
-" [Tablature][[Editing]] 6, 7.5): extract, delete and erase columns and notes,
-" shift a column, make room for a note. Pure: lines in, lines out, each
+" [Tablature][[Editing]] 6, 11.2): extract, delete and erase columns and notes,
+" shift a column, write a note that changes width. Pure: lines in, lines out, each
 " function parsing `lines` once (model#Parse) for the model's queries. See
 " design.md "Operators and text objects"; text objects are in tab/objects.vim,
 " pasting in tab/paste.vim.
@@ -198,116 +198,93 @@ function! s:all_dashes(lines, col) abort
   return empty(filter(copy(a:lines), "v:val[a:col - 1] !=# '-' && v:val[a:col - 1] !=# ''"))
 endfunction
 
-" Make room on line `to` for a note of width `len` at column `c` (spec 7.5, 10.5):
-" a dash before the column when a note ends right before it, dashes after it
-" when the note would touch the next note (a 1-dash gap is kept) or the pipe.
-" Dashes are inserted on every line. Returns {'lines', 'col' (the column may
-" move right by one), 'map'}, or {'error'}.
-function! songwriter#tab#columns#MakeRoom(lines, to, c, len) abort
-  let l:lines = a:lines
+" Write `text`, a note (with the separators that go with it, for a carried
+" note), at column `c` of line `lin`, in place of the `old` columns there:
+" the note it rewrites (11.2), or 0 for a note written on dashes (7.5, 10.5).
+" One rule for a note that changes width, keeping it on its time column:
+" - on dashes, it must not join a chain ending right before it: a dash is
+"   inserted there on every string (refused when that would cut a note in
+"   two), and it may not start inside a chain;
+" - narrower than what it replaces, the rest of its chain closes up, the
+"   dashes going after the chain (`10-7` -> `9--7`, `10h7` -> `9h7-`): the
+"   rest of its chain moves with it, every other note stays;
+" - wider, it takes the dashes after it, as long as one stays before the
+"   next chain on its string (none is needed before a pipe) and it covers no
+"   other string's time column; the rest of the room is dashes inserted on
+"   every string between it and the next time column, so all that follows
+"   moves together. A separator right after it stays attached to it.
+" Returns {'lines', 'col' (where it went), 'map'}, or {'error'} when the
+" room would cut a note in two on another string. Only the dashes inserted
+" move time columns.
+function! songwriter#tab#columns#WriteNote(lines, lin, c, old, text) abort
+  let l:lines = copy(a:lines)
   let l:map = []
   let l:c = a:c
-  let l:t = l:lines[a:to]
-  if s:in_chain(l:t, l:c)
-    return {'error': printf('string %s already has a note there', songwriter#tab#model#Name(l:lines[a:to]))}
-  endif
-  if l:c > 1 && s:in_chain(l:t, l:c - 1)
-    if s:splits(l:lines, l:c - 1)
-      return {'error': printf('no room on string %s', songwriter#tab#model#Name(l:lines[a:to]))}
-    endif
-    let l:ins = songwriter#tab#model#InsertColumns(l:lines, l:c - 1, 1, '-')
-    let [l:lines, l:map] = [l:ins.lines, l:ins.map]
-    let l:c += 1
-    let l:t = l:lines[a:to]
-  endif
-  let l:free = len(matchstr(l:t, songwriter#grammar#DashRun(), l:c - 1))
-  let l:next = l:t[l:c - 1 + l:free : l:c - 1 + l:free]
-  if l:next ==# ''
-    let l:lines = copy(l:lines)
-    let l:lines[a:to] = l:t . repeat('-', l:c - 1 + a:len - len(l:t))
-    return {'lines': l:lines, 'col': l:c, 'map': l:map}
-  endif
-  let l:k = a:len + (l:next ==# '|' ? 0 : 1) - l:free
-  if l:k <= 0
-    return {'lines': l:lines, 'col': l:c, 'map': l:map}
-  endif
-  " Insert after the latest offset in the dash run that splits no note.
-  let l:o = l:c - 1 + l:free
-  while l:o >= l:c && s:splits(l:lines, l:o)
-    let l:o -= 1
-  endwhile
-  if l:o < l:c
-    return {'error': printf('no room on string %s', songwriter#tab#model#Name(l:lines[a:to]))}
-  endif
-  let l:ins = songwriter#tab#model#InsertColumns(l:lines, l:o, l:k, '-')
-  return {'lines': l:ins.lines, 'col': l:c, 'map': songwriter#tab#colmap#Then(l:map, l:ins.map)}
-endfunction
-
-" Write `text`, a note, at column `c` of line `to`, room made for it as
-" MakeRoom does. Returns {'lines', 'col' (where it went), 'map'}, or
-" {'error'}.
-function! songwriter#tab#columns#PutNote(lines, to, c, text) abort
-  let l:room = songwriter#tab#columns#MakeRoom(a:lines, a:to, a:c, len(a:text))
-  if has_key(l:room, 'error')
-    return l:room
-  endif
-  let l:room.lines[a:to] = songwriter#tab#model#Splice(l:room.lines[a:to], l:room.col, len(a:text), a:text)
-  return l:room
-endfunction
-
-" Rewrite the note starting at column `c` of line `lin` as `text` (another
-" note), keeping it on its time column (spec 3.4, 11.2). A narrower note closes
-" up its chain, the dashes going after the chain (`10-7` -> `9--7`, `10h7` ->
-" `9h7-`): the rest of its chain moves with it, every other note stays. A wider
-" one takes the dashes after it, as long as one
-" stays before the next chain on its string (none is needed before a pipe) and
-" it covers no other string's time column; the rest of the room is dashes
-" inserted on every string between the note and the next time column, so all
-" that follows moves together. A separator right after the note stays attached
-" to it. Returns {'lines', 'col' (the note's column), 'map'}, or {'error'}
-" when the room would cut a note in two on another string. Only the room
-" inserted moves time columns: the note and its chain stay on theirs.
-function! songwriter#tab#columns#SetNote(lines, lin, c, text) abort
-  let l:lines = copy(a:lines)
   let l:t = l:lines[a:lin]
-  let l:old = songwriter#tab#model#NoteAt(l:t, a:c)
+  if a:old == 0
+    if s:in_chain(l:t, l:c)
+      return {'error': printf('string %s already has a note there', songwriter#tab#model#Name(l:t))}
+    endif
+    if l:c > 1 && s:in_chain(l:t, l:c - 1)
+      if s:splits(l:lines, l:c - 1)
+        return {'error': printf('no room on string %s', songwriter#tab#model#Name(l:t))}
+      endif
+      let l:ins = songwriter#tab#model#InsertColumns(l:lines, l:c - 1, 1, '-')
+      let [l:lines, l:map] = [l:ins.lines, l:ins.map]
+      let l:c += 1
+      let l:t = l:lines[a:lin]
+    endif
+  endif
   let l:w = len(a:text)
-  let l:end = a:c + l:old.len - 1
-  if l:w <= l:old.len
-    let l:chain = songwriter#tab#model#ChainAt(l:t, a:c)
-    let l:rest = strpart(l:t, l:end, songwriter#tab#model#NoteEnd(l:chain) - l:end)
-    let l:lines[a:lin] = songwriter#tab#model#Splice(l:t, a:c, l:old.len + len(l:rest),
-          \ a:text . l:rest . repeat('-', l:old.len - l:w))
-    return {'lines': l:lines, 'col': a:c, 'map': []}
+  let l:end = l:c + a:old - 1
+  if l:w <= a:old
+    let l:chain = songwriter#tab#model#ChainAt(l:t, l:end + 1)
+    let l:rest = empty(l:chain) ? '' : strpart(l:t, l:end, songwriter#tab#model#NoteEnd(l:chain) - l:end)
+    let l:lines[a:lin] = songwriter#tab#model#Splice(l:t, l:c, a:old + len(l:rest),
+          \ a:text . l:rest . repeat('-', a:old - l:w))
+    return {'lines': l:lines, 'col': l:c, 'map': l:map}
   endif
   let l:free = len(matchstr(l:t, songwriter#grammar#DashRun(), l:end))
   let l:next = l:t[l:end + l:free : l:end + l:free]
   let l:spare = l:next ==# '' ? l:w : l:free - (l:next ==# '|' || l:free == 0 ? 0 : 1)
-  let l:k = l:w - l:old.len - l:spare
+  let l:k = l:w - a:old - l:spare
   let l:later = filter(songwriter#tab#model#NoteColumns(songwriter#tab#model#Parse(1, l:lines)),
-        \ 'v:val > a:c')
+        \ 'v:val > l:c')
   let l:last = l:end + l:free
-  let l:map = []
   if !empty(l:later)
-    let l:k = max([l:k, a:c + l:w - l:later[0]])
+    let l:k = max([l:k, l:c + l:w - l:later[0]])
     let l:last = min([l:last, l:later[0] - 1])
   endif
   if l:k > 0
-    " Insert after the latest offset before the next column that splits no
-    " note on another string.
+    " Insert after the latest offset before the next column, at or after the
+    " note's start, that splits no note on another string.
     let l:o = l:last
-    while l:o >= l:end && s:splits(s:others(l:lines, a:lin), l:o)
+    let l:first = max([l:end, l:c])
+    while l:o >= l:first && s:splits(s:others(l:lines, a:lin), l:o)
       let l:o -= 1
     endwhile
-    if l:o < l:end
+    if l:o < l:first
       return {'error': printf('no room on string %s', songwriter#tab#model#Name(l:t))}
     endif
     let l:ins = songwriter#tab#model#InsertColumns(l:lines, l:o, l:k, '-')
-    let [l:lines, l:map] = [l:ins.lines, l:ins.map]
+    let [l:lines, l:map] = [l:ins.lines, songwriter#tab#colmap#Then(l:map, l:ins.map)]
   endif
-  let l:t = songwriter#tab#model#Pad(l:lines[a:lin], a:c + l:w - 1)
-  let l:lines[a:lin] = songwriter#tab#model#Splice(l:t, a:c, l:w, a:text)
-  return {'lines': l:lines, 'col': a:c, 'map': l:map}
+  let l:t = songwriter#tab#model#Pad(l:lines[a:lin], l:c + l:w - 1)
+  let l:lines[a:lin] = songwriter#tab#model#Splice(l:t, l:c, l:w, a:text)
+  return {'lines': l:lines, 'col': l:c, 'map': l:map}
+endfunction
+
+" Write `text`, a note, on the dashes at column `c` of line `to`
+" (WriteNote).
+function! songwriter#tab#columns#PutNote(lines, to, c, text) abort
+  return songwriter#tab#columns#WriteNote(a:lines, a:to, a:c, 0, a:text)
+endfunction
+
+" Rewrite the note starting at column `c` of line `lin` as `text` (another
+" note), keeping it on its time column (spec 3.4, 11.2, WriteNote).
+function! songwriter#tab#columns#SetNote(lines, lin, c, text) abort
+  return songwriter#tab#columns#WriteNote(a:lines, a:lin, a:c,
+        \ songwriter#tab#model#NoteAt(a:lines[a:lin], a:c).len, a:text)
 endfunction
 
 " `lines` without line `lin`.

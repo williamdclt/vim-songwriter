@@ -663,9 +663,15 @@ time column. Splicing the new text into its line alone shifts everything after
 it on that string by the difference, so the string drifts out of the time
 columns it shared with the others (a different rhythm), and lint cannot tell:
 it aligns pipes and splits overlaps, but has no memory of which notes were
-together. So every edit that rewrites a note goes through one primitive,
-`columns#SetNote`, and `test/songwriter_invariants_frets.vader` checks over the
-corpus that the notes of each time column still start together afterwards.
+together. So every edit that writes a note goes through one primitive,
+`columns#WriteNote`, whichever key changes its width (`]`/`[`, `<C-A>`, a
+digit, a carry keeping the pitch, the move state's `h`/`l`, a chord's frets):
+one rule, so the same change of fret gives the same tab whatever key made it.
+`SetNote` rewrites a note in place, `PutNote` writes one on dashes, and a
+carry renders its notes with it, as rewriting the note it replaces, or the
+one it was lifted from. `test/songwriter_invariants_frets.vader` checks over
+the corpus that the notes of each time column still start together
+afterwards.
 
 - **Narrower: the chain closes up, dashes after it.** The note keeps its
   start; the rest of its chain follows it (`10h7` -> `9h7-`), because a dash
@@ -677,10 +683,13 @@ corpus that the notes of each time column still start together afterwards.
   are used while one stays before its string's next chain (that dash is what
   keeps `10` and `7` two notes) and the note covers no other string's time
   column. What is still missing is inserted on every string between the note
-  and the next time column, so all that follows moves together. Unlike
-  `MakeRoom` (a note written onto a free column), the note is already there:
-  no dash goes before it, and a separator right after it is not pushed off,
+  and the next time column, so all that follows moves together. No dash goes
+  before a rewritten note, and a separator right after it is not pushed off,
   since the chain must stay whole.
+- **On dashes, apart from the previous chain.** A note written where there
+  was none (a carry to another string, a chord's fret) is its own chain: when
+  a note ends right before its column, a dash is inserted there on every
+  string, rather than merging the two (`123`), which lint cannot undo.
 - **Visual `<C-A>` changes every fret selected**, so a riff is moved up the
   neck in one go, rather than Vim's first number per line, which means
   nothing in a tab. The notes change right to left: each one's room or
@@ -753,13 +762,13 @@ while transcribing, so it has right-hand keys (`<leader>k`/`<leader>j`, with a
   written `eBGDAE`) has the same intervals and works. Two strings with the same
   letter (`E` above `e`) give no interval and the carry is refused, rather
   than guessing an octave.
-- **Room, not overlap.** A note that gets wider (`7` -> `12`) could touch the
-  next note on its new string and merge with it (`123`), which lint cannot
-  undo. So dashes are inserted on every string, right after the note when it
-  would touch the next note or the pipe, or right before the column when a
-  note ends just before it there (`columns#PutNote`). Insertion points never
-  cut a note in two on another string; the following lint normalises the
-  spacing.
+- **Room, not overlap.** A carried note is written as any note that changes
+  width (`columns#WriteNote`, see "Rewriting a note in place"): a wider one
+  takes the gap or gets dashes inserted on every string, a narrower one closes
+  up its chain, and on another string it keeps apart from a note ending right
+  before it. A note it lands on is rewritten in place, keeping its chain
+  (`5h12` -> `5h7`). Rendering from the base keeps all of it undoable: the
+  room exists only in the render.
 
 ### Chords on a column (`=`, `==`, spec [Tablature][[Editing]] 10)
 
@@ -785,7 +794,7 @@ voicings in their cycle order out) and `Place()`, and the entry points.
   `S` does (spec 7.3), so drop D gets its one-finger shape for free.
 - **The chord replaces the column**, as a digit replaces a note: the notes
   starting on it go, and a two-digit fret gets room as a moved note does
-  (`columns#MakeRoom`, spec 7.5). Unplayed strings stay dashes: muting marks are
+  (`columns#PutNote`, spec 11.2). Unplayed strings stay dashes: muting marks are
   the user's call (`x`).
 - **A quality alone changes the chord there** (10.7). The root is the note on
   the lowest string of the column: no chord recognition, so it works on any
