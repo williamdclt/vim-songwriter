@@ -240,3 +240,16 @@ Execute (6.14 gp refuses to replace a note):
 Expect songwriter:
   e|--3--|
   B|--1--|
+
+Given songwriter (6.1.1 dac never joins two notes of another string):
+  e|--10-12--|
+  B|----5----|
+
+Execute (6.1.1 dac never joins two notes of another string):
+  let b:songwriter_tabmode = 1
+  call cursor(2, 7)
+  normal dac
+
+Expect songwriter (the dash between the 10 and the 12 stays):
+  e|--10-12--|
+  B|---------|
