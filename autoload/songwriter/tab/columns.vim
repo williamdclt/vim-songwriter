@@ -91,12 +91,15 @@ function! songwriter#tab#columns#ClearNotes(lines) abort
         \ "strpart(v:val, 0, l:o) . substitute(strpart(v:val, l:o), songwriter#grammar#Chain(), '\\=repeat(\"-\", len(submatch(0)))', 'g')")
 endfunction
 
-" Spec 6.7: erase the note at column `col` of line `lin`. Shared column (6.7.1):
-" the note becomes dashes. Lone column (6.7.2): the column and its gap go on
-" every string, as far as another string's notes stay apart: the end of the
-" removed range comes back until no other string loses a note or separator
-" there, nor has two of its notes or chains joined. When not even the note's
-" own columns can go, the note becomes dashes, as on a shared column. Returns
+" Spec 6.7: erase the note at column `col` of line `lin`, with the separators
+" that belong to it (6.7.4, model#NoteSpan). Shared column (6.7.1): the note
+" and its separators become dashes. Lone column (6.7.2): the separators before
+" it become dashes (they are in the previous note's gap), and the column and
+" its gap, the separators after it included, go on every string, as far as
+" another string's notes stay apart: the end of the removed range comes back
+" until no other string loses a note or separator there, nor has two of its
+" notes or chains joined. When not even the note's own columns can go, the
+" note and its separators become dashes, as on a shared column. Returns
 " {'lines', 'col', 'rows', 'map'} where rows is what `ac` would yank with the
 " other strings as dashes (6.7.3), or {} off a note.
 function! songwriter#tab#columns#EraseNote(lines, lin, col) abort
@@ -120,12 +123,15 @@ function! songwriter#tab#columns#EraseNote(lines, lin, col) abort
       let l:end -= 1
     endwhile
   endif
+  let l:span = songwriter#tab#model#NoteSpan(a:lines[a:lin], l:note)
+  let l:out = copy(a:lines)
   if l:shared || l:end < songwriter#tab#model#NoteEnd(l:note)
-    let l:out = copy(a:lines)
-    let l:out[a:lin] = songwriter#tab#model#Blank(a:lines[a:lin], l:note)
+    let l:out[a:lin] = songwriter#tab#model#Blank(a:lines[a:lin],
+          \ {'col': l:span.col, 'len': len(l:span.pre . l:span.text . l:span.post)})
     let l:map = []
   else
-    let l:del = songwriter#tab#columns#DeleteRange(a:lines, l:c, l:end)
+    let l:out[a:lin] = songwriter#tab#model#Blank(a:lines[a:lin], {'col': l:span.col, 'len': len(l:span.pre)})
+    let l:del = songwriter#tab#columns#DeleteRange(l:out, l:c, l:end)
     let [l:out, l:map] = [l:del.lines, l:del.map]
   endif
   return {'lines': l:out, 'col': l:c, 'rows': l:rows, 'map': l:map}

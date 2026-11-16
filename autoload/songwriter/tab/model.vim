@@ -74,6 +74,20 @@ function! songwriter#tab#model#ChainAt(line, col) abort
   return {}
 endfunction
 
+" Spec [Tablature][[Editing]] 3.1.3: `note` (as Notes gives it) of `line` with
+" the separators that belong to it: those of its chain with no note beyond
+" them, before it when it is the chain's first note ('pre'), after it when it
+" is its last ('post'). {'col' (where 'pre' starts), 'pre', 'text', 'post'}.
+function! songwriter#tab#model#NoteSpan(line, note) abort
+  let l:chain = songwriter#tab#model#ChainAt(a:line, a:note.col)
+  let l:notes = filter(songwriter#tab#model#Notes(a:line),
+        \ {_, n -> n.col >= l:chain.col && n.col < l:chain.col + l:chain.len})
+  let l:pre = l:notes[0].col == a:note.col ? strpart(a:line, l:chain.col - 1, a:note.col - l:chain.col) : ''
+  let l:end = a:note.col + a:note.len
+  let l:post = l:notes[-1].col == a:note.col ? strpart(a:line, l:end - 1, l:chain.col + l:chain.len - l:end) : ''
+  return {'col': a:note.col - len(l:pre), 'pre': l:pre, 'text': a:note.text, 'post': l:post}
+endfunction
+
 " Words of a tab line (spec [Tablature][[Editing]] 3.2): its chains holding at
 " least one note, left to right, as {'start', 'end' (the chain's first and last
 " columns), 'first', 'last' (the start columns of its first and last notes)}.

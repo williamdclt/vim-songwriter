@@ -59,17 +59,10 @@ function! s:len(n) abort
 endfunction
 
 " Spec 3.6.1: `note` (as model#Notes gives it) of line `lin`, `line`, as a
-" carried note {'lin', 'col', 'pre', 'text', 'post'}: with the separators of
-" its chain that have no note beyond them (3.1.3), before it when it is the
-" chain's first note, after it when it is its last.
+" carried note {'lin', 'col', 'pre', 'text', 'post'}: with the separators that
+" belong to it (model#NoteSpan).
 function! s:note(line, lin, note) abort
-  let l:chain = songwriter#tab#model#ChainAt(a:line, a:note.col)
-  let l:notes = filter(songwriter#tab#model#Notes(a:line),
-        \ {_, n -> n.col >= l:chain.col && n.col < l:chain.col + l:chain.len})
-  let l:pre = l:notes[0].col == a:note.col ? strpart(a:line, l:chain.col - 1, a:note.col - l:chain.col) : ''
-  let l:end = a:note.col + a:note.len
-  let l:post = l:notes[-1].col == a:note.col ? strpart(a:line, l:end - 1, l:chain.col + l:chain.len - l:end) : ''
-  return {'lin': a:lin, 'col': a:note.col - len(l:pre), 'pre': l:pre, 'text': a:note.text, 'post': l:post}
+  return extend(songwriter#tab#model#NoteSpan(a:line, a:note), {'lin': a:lin})
 endfunction
 
 " Spec 3.6, 3.8.2, 7: `carry` with its notes `dlin` strings down (up when

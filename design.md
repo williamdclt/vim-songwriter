@@ -148,8 +148,14 @@ the block.
   Being the default class, notation the plugin has never heard of is safe.
 - **Chain**: a run of notes and separators with no dash. Used by string moves
   only, since a hammer-on stays on one string; everything else works on notes.
-  Decoration around a note (`(5)`, `<12>`) is separators too, so erasing the 5
-  leaves `()`; digits that are not frets (`7b1/2`) read as notes.
+  Decoration around a note (`(5)`, `<12>`) is separators too, which belong to
+  the note (`model#NoteSpan`, 3.1.3), so erasing or carrying the 5 takes them
+  with it; digits that are not frets (`7b1/2`) read as notes.
+- **The separators of a note.** A separator with no note beyond it in its
+  chain belongs to the note at that end (`7~`, `/5`); one joining two notes
+  belongs to neither. `model#NoteSpan` is the one definition, used by the
+  slots (a slot goes past them, 3.1.3), carries (they go with the note) and
+  `x` (they go with the note, 6.7.4).
 - **Bar**: the region between two pipes. On a line, the bar around column `c` is
   bounded by the nearest pipes strictly left and right of `c`
   (`model#BarAt`).
@@ -163,7 +169,7 @@ notes (`{col, len, text}`) and pipe columns. Columns are 1-indexed byte columns,
 as `col()` returns (tab lines are ASCII). Queries on a parsed block:
 `NoteColumns` (block-wide, sorted, unique), `ColumnEnd`, `IsShared`,
 `BarColumns` (a bar and its time columns), `BarNotes`, `GapEnd`; on a line,
-`BarAt`, `InBar`, `NoteAt`; on a list, `ColumnFor`;
+`BarAt`, `InBar`, `NoteAt`, `NoteSpan`; on a list, `ColumnFor`;
 and `Cursor`, the cursor as `{block, lin, col, line}`. The pure column code
 (`columns.vim`, `objects.vim`, `paste.vim`) takes a block's lines and parses them
 once on entry. Pure

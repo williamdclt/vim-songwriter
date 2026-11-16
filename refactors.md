@@ -13,20 +13,6 @@ more regular, as a question for the user.
 The safety net for all of them is `test/songwriter_invariants_*.vader`, on top of
 the per-feature tests: run `make test` after every step.
 
-## 4. A note and the separators that belong to it, in the model
-
-**Now.** Rule 3.1.3 (the separators of a chain with no note beyond them
-belong to the note at that end) is implemented twice: carry.vim's `s:note`
-and slots.vim's `s:loose_separators`. columns#EraseNote decides what to
-remove around a note with a rule of its own (`s:removable`).
-
-**Change.** `model#NoteSpan(line, note)`: {'col', 'pre', 'text', 'post'},
-the note with the separators that belong to it. carry.vim and slots.vim use
-it.
-
-**Behaviour.** Question for the user: should erasing a note (`x`) also take
-the separators that belong to it, as carrying does, so that the three agree?
-
 ## 5. One way to change a fret
 
 **Now.** `]`/`[` and `<C-A>`/`<C-X>` change a fret with frets#Add, which makes
