@@ -42,7 +42,7 @@ never relies on concealing or rendering.
 | `autoload/songwriter/tab/register.vim` | Blockwise tab registers and the string names of their source tab. |
 | `autoload/songwriter/tab/repeat.vim` | `.` for actions that are not operators. |
 | `autoload/songwriter/tab/voicings.vim` | Whole chords on a time column: voicings of a chord name in their cycle order, placing one (pure), and `=`/`==`. |
-| `autoload/songwriter/tab/chordname.vim` | Naming the chord on a time column (`<leader>?`), and writing that name as its label (`=<CR>`): the column's pitches, named by `chord#Identify`. |
+| `autoload/songwriter/tab/chordname.vim` | Naming the chord on a time column (`=?<CR>`), and writing that name as its label (`=<CR>`): the column's pitches, named by `chord#Identify`. |
 | `autoload/songwriter/tab/play.vim` | Playing a tab: open string pitches, the steps a target plays (pure), handed to `sound.vim`. |
 | `autoload/songwriter/sound.vim` | Plucked-string synthesis into cached WAV files, the player command, and the timers and jobs that play steps. |
 | `autoload/songwriter/sound9.vim` | The synthesis loop in compiled Vim9 script, used on Vim 9. |
@@ -845,7 +845,7 @@ voicings in their cycle order out) and `Place()`, and the entry points.
   words follow the inserted columns like any edit's; `annotations#Room` says
   how many columns each side needs, and none when the obstacle would not move
   with the tab (a span over the column), where the new line remains.
-- **A label is spelled as `<leader>?` would name it.** `M7`, `min` or `sus`
+- **A label is spelled as `=?` would name it.** `M7`, `min` or `sus`
   are convenient to type, but the names `chord#Identify` gives are `maj7`,
   `m`, `sus4`, so `voicings#Spelled` writes each quality as `s:qualities`
   canonicalises it (`maj` dropped) in the label and the message. The table
@@ -855,7 +855,7 @@ voicings in their cycle order out) and `Place()`, and the entry points.
   same; `:SongwriterTabChord` spells its chord the same way.
 - **`=<CR>` is "the other view".** With no name typed, `=` takes the chord from
   where the cursor is: on a string, the name from the notes (`chordname.vim`,
-  `==` cycling the names `<leader>?` lists, kept in state `naming`); on a
+  `==` cycling the names `=?` lists, kept in state `naming`); on a
   label, the voicing from the name. One key both ways, and `==` always cycles
   what was just written.
 - **From a label: lowest on the neck, unlinted.** There is no cursor string to
@@ -871,7 +871,7 @@ voicings in their cycle order out) and `Place()`, and the entry points.
   extend the root's fret (`1` then `2` is not `12`), and separators are not
   typed after it.
 
-### Naming a column's chord (`<leader>?`, spec [Tablature][[Editing]] 13)
+### Naming a column's chord (`=?<CR>`, spec [Tablature][[Editing]] 13)
 
 - **Computed from pitches, not looked up in the shapes.** The column's notes
   become MIDI pitches through the string names (`play#OpenPitches`, as for
@@ -893,9 +893,15 @@ voicings in their cycle order out) and `Place()`, and the entry points.
   `Caddb9` too). So they are a second table, tried only when the first finds
   nothing. A quality lists the intervals it may drop (`opt`): the fifth for
   most, the fifth and ninth for `13`.
-- **Read-only**, like playing: no lint, no undo step, so it works outside
-  tablature mode as well. The pure part is `chord#Identify` (pitches to
-  names), independent of tabs, and `chordname#Message` (lines to message).
+- **Read-only**, like playing: no lint, no undo step. The pure part is
+  `chord#Identify` (pitches to names), independent of tabs, and
+  `chordname#Message` (lines to message).
+- **On `=`, beside the other chord keys.** `=Am` writes a chord, `=<CR>`
+  writes the column's name, `=?` asks for it: one prefix for everything about
+  the column's chord, with no leader key to learn. `?` is never a chord or a
+  quality, so `voicings#Enter` takes it before anything else. It follows `=`
+  into tablature mode only (outside it `=` is Vim's); `<Plug>(songwriter-chord-name)`
+  is kept, unmapped, for those who want it there.
 
 ### New tab (`o`/`O`, `:SongwriterNewTab`, spec [Tablature][[Editing]] 8, 9)
 

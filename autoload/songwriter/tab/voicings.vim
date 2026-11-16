@@ -88,7 +88,7 @@ function! songwriter#tab#voicings#Name(chord) abort
 endfunction
 
 " Spec 10.9: `chord` as its label and message spell it: its quality in the
-" canonical spelling of s:qualities, the one `<leader>?` names (`AM`, `Amaj`
+" canonical spelling of s:qualities, the one `=?` names (`AM`, `Amaj`
 " -> `A`; `Amin7` -> `Am7`; `AM7` -> `Amaj7`; `Asus` -> `Asus4`). A quality
 " outside the table is kept.
 function! songwriter#tab#voicings#Spelled(chord) abort
@@ -368,8 +368,12 @@ endfunction
 " cursor's string on the cursor's time column, and its label (10.9). A
 " quality alone changes the chord already there (10.7); no chord ('') names
 " the column instead (10.10). On an annotation line, the chord goes under the
-" label under the cursor ([[Annotations]] 10). A refusal is echoed (10.6).
+" label under the cursor ([[Annotations]] 10). `?` names the column in a
+" message, changing nothing (13). A refusal is echoed (10.6).
 function! songwriter#tab#voicings#Enter(chord) abort
+  if a:chord ==# '?'
+    return songwriter#tab#chordname#Show()
+  endif
   if songwriter#grammar#IsAnnotationLine(getline('.'))
     return s:from_label(a:chord)
   endif
