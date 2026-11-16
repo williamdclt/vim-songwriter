@@ -35,6 +35,15 @@ test: $(VADER)
 		sed -n '/^Starting Vader/,$$p' $$log; echo "FAIL $*.vader"; rm -f $$log; exit 1; \
 	fi
 
+# The fuzz tests (test/invariants/fuzz.vader) with more seeds and longer key
+# sequences than `make test` runs. Override with `make fuzz FUZZ_SEEDS=200`;
+# replay one failing seed with `make fuzz FUZZ_SEED=17`.
+FUZZ_SEEDS ?= 20
+FUZZ_LENGTH ?= 30
+fuzz: $(VADER)
+	@FUZZ_SEEDS=$(FUZZ_SEEDS) FUZZ_LENGTH=$(FUZZ_LENGTH) FUZZ_SEED=$(FUZZ_SEED) \
+		$(MAKE) --no-print-directory -k -j$(JOBS) $(patsubst %,%.run,$(wildcard test/songwriter_invariants_fuzz*.vader))
+
 $(VADER):
 	git clone --depth 1 https://github.com/junegunn/vader.vim $(VADER)
 
@@ -42,4 +51,4 @@ $(VADER):
 hooks:
 	git config core.hooksPath githooks
 
-.PHONY: test hooks
+.PHONY: test fuzz hooks

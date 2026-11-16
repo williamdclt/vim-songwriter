@@ -1,0 +1,17 @@
+" Fuzzing the key tables on unlinted tabs and a tab with annotation lines (see
+" invariants/fuzz.vader).
+
+Include: invariants/setup.vader
+
+Execute (the corpus fuzzed here):
+  let g:fuzz_corpus = map(deepcopy(g:inv_unlinted), 'extend(v:val, {"unlinted": 1})') + [
+        \ {'name': 'annotated', 'lines': [
+        \   '    Am       C   G7',
+        \   '    PM-------|',
+        \   'e|--0-----0--|--3--|',
+        \   'B|--1--1-----|--0--|',
+        \   'G|--2-----0--|--0--|',
+        \   'D|--2--------|--0--|']}]
+  let g:fuzz_salt = 2
+
+Include: invariants/fuzz.vader
