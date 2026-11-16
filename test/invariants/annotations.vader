@@ -10,7 +10,7 @@
 
 Execute (labels stay above their time columns through every edit, and come back with undo):
   " The time columns of `lines` that get a label: all but one right after
-  " another (labels are one letter, with a space between them).
+  " another (labels have a space between them).
   function! InvLabelColumns(lines) abort
     let l:cols = []
     for l:c in songwriter#tab#model#NoteColumns(songwriter#tab#model#Parse(1, a:lines))
@@ -20,12 +20,15 @@ Execute (labels stay above their time columns through every edit, and come back 
     endfor
     return l:cols
   endfunction
-  " `lines` with a label line: a letter above each of their label columns.
+  " `lines` with a label line: above each of their label columns, its letter
+  " repeated to fill the room up to the next label but one space (`aa` over
+  " `3--5`), so that an edit closing a gap makes labels run into each other.
   function! InvLabelled(lines) abort
     let l:cols = InvLabelColumns(a:lines)
     let l:label = ''
     for l:k in range(len(l:cols))
-      let l:label .= repeat(' ', l:cols[l:k] - 1 - len(l:label)) . nr2char(char2nr('a') + l:k)
+      let l:width = l:k + 1 < len(l:cols) ? l:cols[l:k + 1] - l:cols[l:k] - 1 : 1
+      let l:label .= repeat(' ', l:cols[l:k] - 1 - len(l:label)) . repeat(nr2char(char2nr('a') + l:k), l:width)
     endfor
     return [l:label] + a:lines
   endfunction
@@ -61,28 +64,23 @@ Execute (labels stay above their time columns through every edit, and come back 
         endif
         let g:inv_case = g:InvCase(g:inv_tab, g:inv_pos, g:inv_keys)
         let g:inv_block = songwriter#tab#model#ReadTop(1)
-        " The letters only, wherever they are: a chord key also writes its
-        " chord label ([[Editing]] 10.9), on a line of its own when it does not
-        " fit among them, and the letters are never chords.
+        " The labels of letters only, wherever they are: a chord key also
+        " writes its chord label ([[Editing]] 10.9), on a line of its own when
+        " it does not fit among them, and the letters are never chords.
         let g:inv_words = []
         for g:inv_line in g:inv_block.above
           call extend(g:inv_words, filter(songwriter#tab#annotations#Words(g:inv_line),
-                \ 'v:val.text =~# "^\\l$"'))
+                \ 'v:val.text =~# "^\\(\\l\\)\\1*$"'))
         endfor
         let g:inv_kept = []
-        let g:inv_prev = 0
         for g:inv_w in g:inv_words
-          let g:inv_k = char2nr(g:inv_w.text) - char2nr('a')
+          let g:inv_k = char2nr(g:inv_w.text[0]) - char2nr('a')
           let g:inv_c = g:inv_cols[g:inv_k]
           call add(g:inv_kept, g:inv_k)
           let g:inv_notes = InvColumnNotes(g:inv_tab.lines, g:inv_c)
-          " A label pushed off a column right after the previous label's (4.4)
-          " is one column to the right of it.
           if index(g:inv_skip, g:inv_c) < 0 && !InvStillUnder(InvColumnNotes(g:inv_block.lines, g:inv_w.col), g:inv_notes)
-                \ && !(g:inv_w.col == g:inv_prev + 2 && InvStillUnder(InvColumnNotes(g:inv_block.lines, g:inv_w.col - 1), g:inv_notes))
-            call add(g:inv_failures, printf('moved %s: %s', g:inv_w.text, g:inv_case))
+            call add(g:inv_failures, printf('moved %s: %s', g:inv_w.text[0], g:inv_case))
           endif
-          let g:inv_prev = g:inv_w.col
         endfor
         if g:inv_kept !=# sort(copy(g:inv_kept), 'n')
           call add(g:inv_failures, 'order: ' . g:inv_case)

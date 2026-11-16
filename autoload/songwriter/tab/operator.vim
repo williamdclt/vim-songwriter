@@ -296,7 +296,7 @@ function! songwriter#tab#operator#ApplyLines(op, reg, l1, l2) abort
         continue
       endif
       let l:new = songwriter#tab#edit#Do({ctx -> {'lines': songwriter#tab#columns#ClearNotes(ctx.block.lines),
-            \ 'map': [], 'above': []}}, {'lnum': l:lnum, 'prelint': 0})
+            \ 'map': [], 'annotations': [{'op': 'clear'}]}}, {'lnum': l:lnum, 'prelint': 0})
       let l:shift = l:new.end - l:block.end
       if l:cur >= l:block.start
         let l:cur += l:shift

@@ -477,6 +477,17 @@ Expect songwriter (A10.3 == on a label, the next voicing):
   A|--7--|
   E|--5--|
 
+Execute (A10.1 after a word with an accent, the cursor stays on the label: display columns are not bytes):
+  if &encoding ==# 'utf-8'
+    %delete _
+    call setline(1, ['    R' . nr2char(233) . ' Am', 'e|---------|', 'B|---------|', 'G|---------|',
+          \ 'D|---------|', 'A|---------|', 'E|---------|'])
+    call cursor(1, 10)
+    execute "normal =\<CR>"
+    AssertEqual [1, 10], [line('.'), col('.')]
+    AssertEqual ['e|-----0---|', 'A|-----0---|'], [getline(2), getline(6)]
+  endif
+
 Given songwriter (A10.2 =Am on a label replaces it):
       G
   e|-----|

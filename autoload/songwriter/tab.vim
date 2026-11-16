@@ -43,6 +43,6 @@ endfunction
 " spelled as `=` writes it ([[Editing]] 10.9: `CM7` -> `Cmaj7`).
 function! songwriter#tab#TabChord(chord) abort
   call s:edit({ctx -> {'lines': ctx.block.lines, 'map': [],
-        \ 'label': {'col': max([ctx.col, songwriter#tab#model#BodyOffset() + 1]),
-        \   'text': songwriter#tab#voicings#Spelled(a:chord), 'add': 1}}})
+        \ 'annotations': [{'op': 'label', 'col': max([ctx.col, songwriter#tab#model#BodyOffset() + 1]),
+        \   'text': songwriter#tab#voicings#Spelled(a:chord), 'add': 1}]}})
 endfunction

@@ -16,7 +16,7 @@ function! s:target(around, count) abort
   let l:note = songwriter#tab#model#NoteAt(l:c.line, l:c.col)
   let l:col = max([empty(l:note) ? l:c.col : l:note.col, songwriter#tab#model#BodyOffset() + 1])
   let l:block = l:c.block
-  let l:over = songwriter#tab#annotations#Over(l:block.above, l:col, a:count)
+  let l:over = songwriter#tab#annotations#Over(l:block.annotations, l:col, a:count)
   if empty(l:over)
     return {'lnum': empty(l:block.above) ? 0 : l:block.start - 1,
           \ 'line': empty(l:block.above) ? '' : l:block.above[-1], 'col': l:col, 'width': 0,
@@ -26,7 +26,7 @@ function! s:target(around, count) abort
   let l:w = l:over.word
   let [l:s, l:width] = [l:w.col, l:w.width]
   if a:around
-    let l:words = songwriter#tab#annotations#Words(l:line)
+    let l:words = l:block.annotations[l:over.i].words
     let l:k = index(map(copy(l:words), 'v:val.col'), l:w.col)
     if l:k + 1 < len(l:words)
       let l:width = l:words[l:k + 1].col - l:s
@@ -99,18 +99,20 @@ endfunction
 
 " Spec 8.1: delete the `width` display columns from `col` of annotation line
 " `lnum` into register `reg`, the next word staying where it is; a line left
-" empty goes.
+" empty goes. An edit of the tab (edit#Do), the cursor staying on its string.
 function! songwriter#tab#annotate#Delete(lnum, col, width, reg) abort
   let l:line = getline(a:lnum)
   let [l:byte, l:len] = songwriter#tab#annotations#Bytes(l:line, a:col, a:width)
   call setreg(a:reg, strpart(l:line, l:byte - 1, l:len), 'v')
-  call s:set(a:lnum, songwriter#tab#annotations#Retype(strpart(l:line, 0, l:byte - 1),
-        \ strpart(l:line, l:byte - 1 + l:len), a:col, a:width, ''))
+  call s:retype(a:lnum, {'col': a:col, 'width': a:width, 'text': ''}, 0)
 endfunction
 
-" Spec 8.2, on leaving insert mode after `cia`: the line with what was typed
-" in place of the word, the next word back where it was or pushed right
-" (annotations#Retype), in the same undo step; a line left empty goes.
+" Spec 8.2, on leaving insert mode after `cia`: what was typed in place of the
+" word, the next word back where it was, in the same undo step (a 'retype' of
+" annotations#Apply, from the line as it was before the typing, so that the
+" tab makes room for a label as it does for any edit); a line left empty
+" goes. Typed elsewhere than in place of the word, or nothing typed on a line
+" opened for it, only the spaces at the end of the line go.
 function! songwriter#tab#annotate#Leave() abort
   if !exists('b:songwriter_annotating')
     return
@@ -119,17 +121,30 @@ function! songwriter#tab#annotate#Leave() abort
   unlet b:songwriter_annotating
   let l:line = getline(l:m.lnum)
   let l:typed = len(l:line) - len(l:m.prefix) - len(l:m.rest)
-  if l:typed >= 0 && strpart(l:line, 0, len(l:m.prefix)) ==# l:m.prefix
-        \ && strpart(l:line, len(l:line) - len(l:m.rest)) ==# l:m.rest
-    let l:new = songwriter#tab#annotations#Retype(l:m.prefix, l:m.rest, l:m.col, l:m.width,
-          \ strpart(l:line, len(l:m.prefix), l:typed))
-  else
+  let l:block = songwriter#tab#model#Around(l:m.lnum)
+  if l:typed < 0 || strpart(l:line, 0, len(l:m.prefix)) !=# l:m.prefix
+        \ || strpart(l:line, len(l:line) - len(l:m.rest)) !=# l:m.rest
+        \ || empty(l:block) || l:m.lnum < l:block.top
     let l:new = substitute(l:line, '\s*$', '', '')
+    if l:new !=# l:line
+      call songwriter#tab#edit#JoinUndo()
+      call s:set(l:m.lnum, l:new)
+    endif
+    return
   endif
-  if l:new !=# l:line
-    call songwriter#tab#edit#JoinUndo()
-    call s:set(l:m.lnum, l:new)
-  endif
+  call s:retype(l:m.lnum, {'col': l:m.col, 'width': l:m.width,
+        \ 'text': strpart(l:line, len(l:m.prefix), l:typed),
+        \ 'line': l:m.prefix . repeat(' ', l:m.width) . l:m.rest}, 1)
+endfunction
+
+" The edit of the tab whose annotation line `lnum` is, doing the 'retype'
+" operation `op` (annotations#Apply, its 'row' filled in) on it, unlinted;
+" `join`: joined to the previous undo step.
+function! s:retype(lnum, op, join) abort
+  let l:block = songwriter#tab#model#Around(a:lnum)
+  let l:op = extend(copy(a:op), {'op': 'retype', 'row': l:block.start - 1 - a:lnum})
+  call songwriter#tab#edit#Do({ctx -> {'lines': ctx.block.lines, 'map': [], 'annotations': [l:op]}},
+        \ {'lnum': l:block.start, 'prelint': 0, 'lint': 0, 'join': a:join})
 endfunction
 
 " Set line `lnum` to `line`, deleting it when it is empty.

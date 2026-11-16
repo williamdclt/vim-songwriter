@@ -46,8 +46,8 @@ endfunction
 " pasted at a bar line; otherwise a column register (6.5.1), pasted after /
 " before the cursor's column and its gap. `above` (optional): the register's
 " annotation rows ([[Annotations]] 5.2), put above each copy. Returns {'lines',
-" 'col' (first pasted note, any string), 'msg', 'map', 'put' (the annotation
-" words, see annotations#Follow)} or {'error'}.
+" 'col' (first pasted note, any string), 'msg', 'map', 'annotations' (the
+" annotation words, as `put` operations of annotations#Apply)} or {'error'}.
 function! songwriter#tab#paste#Paste(lines, lin, col, rows, regnames, before, count, ...) abort
   let l:names = songwriter#tab#model#Names(a:lines)
   let l:m = songwriter#tab#paste#MatchRows(l:names, a:rows, a:regnames)
@@ -82,14 +82,14 @@ function! songwriter#tab#paste#Paste(lines, lin, col, rows, regnames, before, co
     endif
   endif
   let l:res = s:insert_rows(a:lines, l:offset, l:rows, a:count, a:0 ? a:1 : [])
-  call map(l:res.put, {_, p -> extend(p, {'col': p.col + l:shift})})
+  call map(l:res.annotations, {_, p -> extend(p, {'col': p.col + l:shift})})
   let l:res.msg = l:m.msg
   return l:res
 endfunction
 
 " Spec 6.9.4: paste register `rows` right after byte `offset` (0 = line
 " start), rows matched as in Paste, annotation rows `above` (optional) above
-" them. {'lines', 'col', 'msg', 'map', 'put'} or {'error'}.
+" them. {'lines', 'col', 'msg', 'map', 'annotations'} or {'error'}.
 function! songwriter#tab#paste#PasteAt(lines, offset, rows, regnames, ...) abort
   let l:m = songwriter#tab#paste#MatchRows(songwriter#tab#model#Names(a:lines), a:rows, a:regnames)
   if has_key(l:m, 'error')
@@ -102,7 +102,7 @@ endfunction
 
 " Insert `count` copies of `rows` after byte `offset` on every line, the
 " annotation rows `above` above each copy. Returns {'lines', 'col': the first
-" inserted note on any string, 'map', 'put'}.
+" inserted note on any string, 'map', 'annotations'}.
 function! s:insert_rows(lines, offset, rows, count, above) abort
   let l:width = len(a:rows[0])
   let l:put = []
@@ -123,7 +123,7 @@ function! s:insert_rows(lines, offset, rows, count, above) abort
     endif
   endfor
   return {'lines': l:out, 'col': a:offset + max([l:first, 1]),
-        \ 'map': songwriter#tab#colmap#Insert(a:offset, len(l:rows[0])), 'put': l:put}
+        \ 'map': songwriter#tab#colmap#Insert(a:offset, len(l:rows[0])), 'annotations': l:put}
 endfunction
 
 " Spec 6.14: write the notes of column register `rows` onto the time column at

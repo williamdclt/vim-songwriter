@@ -17,7 +17,7 @@ never relies on concealing or rendering.
 |---|---|
 | `autoload/songwriter/grammar.vim` | The format's patterns (tab line, note, fret, separator, chain, chord, highlighting). The only place regexes for the format are written. |
 | `autoload/songwriter/tab/colmap.vim` | Column maps: where each column of a block went through an edit, pure. |
-| `autoload/songwriter/tab/annotations.vim` | Annotation lines: their words, and how they follow an edit through its column map, pure. |
+| `autoload/songwriter/tab/annotations.vim` | Annotation lines, pure: parsed into anchored words, placed through an edit's column map and its operations (`Apply`), the room the tab must make for its labels (`Room`), and the one layout (`Render`). |
 | `autoload/songwriter/tab/model.vim` | Tab block model: parse, queries (notes, time columns, bars), `Splice`/`Blank` and the column-insertion primitive, snapshots, and `Read`/`Write` (the buffer edges). |
 | `autoload/songwriter/tab/edit.vim` | The buffer side of a tablature edit: `Do`, the one pipeline every edit of a tab goes through (slot, first lint, the pure edit, lint, one write with its undo join, then the follow-ups: selection, state for the next key, register, slot, `.`, insert state); the pure `Linted`; `JoinUndo` for the changes that are not tab edits. |
 | `autoload/songwriter/tab/slots.vim` | Slots: where a new note's room goes (pure), the buffer's one open slot with how to close it, and `a`/`i` and the new bar's slot (`AddNote`, `AddBarSlot`). |
@@ -93,10 +93,19 @@ operators' first lint: an edit that does nothing). A visual edit hands over
 its selection (`selection`, `selection.vim`), which is selected again once
 written, its ends where the edit says they went (`sel`), followed through the
 column map: visual carries are a step like any other. `undojoin` is only in
-`edit.vim`; `JoinUndo` is there for the two changes that are not edits of a
-tab's strings but belong with one made in an earlier command: whole tabs
-deleted by a line-wise operator after its first lint, and an annotation line
-retyped when Vim's insert mode is left after `cia`.
+`edit.vim`; `JoinUndo` is there for the changes that are not edits of a tab
+but belong with one made in an earlier command: whole tabs deleted by a
+line-wise operator after its first lint, and the trailing spaces trimmed when
+Vim's insert mode is left after `cia` typed somewhere unexpected.
+
+**The cursor may be on an annotation line.** `Do`'s cursor line counts from
+the block's first string, so an annotation line is a negative one (-1 right
+above the strings), and on it the cursor column is a display column. It
+follows the edit's column map (and the lint's, and the room made) like a
+string's, so a cursor on a label stays on it, and it becomes bytes only when
+written back. An edit started from an annotation line (`=` on a label, the
+end of `cia`) is thus an ordinary edit, with its undo step, state and `.`,
+and no moving of the cursor to a string and back.
 
 **Drafts and snapshots.** What reaches the buffer is a draft: the block's new
 lines, and where each column of its base went in them (`{'lines', 'map',
@@ -238,14 +247,42 @@ part of the tab, and follow its music through every edit.
   label is anchored on its first column, so `Am7` never splits; a span covers
   its columns, its rigid parts at its ends (`PM`, `|`). One fill character is
   not an extender, so `P.M.` and `1-2` are labels.
-- **Following is the column map applied to words** (`annotations#Follow`, in
-  `edit#Derive`, so every write path has it): a label goes where its column
-  goes and is deleted with it (a label stands for its column, as `x` deletes
-  a note's gap with it); a span's ends go to the first and last columns it
-  still covers. Words are then laid out left to right with a space between
-  them, never in the first two columns, so that a line stays an annotation
-  line. A line none of whose words moved is kept byte for byte, whitespace
-  included: an edit that does not touch it leaves no trace in it.
+- **Parsed once, anchors explicit.** A block carries its annotation lines
+  parsed (`block.annotations`, `annotations#Parse`): rows of words, each
+  knowing whether it is anchored, i.e. starts on a time column, which it then
+  stands for. Queries (`Over`, the word under the cursor) read the rows;
+  display columns become bytes only where a line is read or written
+  (`Bytes`).
+- **Following is the column map applied to words**, in two steps.
+  `annotations#Apply` places each word where its column goes (a label is
+  deleted with its column, as `x` deletes a note's gap with it; a span's ends
+  go to the first and last columns it still covers), then does the draft's
+  operations on annotations; `annotations#Render`
+  lays each row out (`s:layout`, the one layout: left to right, a space
+  between words, never in the first two columns, so that a line stays an
+  annotation line). A line none of whose words moved is kept byte for byte,
+  whitespace included: an edit that does not touch it leaves no trace in it.
+  `edit#Derive` does both, so every write path has it.
+- **One vocabulary for what an edit does to annotations.** Beyond following
+  the map, a draft says what it does to the annotations as a list of
+  operations (`annotations`): `put` (words it brings along: a paste, a
+  register's rows), `label` (a chord label it writes), `clear` (`cap`).
+  `edit.vim` only carries them, their columns following the lint and the
+  room made like any column (`s:moved`), and `annotations#Apply` does them;
+  a new kind of annotation edit is a new operation there, not a new draft
+  field threaded through the pipeline.
+- **A label is never moved off its column: the tab makes room.** The file is
+  plain text, so a label's position is the only record of the column it
+  stands for; pushing it right (as the layout would when it runs into the
+  word before) loses that for good. So between placing and laying out,
+  `annotations#Room` finds the first anchored word the layout would push and
+  says where to insert dashes (right before its column, outside any note),
+  and `edit.vim` (`s:make_room`, on the first lint and on the result) inserts
+  them, the map, the cursor, the words put and the label following, until
+  nothing is pushed. A tab is thus never narrower than its labels need: `<<`
+  against a label changes nothing, a chord name too wide for its gap widens
+  it. Words that stand for no column (in a gap) are still pushed, and so is a
+  word whose room would widen the span before it, which no insertion helps.
 - **Exact restores stay exact.** A slot's mark and a carry's origin are
   snapshots, annotations included, so giving the tab back gives them back. A
   carry renders from its base snapshot, which has the origin's columns, so
@@ -254,13 +291,13 @@ part of the tab, and follow its music through every edit.
   has the annotations deleted with it (for a yank, those a deletion would
   delete) as rows above the strings' rows, so it stays a plain blockwise
   register, and `register.vim` records how many rows are annotations. A paste
-  puts them back as words of its draft (`put`), above each copy. A register
+  puts them back as `put` operations of its draft, above each copy. A register
   changed since (a native yank) has no annotation rows, and pastes as before.
   `gp` adds notes to a column that keeps its own annotations, so it leaves
   them out.
 - **`:SongwriterTabChord` and the highlight** use the same lines: a chord
   replaces the column's chord label, else goes on the annotation line closest
-  to the strings, widening the tab when its neighbours are too close, and
+  to the strings (the tab making room around it), and
   the time column highlight covers the annotations, converting their display
   columns to the bytes `matchaddpos` wants. Vim 8.2 takes at most 8 positions
   per match, so the highlight is added 8 lines at a time.
@@ -272,10 +309,13 @@ part of the tab, and follow its music through every edit.
   (`operator#Pending` says which). `cia` hands over to Vim's own `c` (or
   `O`/`A`/`i` and padding spaces when there is no word yet): the keys are
   typed rather than the text set first, so the change and what is typed are
-  one undo step. When insert mode is left, the line is retyped so that the
-  next word is back where it was or pushed one space after the new text
-  (`annotations#Retype`), joined to that undo step. `.` does not repeat the
-  typed text: Vim does not record what is typed after an operator function.
+  one undo step. When insert mode is left, a `Do` edit joined to that undo
+  step retypes the word: a `retype` operation of `annotations#Apply`, from
+  the line as it was before the typing (`b:songwriter_annotating` keeps it),
+  so the next word is back where it was and the tab makes room for a label
+  as it does for any edit; `dia` is the same operation with nothing typed.
+  `.` does not repeat the typed text: Vim does not record what is typed after
+  an operator function.
 - **`gk`/`gj` keep the column** across short annotation lines and back to the
   string the moves started from, in tab/state.vim (`upward`, valid while the
   buffer is unchanged). With `nowrap`, Vim's own `gk`/`gj` are `k`/`j`, so
@@ -828,23 +868,19 @@ voicings in their cycle order out) and `Place()`, and the entry points.
 - **The name and the notes are two views of one chord.** Whatever writes a
   chord by name (`=Am`, `=m7`) writes its label too, so they never disagree;
   `+` builds riffs note by note, where labels would be clutter, so it only
-  keeps an existing label true. The label is a draft field (`label`, beside
-  `put`): `edit#Derive` writes it after the annotations followed the edit, so
+  keeps an existing label true. The label is a `label` operation of the
+  draft: `edit#Derive` writes it after the annotations followed the edit, so
   it lands on the chord's column wherever the lint put it, and in the same
-  undo step. `annotations#Label` is the one way a chord name is written
-  (`=`, `+`, `=<CR>`, `:SongwriterTabChord`): it replaces the column's chord
-  label (a label starting on the column that is a chord), else places the
-  name as spec 6 says.
+  undo step. That operation is the one way a chord name is written
+  (`=`, `+`, `=<CR>`, `:SongwriterTabChord`): `annotations#Apply` replaces
+  the column's chord label (a label starting on the column that is a chord),
+  else places the name as spec 6 says.
 - **A chord name makes room in the tab, not on a new line.** A name too wide
-  for its gap (`Am7` over `0-3` with a `C` above the 3) would otherwise land
-  on a new annotation line, splitting a progression over two lines. Since
-  words follow their columns, inserting dashes after the chord's column (or
-  right before it, for the word on its left) moves the neighbour aside and
-  keeps the line one progression. `edit.vim` does it on the draft once the
-  edit is resolved (`s:make_room`), so the label, the cursor and the other
-  words follow the inserted columns like any edit's; `annotations#Room` says
-  how many columns each side needs, and none when the obstacle would not move
-  with the tab (a span over the column), where the new line remains.
+  for its gap (`Am7` over `0-3` with a `C` above the 3) is the general case
+  of a label that would be pushed (see Annotations): the tab widens, so a
+  progression stays on one line. A new line is only for a name with a word in
+  the way that no widening moves (one over the column or starting over its
+  notes).
 - **A label is spelled as `=?` would name it.** `M7`, `min` or `sus`
   are convenient to type, but the names `chord#Identify` gives are `maj7`,
   `m`, `sus4`, so `voicings#Spelled` writes each quality as `s:qualities`
@@ -860,9 +896,10 @@ voicings in their cycle order out) and `Place()`, and the entry points.
   what was just written.
 - **From a label: lowest on the neck, unlinted.** There is no cursor string to
   root on, so the voicing is the lowest root fret (open shapes first), and
-  `==` goes on in the 10.4 order from its string. The entry point moves the
-  cursor to that string, runs the usual `=` edit, and comes back to the label,
-  so the whole of `edit#Do` (slot, undo, state) is reused. It does not lint:
+  `==` goes on in the 10.4 order from its string. It is the usual `=` edit
+  (`s:place`) told to root on that string at the label's column, the cursor
+  staying on the label (`edit#Do` follows it there), so the whole of
+  `edit#Do` (slot, undo, state) is reused. It does not lint:
   a progression typed over empty bars would lose the columns of the labels
   still to fill as the bars closed up. `.` on the annotation line repeats it
   (`repeat#Record`), so a progression is `=<CR>` then `w.` per chord.

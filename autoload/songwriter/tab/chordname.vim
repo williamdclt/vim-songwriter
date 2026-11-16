@@ -86,6 +86,6 @@ function! s:label(index, ctx) abort
   let l:shown = copy(l:r.names)
   let l:shown[l:i] = '[' . l:shown[l:i] . ']'
   return {'lines': a:ctx.block.lines, 'map': [],
-        \ 'label': {'col': l:r.col, 'text': l:r.names[l:i], 'add': 1},
+        \ 'annotations': [{'op': 'label', 'col': l:r.col, 'text': l:r.names[l:i], 'add': 1}],
         \ 'msg': join(l:shown, ' | '), 'state': {'naming': {'index': l:i}}}
 endfunction
