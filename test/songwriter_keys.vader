@@ -46,6 +46,14 @@ Execute (Every context key of every mode is mapped, and unmapped on leaving the 
   set filetype=text
   AssertEqual [], filter(copy(keys), '!empty(maparg(v:val[1], v:val[0]))')
 
+Execute (The key tables are given read-only, by name and mode):
+  let tables = songwriter#keys#Tables()
+  AssertEqual ['annotation', 'moving', 'tabinsert', 'tabline', 'tabmode', 'typed'], sort(keys(tables))
+  Assert has_key(tables.tabmode.n, 'd')
+  Assert has_key(tables.tabmode.o, 'ac')
+  let tables.tabmode.n.zz = 'x'
+  Assert !has_key(songwriter#keys#Tables().tabmode.n, 'zz')
+
 Execute (Every action of the key tables calls functions that exist):
   let missing = []
   for action in songwriter#keys#Actions()

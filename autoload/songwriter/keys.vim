@@ -212,6 +212,13 @@ function! songwriter#keys#ContextKeys(...) abort
         \ + keys(s:tabmode[l:mode]) + keys(s:tabline[l:mode]) + keys(s:annotation[l:mode])))
 endfunction
 
+" A copy of every table, as {name: {mode: {key: action}}} (for the fuzz
+" tests, test/invariants/fuzz.vader, which draw their keys from them).
+function! songwriter#keys#Tables() abort
+  return deepcopy({'moving': s:moving, 'typed': s:typed, 'tabinsert': s:tabinsert,
+        \ 'tabmode': s:tabmode, 'tabline': s:tabline, 'annotation': s:annotation})
+endfunction
+
 " Every action of every table (for the test that their functions exist).
 function! songwriter#keys#Actions() abort
   let l:actions = []

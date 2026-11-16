@@ -1,0 +1,258 @@
+" Shared body of the fuzz tests (test/songwriter_invariants_fuzz*.vader), split
+" across files so that they run in parallel. Each file sets, before including
+" this, g:fuzz_corpus (tabs as in invariants/setup.vader) and g:fuzz_salt (a
+" number mixed into the seed, so that files draw different keys).
+"
+" Each tab of the corpus is walked from a random start position by a random
+" sequence of keys drawn from the tables of keys.vim (songwriter#keys#Tables),
+" so a key added to a table is fuzzed with no new test. A step is one key of
+" the tables of where the cursor is: on a tab line, those of the state of
+" tablature mode (normal, insert, move; the separators straight after a typed
+" note) plus `j`, `k` and `u`; on an annotation line, the annotation table.
+" Keys that wait for more keys are completed: an operator by a key of the
+" operator-pending table, `V`/`v` by keys of the visual table, `=` by a chord
+" name and <CR>.
+"
+" After every step, whatever the key: no error (a check of check mode,
+" 'songwriter: check: ...', or a Vim error), every line is a tab line, an
+" annotation line or blank, and the tab around the cursor has its pipes
+" aligned (unless it is the unlinted tab it started as). After the sequence,
+" undo back to the start gives the tab back.
+"
+" Seeds: $FUZZ_SEED (one seed, to reproduce a failure), else $FUZZ_SEEDS
+" seeds from 1 (default 1: `make test` is deterministic); $FUZZ_LENGTH keys a
+" sequence (default 16); $FUZZ_RUNS sequences per tab and seed (default 2).
+" `make fuzz` runs more. Each run starts afresh (FuzzRun), so a failure
+" reproduces from its report: 'seed S, tab, lnum:col, keys | failing key:
+" message', then the same shrunk to the fewest keys that still fail that way
+" (FuzzShrink); `make fuzz FUZZ_SEED=S` runs that seed again.
+"
+" Known bugs of the spec's [[Bugs]] are recognised by the failing key
+" (FuzzKnown): such a failure is logged, not failed, until the bug is fixed.
+
+Execute (random keys of the tables keep the tab parsing and the music checked):
+  let g:fuzz_tables = songwriter#keys#Tables()
+  let g:fuzz_seeds = !empty($FUZZ_SEED) ? [str2nr($FUZZ_SEED)]
+        \ : range(1, empty($FUZZ_SEEDS) ? 1 : str2nr($FUZZ_SEEDS))
+  let g:fuzz_length = empty($FUZZ_LENGTH) ? 16 : str2nr($FUZZ_LENGTH)
+  let g:fuzz_runs = empty($FUZZ_RUNS) ? 2 : str2nr($FUZZ_RUNS)
+  let g:songwriter_player = []
+  " Chord names given to `=` (10.1): a chord, a quality, none, `?`, a second
+  " `=`, a cancel, a name with no voicing.
+  let g:fuzz_chords = ["Am\<CR>", "G\<CR>", "m\<CR>", "7\<CR>", "\<CR>", "?\<CR>", '=', "\<Esc>", "Xq\<CR>"]
+
+  " The keys `key` of a table stands for ('<Esc>', '<leader>k').
+  function! FuzzKeys(key) abort
+    let l:k = substitute(a:key, '<leader>', '\=get(g:, "mapleader", "\\")', 'g')
+    return substitute(l:k, '<[A-Za-z-]\+>', '\=eval(''"\'' . submatch(0) . ''"'')', 'g')
+  endfunction
+  function! FuzzPick(list) abort
+    return a:list[rand(g:fuzz_rand) % len(a:list)]
+  endfunction
+  " The keys of tables `names` (of g:fuzz_tables) in mode `mode`.
+  function! FuzzPool(names, mode) abort
+    let l:keys = []
+    for l:name in a:names
+      let l:table = g:fuzz_tables[l:name]
+      call extend(l:keys, keys(has_key(l:table, a:mode) ? l:table[a:mode] : l:table))
+    endfor
+    return sort(l:keys)
+  endfunction
+  " One step: the keys of a whole command, drawn for where the cursor is. In
+  " visual mode, the keys of the visual table, one a step, g:fuzz_visual of
+  " them, then <Esc> (visual mode outlives feedkeys()).
+  function! FuzzStep() abort
+    let l:line = getline('.')
+    if mode() =~# "^[vV\<C-V>]"
+      let g:fuzz_visual -= 1
+      return g:fuzz_visual < 0 ? "\<Esc>" : FuzzKeys(FuzzPick(FuzzPool(['tabmode'], 'x')))
+    elseif songwriter#grammar#IsTabLine(l:line)
+      let l:state = songwriter#tab#mode#Current()
+      if l:state ==# 'insert' && songwriter#tab#typing#JustTyped() && rand(g:fuzz_rand) % 3 == 0
+        return FuzzKeys(FuzzPick(FuzzPool(['typed'], 'n')))
+      endif
+      let l:names = {'normal': ['tabmode'], 'insert': ['tabinsert', 'tabmode'], 'move': ['moving', 'tabmode']}[l:state]
+      if l:state ==# 'move' && rand(g:fuzz_rand) % 2
+        let l:names = ['moving']
+      endif
+      let l:key = FuzzPick(FuzzPool(l:names, 'n') + ['j', 'k', 'u', 'V', 'v'])
+      let l:action = get(g:fuzz_tables.tabmode.n, l:key, '')
+      if l:action =~# 'operator#Start('
+        return FuzzKeys(l:key) . FuzzKeys(FuzzPick(FuzzPool(['tabmode'], 'o')))
+      elseif l:key ==# 'V' || l:key ==# 'v'
+        let g:fuzz_visual = rand(g:fuzz_rand) % 4
+      elseif l:key ==# '='
+        return '=' . FuzzPick(g:fuzz_chords)
+      endif
+      return FuzzKeys(l:key)
+    elseif songwriter#grammar#IsAnnotationLine(l:line) && !empty(songwriter#tab#model#Around(line('.')))
+      let l:key = FuzzPick(FuzzPool(['annotation'], 'n') + ['j', 'w', 'b'])
+      return l:key ==# '=' ? '=' . FuzzPick(g:fuzz_chords) : FuzzKeys(l:key)
+    endif
+    return FuzzPick(['j', 'k'])
+  endfunction
+  " The errors of the buffer after a step from tab `start` ([] when none).
+  function! FuzzErrors(start) abort
+    let l:errors = []
+    let l:bad = filter(getline(1, '$'), {_, l -> l !~# '^\s*$'
+          \ && !songwriter#grammar#IsTabLine(l) && !songwriter#grammar#IsAnnotationLine(l)})
+    if !empty(l:bad)
+      call add(l:errors, 'not a tab line: ' . string(l:bad[0]))
+    endif
+    let l:tab = g:InvTab()
+    if !empty(l:tab) && l:tab !=# a:start && !empty(songwriter#tab#check#Linted(l:tab))
+      call add(l:errors, 'pipes not aligned: ' . string(l:tab))
+    endif
+    return l:errors
+  endfunction
+  " Type `keys` as the user would: the error it raises, '' when none. Under
+  " `silent` (no hit-enter prompt), not `silent!`, which would carry on past
+  " an error and show only its aftermath. An error the plugin silences
+  " itself still sets v:errmsg. Vim's own E353 (putting an empty register)
+  " is the user's error, not the plugin's.
+  function! FuzzType(keys) abort
+    let v:errmsg = ''
+    try
+      silent call feedkeys(a:keys, 'xt')
+    catch
+      return v:exception =~# 'E353:' ? '' : v:exception
+    endtry
+    return v:errmsg =~# 'E353:' ? '' : v:errmsg
+  endfunction
+  " The bug of the spec's [[Bugs]] that explains `failure` (FuzzRun), ''
+  " when none. A bug is recognised by the key that fails and how it fails
+  " (its message), so that another failure of the same key is not taken
+  " for it. 6 is any check failure on a tab that started unlinted: its first
+  " edit can leave notes joined unseen (the check of an edit of an unlinted
+  " tab only compares each string's notes), for a later key to trip on.
+  " When a bug is fixed and renumbered away, its branch goes.
+  function! FuzzKnown(failure) abort
+    let [l:step, l:error] = [a:failure.step, a:failure.error]
+    if l:step ==# '+' && l:error =~# 'E727:'
+      return '1: + on one string'
+    elseif l:step =~# '^\d$' && l:error =~# 'enter_note.*: written \S\+ 2: no note'
+      return '2: a digit on the first pipe'
+    elseif index(['D', 'C', 'x', 'd', 'c', 'p', 'P'], l:step) >= 0
+          \ && l:error =~# "^not a tab line: '[^a-zA-Z]\\|note | "
+      return '3: a column key on the string name'
+    elseif l:step =~# '^\d$' && l:error =~# 'E132:'
+      return '4: digits rewriting a note in the insert state'
+    elseif l:error =~# 'E790:'
+      return '5: a note typed after an undo'
+    elseif get(a:failure.tab, 'unlinted', 0) && l:error =~# '^songwriter: check:'
+      return '6: an edit of an unlinted tab'
+    elseif l:error =~# "enter_separator.*: note \\S\\+ \\d\\+ (\\d\\d\\+) -> "
+      return '7: a separator splitting a two-digit fret'
+    elseif l:step ==# 'gp' && l:error =~# '^songwriter: check:'
+      return '8: gp past the closing pipe'
+    elseif l:error =~# "_step', .*: chains \\S\\+ \\d\\+, \\d\\+ joined"
+      return '9: a fret changed in a chain'
+    elseif l:step =~# '^[0-9x]$' && l:error =~# 'enter_note.*: chains \S\+ \d\+, \d\+ joined'
+      return '10: a note typed between two notes'
+    endif
+    return ''
+  endfunction
+  " Walk `tab` from `pos` with `steps`: a list of steps (a replay), or a
+  " number of steps drawn by FuzzStep. The failure, {'tab', 'pos', 'keys' (the
+  " steps before the failing one), 'step', 'error'}, or {} when none.
+  function! FuzzRun(tab, pos, steps) abort
+    " The registers and every state of tab/state.vim cleared, so that a run
+    " (and its replay) does not depend on the one before; no undo history,
+    " so that `u` stops at the tab.
+    for l:reg in ['"', '-'] + range(10)
+      call setreg(l:reg, [])
+    endfor
+    for l:var in filter(keys(b:), 'v:val =~# "^songwriter_" && v:val !=# "songwriter_tabmode"')
+      execute 'unlet b:' . l:var
+    endfor
+    let l:levels = &undolevels
+    set undolevels=-1
+    call g:InvLoad(a:tab.lines, a:pos)
+    let &undolevels = l:levels
+    let g:fuzz_visual = 0
+    let l:keys = []
+    for l:i in range(type(a:steps) == v:t_list ? len(a:steps) : a:steps)
+      let l:step = type(a:steps) == v:t_list ? a:steps[l:i] : FuzzStep()
+      " A replay with steps dropped (FuzzShrink) may leave visual mode open
+      " for a key that was not drawn for it: no such walk.
+      if mode() =~# "^[vV\<C-V>]" && l:step !=# "\<Esc>"
+            \ && index(map(FuzzPool(['tabmode'], 'x'), 'FuzzKeys(v:val)'), l:step) < 0
+        return {}
+      endif
+      let l:error = FuzzType(l:step)
+      let g:fuzz_steps += 1
+      if empty(l:error)
+        let l:error = join(FuzzErrors(a:tab.lines), '; ')
+      endif
+      if !empty(l:error)
+        return {'tab': a:tab, 'pos': a:pos, 'keys': l:keys, 'step': l:step, 'error': l:error}
+      endif
+      call add(l:keys, l:step)
+    endfor
+    call FuzzType("\<Esc>\<Esc>")
+    silent! undo 0
+    if getline(1, '$') !=# a:tab.lines
+      return {'tab': a:tab, 'pos': a:pos, 'keys': l:keys, 'step': '', 'error': 'undo: ' . string(getline(1, '$'))}
+    endif
+    return {}
+  endfunction
+  " What kind of failure `failure` is: its failing key, and the check's
+  " edit, the Vim error number, or the text before the first colon.
+  function! FuzzKind(failure) abort
+    let l:error = a:failure.error
+    if l:error =~# '^songwriter: check: function('
+      let l:kind = matchstr(l:error, '^songwriter: check: function(''\zs[^'']*')
+    elseif l:error =~# 'E\d\+:'
+      let l:kind = matchstr(l:error, 'E\d\+')
+    else
+      let l:kind = matchstr(l:error, '^\%(songwriter: check: [^:]*\|[^:]*\)')
+    endif
+    return a:failure.step . ' ' . l:kind
+  endfunction
+  " `failure` with as few steps as still fail the same way, dropping steps
+  " one at a time.
+  function! FuzzShrink(failure) abort
+    let l:failure = a:failure
+    let l:i = len(l:failure.keys) - 1
+    while l:i >= 0
+      let l:steps = l:failure.keys + [l:failure.step]
+      call remove(l:steps, l:i)
+      let l:f = FuzzRun(l:failure.tab, l:failure.pos, l:steps)
+      if !empty(l:f) && FuzzKind(l:f) ==# FuzzKind(l:failure)
+        let l:failure = l:f
+      endif
+      let l:i = min([l:i - 1, len(l:failure.keys) - 1])
+    endwhile
+    return l:failure
+  endfunction
+  function! FuzzReport(f) abort
+    return printf('%s, %d:%d, %s | %s: %s', a:f.tab.name, a:f.pos[0], a:f.pos[1],
+          \ keytrans(join(a:f.keys, '')), keytrans(a:f.step), a:f.error)
+  endfunction
+
+  let g:fuzz_unexpected = []
+  let g:fuzz_known = {}
+  let g:fuzz_steps = 0
+  for g:fuzz_seed in g:fuzz_seeds
+    let g:fuzz_rand = srand(g:fuzz_seed * 1000 + g:fuzz_salt)
+    for g:inv_tab in g:fuzz_corpus
+      for g:fuzz_run in range(g:fuzz_runs)
+        let g:inv_pos = FuzzPick(g:InvKeyPositions(g:inv_tab.lines))
+        let g:fuzz_failure = FuzzRun(g:inv_tab, g:inv_pos, g:fuzz_length)
+        if empty(g:fuzz_failure)
+          continue
+        endif
+        let g:fuzz_bug = FuzzKnown(g:fuzz_failure)
+        if !empty(g:fuzz_bug)
+          let g:fuzz_known[g:fuzz_bug] = get(g:fuzz_known, g:fuzz_bug, 0) + 1
+          continue
+        endif
+        call add(g:fuzz_unexpected, printf('seed %d, %s (shrunk: %s)', g:fuzz_seed,
+              \ FuzzReport(g:fuzz_failure), FuzzReport(FuzzShrink(g:fuzz_failure))))
+      endfor
+    endfor
+  endfor
+  if !empty(g:fuzz_known)
+    Log printf('%d steps; known bugs hit: %s', g:fuzz_steps, string(g:fuzz_known))
+  endif
+  AssertEqual [], g:fuzz_unexpected

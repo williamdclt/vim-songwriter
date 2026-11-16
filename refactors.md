@@ -15,22 +15,6 @@ the per-feature tests, and check mode (design.md "Checking the rules"), which
 checks the rules of the music on every edit of every test: run `make test`
 after every step.
 
-## 4. Fuzz the key tables
-
-**Now.** The invariant tests press a fixed list of keys at fixed positions.
-Interactions between keys (a carry after a paste in the insert state) are
-only tested when someone thinks of them.
-
-**Change.** An invariant file that walks the corpus with a seeded random
-sequence of keys drawn from the tables of `keys.vim` (every mode of
-tablature mode, the annotation lines), with check mode on, and reports
-the seed and the keys of a failing sequence. The seed is fixed in `make
-test` so the suite stays deterministic; a `make fuzz` target runs more
-seeds.
-
-**Buys.** A key added to a table is fuzzed with no new test, and bugs that
-need two features together are found by the suite rather than by use.
-
 ## 8. Later: chords over lyrics on the annotation layer
 
 **Now.** The annotation layer takes a host (design.md "Annotations"), with

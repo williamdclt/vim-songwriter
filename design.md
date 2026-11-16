@@ -1231,3 +1231,22 @@ Highlighting stays permissive and accepts false positives such as the word "A"
   `test/invariants/setup.vader`, which each invariant file includes; the
   edit invariant is one body (`test/invariants/edits.vader`) included by
   files that each check a share of the keys, so that they run in parallel.
+- **Fuzzing** (`test/songwriter_invariants_fuzz*.vader`, one body in
+  `test/invariants/fuzz.vader`) walks the corpus (unlinted tabs and a tab
+  with annotation lines included) with seeded random keys drawn from the
+  tables of `keys.vim` (`keys#Tables`), those of where the cursor is (the
+  state of tablature mode, the separators straight after a typed note, the
+  annotation lines), an operator completed by a key of the operator-pending
+  table, a selection by keys of the visual table, `=` by a chord name. A key
+  added to a table is fuzzed with no new test, and bugs needing two features
+  together are found by the suite. After every key, only what holds after
+  any key: no error (check mode's or Vim's: keys are typed under `silent`,
+  not `silent!`, which would carry on past an error and show only its
+  aftermath), every line a tab line, an annotation line or blank, the tab
+  around the cursor with aligned pipes; after the walk, undo gives the tab
+  back. Each walk starts afresh (registers, buffer states, undo history), so
+  a failure is reported with its seed, tab, start and keys, and shrunk to the
+  fewest keys that fail the same way. A failure of a bug in the spec's
+  [[Bugs]] is recognised by its failing key and message, and logged rather
+  than failed. `make test` runs one fixed seed; `make fuzz` runs more
+  (`FUZZ_SEEDS`, `FUZZ_LENGTH`, `FUZZ_SEED` to replay one).

@@ -1,0 +1,9 @@
+" Fuzzing the key tables on the main corpus (see invariants/fuzz.vader).
+
+Include: invariants/setup.vader
+
+Execute (the corpus fuzzed here):
+  let g:fuzz_corpus = g:inv_tabs
+  let g:fuzz_salt = 1
+
+Include: invariants/fuzz.vader
