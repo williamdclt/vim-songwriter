@@ -1,7 +1,7 @@
 " Spec [Tablature][[Annotations]] 5: registers carry annotations.
 
 Before:
-  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_mode b:songwriter_carry b:songwriter_repeat
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_insert b:songwriter_move b:songwriter_carry b:songwriter_repeat
   let b:songwriter_tabmode = 1
   call setreg('"', [])
 

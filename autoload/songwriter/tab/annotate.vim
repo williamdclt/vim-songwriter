@@ -80,7 +80,7 @@ function! songwriter#tab#annotate#Object(around) abort
       let l:mark = {'prefix': strpart(l:t.line, 0, l:at[0] - 1), 'rest': strpart(l:t.line, l:at[0] - 1)}
     endif
   endif
-  let b:songwriter_annotating = extend(l:mark, {'lnum': l:t.lnum, 'col': l:t.col, 'width': l:t.width})
+  call songwriter#tab#state#Set('annotating', extend(l:mark, {'lnum': l:t.lnum, 'col': l:t.col, 'width': l:t.width}))
   return l:keys
 endfunction
 
@@ -114,11 +114,10 @@ endfunction
 " goes. Typed elsewhere than in place of the word, or nothing typed on a line
 " opened for it, only the spaces at the end of the line go.
 function! songwriter#tab#annotate#Leave() abort
-  if !exists('b:songwriter_annotating')
+  let l:m = songwriter#tab#state#Get('annotating')
+  if empty(l:m)
     return
   endif
-  let l:m = b:songwriter_annotating
-  unlet b:songwriter_annotating
   let l:line = getline(l:m.lnum)
   let l:typed = len(l:line) - len(l:m.prefix) - len(l:m.rest)
   let l:block = songwriter#tab#model#Around(l:m.lnum)

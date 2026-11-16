@@ -46,24 +46,6 @@ rather than stopping silently.
 **Buys.** Every existing test case checks the rules, for free, and so does
 every case written for a new feature.
 
-## 3. One mechanism for state and how long it holds
-
-**Now.** `state.vim` keeps values valid while `b:changedtick` is unchanged,
-and continuations that also need the cursor. Beside it, `mode.vim` checks
-the tick of `b:songwriter_mode` itself and has its own rule for the move
-state (while on a note); `b:songwriter_annotating` (`cia`), `s:pending` and
-`s:join` (operator.vim), `s:vobj` (visual.vim) and
-`g:songwriter_register_names` each have their own lifetime, written out
-where they are used.
-
-**Change.** `state.vim` declares each state's lifetime by name: until the
-buffer changes, straight after an action (the cursor where it was left),
-while the cursor is on a note, until the next operator. `mode.vim` reads its
-state from there. What is left in script variables is only what Vim forces
-there (`'operatorfunc'` cannot take arguments), and says so.
-
-**Buys.** "How long does this hold" has one answer per state, in one table,
-instead of a rule re-read in each module.
 
 ## 4. Fuzz the key tables
 

@@ -4,7 +4,7 @@
 " steps matter (`normal` makes one undo step of all its keys).
 
 Before:
-  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_mode b:songwriter_carry
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_insert b:songwriter_move b:songwriter_carry
   let b:songwriter_tabmode = 1
 
 " === Duplicating ===

@@ -4,7 +4,7 @@
 " songwriter#keys#Mode() tells which state is on.
 
 Before:
-  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_mode
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_insert b:songwriter_move
   let b:songwriter_tabmode = 1
 
 Given songwriter (tablature mode starts in the normal state):

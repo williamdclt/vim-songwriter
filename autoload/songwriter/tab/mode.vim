@@ -11,9 +11,11 @@
 "           having to know about it. Leaving it closes the open slot (4.3).
 "   move    keys act on the note under the cursor (3.8). It holds while the
 "           cursor is on a note of a tab line, edits included.
-" The state is b:songwriter_mode, {'name', 'tick'}; Current() says which one
-" holds. Continuations, valid only straight after an action (the carry run,
-" the digit being typed...), are not states: see state#Continuing.
+" The insert and move states are recorded in tab/state.vim, under their names,
+" which declares how long each holds; Current() says which one does.
+" Continuations, valid only straight after an action (the carry run, the digit
+" being typed...), are not states of the mode, though tab/state.vim keeps them
+" too.
 
 " The message each state shows when entered, and its name for a status line.
 let s:modes = {
@@ -24,20 +26,23 @@ let s:modes = {
 
 " The current state: 'normal', 'insert' or 'move'.
 function! songwriter#tab#mode#Current() abort
-  let l:name = get(get(b:, 'songwriter_mode', {}), 'name', 'normal')
-  if l:name ==# 'insert'
-    return b:songwriter_mode.tick == b:changedtick ? 'insert' : 'normal'
-  elseif l:name ==# 'move'
-    return s:on_note() ? 'move' : 'normal'
-  endif
+  for l:name in ['insert', 'move']
+    if !empty(songwriter#tab#state#Get(l:name))
+      return l:name
+    endif
+  endfor
   return 'normal'
 endfunction
 
-" Whether the cursor is on a note of a tab line, in tablature mode: where the
-" move state holds.
-function! s:on_note() abort
-  return songwriter#keys#InTabMode() && songwriter#grammar#IsTabLine(getline('.'))
-        \ && !empty(songwriter#tab#model#NoteAt(getline('.'), col('.')))
+" Record state `name` ('normal' for none), the other states dropped.
+function! s:record(name) abort
+  for l:name in ['insert', 'move']
+    if l:name ==# a:name
+      call songwriter#tab#state#Set(l:name, {})
+    else
+      call songwriter#tab#state#Clear(l:name)
+    endif
+  endfor
 endfunction
 
 " Enter state `name`, leaving the current one first (leaving the insert state
@@ -48,11 +53,7 @@ function! songwriter#tab#mode#Enter(name) abort
   if l:from ==# 'insert'
     call songwriter#tab#slots#Abandon()
   endif
-  if a:name ==# 'normal'
-    unlet! b:songwriter_mode
-  else
-    let b:songwriter_mode = {'name': a:name, 'tick': b:changedtick}
-  endif
+  call s:record(a:name)
   if l:from !=# a:name
     call songwriter#tab#highlight#Update()
     call songwriter#tab#mode#Show(s:modes[a:name].msg)
@@ -62,7 +63,7 @@ endfunction
 " Record the insert state at the buffer's current version, after an edit made
 " in it.
 function! songwriter#tab#mode#Keep() abort
-  let b:songwriter_mode = {'name': 'insert', 'tick': b:changedtick}
+  call s:record('insert')
 endfunction
 
 " Spec 3.1.6, 3.8: the state for a status line: 'TAB INSERT', 'TAB MOVE', or ''
@@ -74,14 +75,13 @@ endfunction
 " Spec 3.8: the keys for `m` in tablature mode: on a note, enter the move
 " state; elsewhere, Vim's own `m`.
 function! songwriter#tab#mode#MoveKey() abort
-  return s:on_note() ? "\<Cmd>call songwriter#tab#mode#Enter('move')\<CR>" : 'm'
+  return songwriter#tab#state#OnNote() ? "\<Cmd>call songwriter#tab#mode#Enter('move')\<CR>" : 'm'
 endfunction
 
 " Spec 3.8.4: the move state ends once the cursor has left the notes (run when
 " the cursor moves or the text changes): its message goes.
 function! songwriter#tab#mode#Check() abort
-  if get(get(b:, 'songwriter_mode', {}), 'name', '') ==# 'move' && !s:on_note()
-    unlet b:songwriter_mode
+  if songwriter#tab#state#Expire('move')
     call songwriter#tab#mode#Show(s:modes.normal.msg)
   endif
 endfunction

@@ -352,7 +352,7 @@ function! s:fill_slot(edit, result) abort
 endfunction
 
 " Follow-up: record the result's state for the next key, with the cursor
-" where the edit left it (state#Continuing).
+" where the edit left it (for a continuation, tab/state.vim).
 function! s:record_state(edit, result) abort
   for [l:name, l:value] in items(get(a:result, 'state', {}))
     call songwriter#tab#state#Set(l:name, extend(copy(l:value), {'line': line('.'), 'col': col('.')}))

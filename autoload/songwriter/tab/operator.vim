@@ -10,10 +10,16 @@
 " our text objects or string motions (exact: no snapping) and its reach
 " (`note`, see ApplyRange) are kept in s:pending, since v:register is not
 " reliable inside 'operatorfunc'.
+"
+" s:pending and s:join are script variables rather than states of
+" tab/state.vim because Vim puts them there: 'operatorfunc' takes no
+" arguments, so what the operator key decided reaches Opfunc only through
+" the script. s:pending holds from one operator key to the next (Start
+" replaces it; Opfunc resets what its target set), whatever the buffer.
 
 let s:pending = {'op': 'd', 'reg': '"', 'exact': 0, 'note': 0, 'across': {}, 'cancel': 0, 'tick': -1}
-" Whether the edit of the operator being applied joins the previous undo step
-" (Opfunc).
+" Whether the edit of the operator being applied joins the previous undo step:
+" set by Opfunc for the length of its call only.
 let s:join = 0
 
 " === Operators ===

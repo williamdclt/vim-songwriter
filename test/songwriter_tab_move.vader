@@ -6,7 +6,7 @@
 " the tab adds a new bar (5).
 
 Before:
-  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_mode b:songwriter_typing
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_insert b:songwriter_move b:songwriter_typing
   let b:songwriter_tabmode = 1
 
 " === Normal state ===
