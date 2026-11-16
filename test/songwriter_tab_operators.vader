@@ -283,6 +283,17 @@ Execute (6.10 one undo step, including the lint before and after):
 Expect songwriter:
   e|-----3--5--|
 
+Given songwriter (6.10 cac is one undo step, the lints and the slot included):
+  e|-----3--5--7--|
+
+Execute (6.10 cac is one undo step, the lints and the slot included):
+  call cursor(1, 11)
+  normal cac
+  AssertEqual 'e|--3---7--|', getline(1)
+  undo
+Expect songwriter:
+  e|-----3--5--7--|
+
 " --- scope ---
 
 Given songwriter (6 outside tablature mode, d is native and edits one line):

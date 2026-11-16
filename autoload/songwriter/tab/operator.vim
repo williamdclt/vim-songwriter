@@ -11,16 +11,17 @@
 " (`note`, see ApplyRange) are kept in s:pending, since v:register is not
 " reliable inside 'operatorfunc'.
 "
-" s:pending and s:join are script variables rather than states of
-" tab/state.vim because Vim puts them there: 'operatorfunc' takes no
-" arguments, so what the operator key decided reaches Opfunc only through
-" the script. s:pending holds from one operator key to the next (Start
-" replaces it; Opfunc resets what its target set), whatever the buffer.
+" s:pending is a script variable rather than a state of tab/state.vim
+" because Vim puts it there: 'operatorfunc' takes no arguments, so what the
+" operator key decided reaches Opfunc only through the script. It holds from
+" one operator key to the next (Start replaces it; Opfunc resets what its
+" target set), whatever the buffer.
+"
+" Each operator on columns or notes is a pure function of the block (edit#Do's
+" Fn) returning one result: the lines, linted, the register, the cursor and,
+" for `c`, the slot to open ('open'); edit#Do sets the register and the cursor.
 
 let s:pending = {'op': 'd', 'reg': '"', 'exact': 0, 'note': 0, 'across': {}, 'cancel': 0, 'tick': -1}
-" Whether the edit of the operator being applied joins the previous undo step:
-" set by Opfunc for the length of its call only.
-let s:join = 0
 
 " === Operators ===
 
@@ -84,170 +85,193 @@ function! songwriter#tab#operator#Opfunc(type) abort
     return
   endif
   " The edit joins the undo step of the lint before g@ (Start).
-  let s:join = l:p.tick == b:changedtick
-  try
-    call s:apply(a:type, l:p)
-  finally
-    let s:join = 0
-  endtry
+  call s:apply(a:type, l:p, l:p.tick == b:changedtick)
 endfunction
 
-" Apply the pending operator `p` to the marks of g@ ('operatorfunc' `type`).
-function! s:apply(type, p) abort
+" Apply the pending operator `p` to the marks of g@ ('operatorfunc' `type`),
+" joining the previous undo step when `join` is set.
+function! s:apply(type, p, join) abort
   let l:p = a:p
   if a:type ==# 'line'
-    if s:join
+    if a:join
       call songwriter#tab#edit#JoinUndo()
     endif
     call songwriter#tab#operator#ApplyLines(l:p.op, l:p.reg, line("'["), line("']"))
-  else
-    let l:lnum = line("'[")
-    let l:block = songwriter#tab#model#Read(l:lnum)
-    if empty(l:block)
-      return
-    endif
-    let l:lin = l:lnum - l:block.start
-    let l:s = col("'[")
-    let l:e = col("']")
-    if a:type ==# 'block' || line("'[") != line("']")
-      let [l:s, l:e] = [min([l:s, l:e]), max([l:s, l:e])]
-    endif
-    if !l:p.exact
-      let [l:s, l:e] = songwriter#tab#objects#Snap(l:block.lines, l:lin, l:s, l:e)
-    endif
-    if l:s > l:e
-      return
-    endif
-    call cursor(l:lnum, l:s)
-    if !empty(l:p.across)
-      call s:across(l:p.op, l:p.reg, l:block, l:p.across)
-    else
-      call songwriter#tab#operator#ApplyRange(l:p.op, l:p.reg, l:block, l:s, l:e, l:p.note)
-    endif
-  endif
-endfunction
-
-" Apply `op` to columns [s, e] of `block`, cursor on its line. `note` is the
-" reach: 0 the time columns (6.2.3), 1 the notes of the cursor's string, a
-" string object (6.1.4, 6.1.5), 2 the notes of the cursor's string, a string
-" motion (6.2.2). `play` plays the notes of that reach (12.1).
-function! songwriter#tab#operator#ApplyRange(op, reg, block, s, e, note) abort
-  if a:op ==# 'play'
-    call songwriter#tab#play#Play([[a:block.lines,
-          \ a:note ? [songwriter#tab#model#CursorLin(a:block)] : range(len(a:block.lines)),
-          \ a:s, a:e]])
-  elseif a:note
-    call s:noteop(a:op, a:reg, a:block, a:s, a:e, a:note == 1)
-  else
-    call s:columnwise(a:op, a:reg, a:block, a:s, a:e)
-  endif
-endfunction
-
-function! s:columnwise(op, reg, block, s, e) abort
-  let l:res = songwriter#tab#columns#DeleteRange(a:block.lines, a:s, a:e)
-  call s:set_register(a:reg, a:block, l:res.rows, l:res.map, a:s)
-  if a:op !=# 'y'
-    call s:write_deleted(a:op, a:block, l:res, a:s)
-  endif
-endfunction
-
-" Set register `reg` to the column rows `rows` taken from `block` from column
-" `col`, with the annotations above them ([[Annotations]] 5.1): those that the
-" edit of map `map` deletes (or, for a yank, would delete).
-function! s:set_register(reg, block, rows, map, col) abort
-  let l:above = songwriter#tab#annotations#Rows(songwriter#tab#annotations#Cut(a:block.above, a:map), a:col)
-  call songwriter#tab#register#Set(a:reg, l:above + a:rows, 'b',
-        \ songwriter#tab#model#Names(a:block.lines), len(l:above))
-endfunction
-
-" Write `res` ({'lines', 'map'}), from which columns were removed at `s`,
-" lint, then for `c` open a slot where they were (6.6), else go to the next
-" note column (6.11).
-function! s:write_deleted(op, block, res, s) abort
-  let l:anchor = s:slot_anchor(a:res.lines, songwriter#tab#model#CursorLin(a:block), a:s)
-  let l:res = {'lines': a:res.lines, 'map': a:res.map, 'erased': get(a:res, 'erased', [])}
-  if a:op ==# 'c'
-    call s:commit(extend(l:res, {'col': l:anchor[0]}))
-    if l:anchor[1] == 0
-      call cursor(line('.'), col('.') + 1)
-    endif
-    call songwriter#tab#slots#OpenHere(l:anchor[1])
-  else
-    call s:commit(l:res)
-    call s:to_next_column()
-  endif
-endfunction
-
-" Write `result`, computed from the block at the cursor, linted with the
-" cursor following the music (edit#Do).
-function! s:commit(result) abort
-  call songwriter#tab#edit#Do({_ -> a:result}, {'prelint': 0, 'join': s:join})
-endfunction
-
-" Spec 6.1.4, 6.1.5, 6.2.2: `op` on the notes in columns [s, e] of the
-" cursor's string. The register holds, with the other strings as dashes,
-" those columns (`exact`, an object) or what `x` writes for each note (a
-" motion, so `dl` fills it as `x`). `d`/`c` erase the notes as `x` does
-" (6.7), and `c` opens a slot if a column went.
-function! s:noteop(op, reg, block, s, e, exact) abort
-  let l:lin = songwriter#tab#model#CursorLin(a:block)
-  let l:res = songwriter#tab#columns#EraseNotes(a:block.lines, l:lin, a:s, a:e)
-  if empty(l:res)
     return
   endif
+  let l:lnum = line("'[")
+  let l:block = songwriter#tab#model#Read(l:lnum)
+  if empty(l:block)
+    return
+  endif
+  let l:s = col("'[")
+  let l:e = col("']")
+  if a:type ==# 'block' || line("'[") != line("']")
+    let [l:s, l:e] = [min([l:s, l:e]), max([l:s, l:e])]
+  endif
+  if !l:p.exact
+    let [l:s, l:e] = songwriter#tab#objects#Snap(l:block.lines, l:lnum - l:block.start, l:s, l:e)
+  endif
+  if l:s > l:e
+    return
+  endif
+  if !empty(l:p.across)
+    call s:apply_across(l:p.op, l:p.reg, l:lnum, l:p.across, a:join)
+  else
+    call songwriter#tab#operator#ApplyRange(l:p.op, l:p.reg, l:lnum, l:s, l:e, l:p.note, a:join)
+  endif
+endfunction
+
+" Apply `op` to columns [s, e] of the block of line `lnum`, as an edit of that
+" line (edit#Do) joining the previous undo step when `join` (optional) is set.
+" `note` is the reach: 0 the time columns (6.2.3), 1 the notes of that string,
+" a string object (6.1.4, 6.1.5), 2 the notes of that string, a string motion
+" (6.2.2). `play` plays the notes of that reach (12.1), the cursor on s.
+function! songwriter#tab#operator#ApplyRange(op, reg, lnum, s, e, note, ...) abort
+  if a:op ==# 'play'
+    let l:block = songwriter#tab#model#Read(a:lnum)
+    call cursor(a:lnum, a:s)
+    call songwriter#tab#play#Play([[l:block.lines,
+          \ a:note ? [a:lnum - l:block.start] : range(len(l:block.lines)), a:s, a:e]])
+    return
+  endif
+  call s:edit(a:op, a:lnum, a:0 && a:1, a:note
+        \ ? function('s:noteop', [a:op, a:reg, a:lnum, a:s, a:e, a:note == 1])
+        \ : function('s:columnwise', [a:op, a:reg, a:lnum, a:s, a:e]))
+endfunction
+
+" Spec 6.2.4: apply `op` to the notes starting on time column `a.col` of the
+" strings `a.lins` ([first, last], 0-indexed) of the block of line `lnum`.
+function! s:apply_across(op, reg, lnum, a, join) abort
+  if a:op ==# 'play'
+    let l:block = songwriter#tab#model#Read(a:lnum)
+    call cursor(a:lnum, a:a.col)
+    call songwriter#tab#play#Play([[l:block.lines, range(a:a.lins[0], a:a.lins[1]), a:a.col, a:a.col]])
+    return
+  endif
+  call s:edit(a:op, a:lnum, a:join, function('s:across', [a:op, a:reg, a:lnum, a:a]))
+endfunction
+
+" Fn(ctx), the edit of operator `op` (s:columnwise, s:noteop, s:across),
+" applied to the block of line `lnum` as it is: it lints its own result, and
+" a yank changes nothing.
+function! s:edit(op, lnum, join, Fn) abort
+  call songwriter#tab#edit#Do(a:Fn, {'lnum': a:lnum, 'prelint': 0, 'lint': 0, 'join': a:join})
+endfunction
+
+" Pure. Spec 6.2.3, 6.4, 6.6: `op` on columns [s, e] of `ctx.block`, the
+" cursor on line `lnum`: the columns go into register `reg`, and, but for `y`,
+" are deleted (s:deleted).
+function! s:columnwise(op, reg, lnum, s, e, ctx) abort
+  let l:block = a:ctx.block
+  let l:lin = a:lnum - l:block.start
+  let l:res = songwriter#tab#columns#DeleteRange(l:block.lines, a:s, a:e)
+  let l:register = s:register(a:reg, l:block, l:res.rows, l:res.map, a:s)
+  if a:op ==# 'y'
+    return {'register': l:register, 'lin': l:lin, 'col': a:s}
+  endif
+  return extend(s:deleted(a:op, l:res, l:lin, a:s), {'register': l:register})
+endfunction
+
+" Pure. Register `reg` set to the column rows `rows` taken from `block` from
+" column `col`, with the annotations above them ([[Annotations]] 5.1): those
+" that the edit of map `map` deletes (or, for a yank, would delete). As a
+" result's 'register' (edit.vim).
+function! s:register(reg, block, rows, map, col) abort
+  let l:above = songwriter#tab#annotations#Rows(songwriter#tab#annotations#Cut(a:block.above, a:map), a:col)
+  return {'name': a:reg, 'rows': l:above + a:rows, 'type': 'b',
+        \ 'names': songwriter#tab#model#Names(a:block.lines), 'above': len(l:above)}
+endfunction
+
+" Pure. The result of `op` (`d` or `c`) whose edit `res` ({'lines', 'map',
+" 'erased' (optional)}) removed columns at `s`, the cursor on line `lin`:
+" linted, then for `c` a slot opened where they were (6.6), else the cursor
+" on the next note column (6.11).
+function! s:deleted(op, res, lin, s) abort
+  if a:op !=# 'c'
+    let l:r = s:linted(a:res, a:lin, a:s)
+    let l:line = l:r.lines[a:lin]
+    let l:r.col = songwriter#tab#columns#NextColumn(l:r.lines, max([1, min([l:r.col, len(l:line)])]))
+    return l:r
+  endif
+  let l:anchor = s:slot_anchor(a:res.lines, a:lin, a:s)
+  let l:r = s:linted(a:res, a:lin, l:anchor[0])
+  let l:len = len(l:r.lines[a:lin])
+  let l:r.col = max([1, min([l:r.col, l:len])])
+  if l:anchor[1] == 0
+    " The anchor is the bar's left pipe: the slot is in the bar after it.
+    let l:r.col = min([l:r.col + 1, l:len])
+  endif
+  return extend(l:r, {'open': l:anchor[1]})
+endfunction
+
+" Pure. The edit `res` ({'lines', 'map', 'erased' (optional)}) linted, with
+" the cursor on line `lin` at column `col` of its lines following the music:
+" a result (edit.vim).
+function! s:linted(res, lin, col) abort
+  let l:linted = songwriter#tab#edit#Linted(a:res.lines, a:lin,
+        \ max([1, min([a:col, len(a:res.lines[a:lin])])]))
+  return {'lines': l:linted.lines, 'map': songwriter#tab#colmap#Then(a:res.map, l:linted.map),
+        \ 'erased': get(a:res, 'erased', []), 'lin': a:lin, 'col': l:linted.col}
+endfunction
+
+" Pure. Spec 6.1.4, 6.1.5, 6.2.2: `op` on the notes in columns [s, e] of the
+" string of line `lnum`. The register holds, with the other strings as
+" dashes, those columns (`exact`, an object) or what `x` writes for each note
+" (a motion, so `dl` fills it as `x`). `d`/`c` erase the notes as `x` does
+" (6.7), and `c` opens a slot if a column went.
+function! s:noteop(op, reg, lnum, s, e, exact, ctx) abort
+  let l:block = a:ctx.block
+  let l:lin = a:lnum - l:block.start
+  let l:res = songwriter#tab#columns#EraseNotes(l:block.lines, l:lin, a:s, a:e)
+  if empty(l:res)
+    return {'lin': l:lin, 'col': a:s}
+  endif
   if a:exact
-    let l:rows = songwriter#tab#columns#Extract(a:block.lines, a:s, a:e)
+    let l:rows = songwriter#tab#columns#Extract(l:block.lines, a:s, a:e)
     call map(l:rows, 'v:key == l:lin ? v:val : repeat("-", len(v:val))')
   else
     let l:rows = l:res.rows
   endif
-  call s:set_register(a:reg, a:block, l:rows, l:res.map, a:s)
-  if a:op ==# 'y'
-    return
-  endif
-  call cursor(line('.'), l:res.col)
-  if l:res.removed
-    call s:write_deleted(a:op, a:block, l:res, l:res.col)
-  else
-    call s:commit({'lines': l:res.lines, 'map': l:res.map, 'erased': l:res.erased})
-  endif
+  return s:erased(a:op, s:register(a:reg, l:block, l:rows, l:res.map, a:s), l:res, l:lin, a:s)
 endfunction
 
-" Spec 6.2.4: `op` on the notes starting on time column `a.col` of the
-" strings `a.lins` ([first, last], 0-indexed), each erased as `x` does. The
-" register holds that column and its gap, the other strings as dashes; `c`
-" opens a slot if the column went.
-function! s:across(op, reg, block, a) abort
-  if a:op ==# 'play'
-    call songwriter#tab#play#Play([[a:block.lines, range(a:a.lins[0], a:a.lins[1]), a:a.col, a:a.col]])
-    return
-  endif
+" Pure. Spec 6.2.4: `op` on the notes starting on time column `a.col` of the
+" strings `a.lins` ([first, last], 0-indexed), each erased as `x` does, the
+" cursor on line `lnum`. The register holds that column and its gap, the
+" other strings as dashes; `c` opens a slot if the column went.
+function! s:across(op, reg, lnum, a, ctx) abort
+  let l:block = a:ctx.block
+  let l:lin = a:lnum - l:block.start
   let l:notes = []
-  for l:lin in range(a:a.lins[0], a:a.lins[1])
-    if !empty(filter(copy(a:block.strings[l:lin].notes), 'v:val.col == a:a.col'))
-      call add(l:notes, {'lin': l:lin, 'col': a:a.col})
+  for l:l in range(a:a.lins[0], a:a.lins[1])
+    if !empty(filter(copy(l:block.strings[l:l].notes), 'v:val.col == a:a.col'))
+      call add(l:notes, {'lin': l:l, 'col': a:a.col})
     endif
   endfor
   if empty(l:notes)
-    return
+    return {'lin': l:lin, 'col': a:a.col}
   endif
-  let l:lin = songwriter#tab#model#CursorLin(a:block)
-  let l:e = songwriter#tab#model#GapEnd(a:block, l:lin,
-        \ songwriter#tab#model#BarColumns(a:block, l:lin, a:a.col), a:a.col)
+  let l:e = songwriter#tab#model#GapEnd(l:block, l:lin,
+        \ songwriter#tab#model#BarColumns(l:block, l:lin, a:a.col), a:a.col)
   let l:lins = map(copy(l:notes), 'v:val.lin')
-  let l:rows = map(songwriter#tab#columns#Extract(a:block.lines, a:a.col, l:e),
+  let l:rows = map(songwriter#tab#columns#Extract(l:block.lines, a:a.col, l:e),
         \ {i, r -> index(l:lins, i) >= 0 ? r : repeat('-', len(r))})
-  let l:res = songwriter#tab#columns#EraseSet(a:block.lines, l:notes)
-  call s:set_register(a:reg, a:block, l:rows, l:res.map, a:a.col)
+  let l:res = songwriter#tab#columns#EraseSet(l:block.lines, l:notes)
+  return s:erased(a:op, s:register(a:reg, l:block, l:rows, l:res.map, a:a.col), l:res, l:lin, a:a.col)
+endfunction
+
+" Pure. The result of `op` once notes are erased (`res`, as
+" columns#EraseSet gives it) from the range starting at `s`, with register
+" `register`, the cursor on line `lin`: for `y`, the register alone; else the
+" erasure, as a deletion (s:deleted) when a column went.
+function! s:erased(op, register, res, lin, s) abort
   if a:op ==# 'y'
-    return
+    return {'register': a:register, 'lin': a:lin, 'col': a:s}
   endif
-  call cursor(line('.'), l:res.col)
-  if l:res.removed
-    call s:write_deleted(a:op, a:block, l:res, l:res.col)
-  else
-    call s:commit({'lines': l:res.lines, 'map': l:res.map, 'erased': l:res.erased})
-  endif
+  let l:r = a:res.removed ? s:deleted(a:op, a:res, a:lin, a:res.col)
+        \ : s:linted(a:res, a:lin, a:res.col)
+  return extend(l:r, {'register': a:register})
 endfunction
 
 " Where `c` opens its slot once `lines` (just deleted from column s) are
@@ -314,17 +338,13 @@ function! songwriter#tab#operator#ApplyLines(op, reg, l1, l2) abort
     if !songwriter#grammar#IsTabLine(getline(l:cur))
       let l:cur = l:first ? l:first : l:l1
     endif
-    call cursor(l:cur, songwriter#tab#model#BodyOffset() + 1)
-    call songwriter#tab#slots#OpenHere(0)
-  endif
-endfunction
-
-" Spec 6.11: the cursor goes to the first note column at or after it, or,
-" with none (the change was at the end of the tab), to the last one before it.
-function! s:to_next_column() abort
-  let l:block = songwriter#tab#model#Read()
-  if !empty(l:block)
-    call cursor(line('.'), songwriter#tab#columns#NextColumn(l:block.lines, col('.')))
+    let l:col = songwriter#tab#model#BodyOffset() + 1
+    if !l:first
+      call cursor(l:cur, l:col)
+      return
+    endif
+    call songwriter#tab#edit#Do({ctx -> {'lin': l:cur - ctx.block.start, 'col': l:col, 'open': 0}},
+          \ {'lnum': l:cur, 'prelint': 0, 'lint': 0})
   endif
 endfunction
 

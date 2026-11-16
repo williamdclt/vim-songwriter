@@ -24,8 +24,11 @@
 "            'selection' given), as selection#Get gives it but its 'anchor'
 "            and 'cursor' being [lin, col] of the lines the edit was given (or
 "            of its 'base'); its columns follow the edit and the lint,
-"   'slot':  1 when the cursor is left on a slot the edit opened as part of
-"            a bigger edit (`c`, 6.6), which closing lints (slots#Open),
+"   'open':  a slot to open at the cursor once the rest is done (`c`, 6.6),
+"            as a part of a bigger edit, which closing lints (slots#Open):
+"            -1 before the cursor's note (slots#Prepend, as `i`), 1 after it
+"            (slots#Append, as `a`), 0 in the cursor's empty bar
+"            (slots#EmptyBar); none opens where it cannot,
 "   'msg':   a message to echo,
 "   'error': a refusal to show; nothing else is applied,
 "   'state': {name: value} to record in tab/state.vim once written, each value
@@ -34,7 +37,8 @@
 "            once written (register#Set; Do only),
 "   'side':  0 for an edit that opens a slot in an empty bar whatever
 "            opts.open says (slots#InBar; Do only).
-" {} means nothing to do.
+" {} means nothing to do. In check mode (tab/check.vim), a result with any
+" other key, or options (see Do) Do does not know, throw.
 "
 " Do() is the one way an edit reaches the buffer, in stages: prepare (the
 " open slot, the first lint), the pure edit, write (the lint, the column map,
@@ -49,6 +53,12 @@
 " default the block being written; `annotations` the operations on the
 " annotations (annotations#Apply).
 " s:write is the one way a draft reaches the buffer.
+
+" The keys of a result, and Do's options (check mode, s:known).
+let s:result_keys = ['lines', 'map', 'base', 'annotations', 'erased', 'written', 'col', 'lin',
+      \ 'sel', 'open', 'msg', 'error', 'state', 'register', 'side']
+let s:option_keys = ['lnum', 'selection', 'slot', 'join', 'prelint', 'lint', 'open', 'insert',
+      \ 'repeat']
 
 " Pure. The snapshot of `lines`, made from the snapshot `base` by an edit
 " whose column map is `map`: the annotations follow the music, with the
@@ -208,12 +218,14 @@ endfunction
 " Returns the written block, {} when nothing was done (off a tab line, a
 " refusal, nothing to do).
 function! songwriter#tab#edit#Do(Fn, ...) abort
+  call s:known('option', a:0 ? a:1 : {}, s:option_keys)
   let l:edit = s:prepare(a:0 ? a:1 : {})
   if empty(l:edit)
     return {}
   endif
   let l:edit.Fn = a:Fn
   let l:result = a:Fn(l:edit.ctx)
+  call s:known('result key', l:result, s:result_keys)
   let l:edit.done = !empty(l:result) && !has_key(l:result, 'error')
   call s:write_result(l:edit, l:result)
   call s:select(l:edit, l:result)
@@ -227,6 +239,19 @@ function! songwriter#tab#edit#Do(Fn, ...) abort
   endif
   call s:keep_insert(l:edit)
   return l:edit.done ? songwriter#tab#model#ReadTop(l:edit.block.top) : {}
+endfunction
+
+" Check mode (tab/check.vim): throw on a key of `dict` that is not in `keys`,
+" naming it as a `what`.
+function! s:known(what, dict, keys) abort
+  if !songwriter#tab#check#On()
+    return
+  endif
+  for l:key in keys(a:dict)
+    if index(a:keys, l:key) < 0
+      throw printf('songwriter: check: edit#Do: unknown %s %s', a:what, string(l:key))
+    endif
+  endfor
 endfunction
 
 " Stage 1: what Do works on, {'opts', 'block' (as read), 'pre' (the first
@@ -269,9 +294,10 @@ function! s:prepare(opts) abort
   return l:edit
 endfunction
 
-" Stage 3: write the result, linted, or only the first lint when it is a
-" refusal or nothing (none of it for an edit that opens a slot). Records what
-" was written in `edit` ('post', the draft; 'written', the block).
+" Stage 3: write the result, linted, then with the slot it opens ('open'), or
+" only the first lint when it is a refusal or nothing (none of it for an edit
+" that opens a slot). Records what was written in `edit` ('post', the draft;
+" 'written', the block; 'opened', whether the result's slot opened).
 function! s:write_result(edit, result) abort
   let l:post = a:edit.pre
   if a:edit.done && has_key(a:result, 'lines')
@@ -284,6 +310,9 @@ function! s:write_result(edit, result) abort
       let l:post.map = songwriter#tab#colmap#Then(a:edit.pre.map, l:post.map)
     endif
     let l:post = s:make_room(a:edit.block, l:post)
+    if has_key(a:result, 'open')
+      let l:post = s:open(a:edit, l:post, a:result.open)
+    endif
   endif
   let a:edit.post = l:post
   let a:edit.written = a:edit.block
@@ -297,8 +326,38 @@ endfunction
 " erasing and writing the notes it says ('erased', 'written').
 function! s:check(edit, result) abort
   let l:old = has_key(a:result, 'base') ? a:result.base.lines : a:edit.pre.lines
-  call songwriter#tab#check#Edit(get(a:edit.opts, 'what', string(a:edit.Fn)), l:old, a:result.lines,
+  call songwriter#tab#check#Edit(string(a:edit.Fn), l:old, a:result.lines,
         \ get(a:result, 'map', []), get(a:result, 'erased', []), get(a:result, 'written', []))
+endfunction
+
+" `draft` of `edit`'s block with a slot opened at its cursor on side `side`
+" (the result's 'open', see the top), room made for it as for the edit; the
+" draft as it is when there is no room for one there. Sets `edit.opened`.
+function! s:open(edit, draft, side) abort
+  let a:edit.opened = 0
+  let l:lines = a:draft.lines
+  if a:draft.lin < 0 || a:draft.lin >= len(l:lines)
+    return a:draft
+  endif
+  let l:col = max([1, min([a:draft.col, len(l:lines[a:draft.lin])])])
+  if a:side < 0
+    let l:res = songwriter#tab#slots#Prepend(songwriter#tab#model#Parse(0, l:lines), a:draft.lin, l:col)
+  elseif a:side > 0
+    let l:res = songwriter#tab#slots#Append(songwriter#tab#model#Parse(0, l:lines), a:draft.lin, l:col)
+  else
+    let l:res = songwriter#tab#slots#EmptyBar(l:lines, a:draft.lin, l:col)
+  endif
+  if empty(l:res)
+    return a:draft
+  endif
+  call songwriter#tab#check#Edit('slot', l:lines, l:res.lines, l:res.map, [], [])
+  let l:draft = extend(copy(a:draft), {'lines': l:res.lines, 'col': l:res.col,
+        \ 'map': songwriter#tab#colmap#Then(a:draft.map, l:res.map)})
+  if has_key(l:draft, 'annotations')
+    let l:draft.annotations = s:moved(l:draft.annotations, l:res.map)
+  endif
+  let a:edit.opened = 1
+  return s:make_room(a:edit.block, l:draft)
 endfunction
 
 " Pure. The annotation operations `ops` (annotations#Apply), their columns
@@ -392,14 +451,14 @@ endfunction
 
 " Follow-up: remember the slot the edit opened: with a mark (opts.open), in
 " the empty bar it landed in when that is not the side it was opened on
-" (slots#InBar); without one, a slot of a bigger edit (the result's 'slot').
+" (slots#InBar); without one, a slot of a bigger edit (the result's 'open').
 function! s:open_slot(edit, result) abort
   if has_key(a:edit.opts, 'open')
     if has_key(a:result, 'side') && a:result.side != a:edit.mark.side
       call songwriter#tab#slots#InBar(a:edit.mark, col('.'))
     endif
     call songwriter#tab#slots#Open(a:edit.mark)
-  elseif get(a:result, 'slot', 0)
+  elseif get(a:edit, 'opened', 0)
     call songwriter#tab#slots#Open()
   endif
 endfunction
