@@ -23,8 +23,10 @@ function! songwriter#tab#typing#EnterNote(digit) abort
   let l:digit = a:digit . ''
   let l:col = col('.')
   let l:ch = (l:col <= len(l:line)) ? l:line[l:col - 1] : ''
-  let l:typing = songwriter#tab#state#Get('typing')
-  let l:here = !empty(songwriter#tab#state#Continuing('typing'))
+  " The digit joins the undo step of what was typed while the buffer is
+  " unchanged since, even after a move ('typing' read until a change).
+  let l:typing = songwriter#tab#state#Get('typing', 'change')
+  let l:here = !empty(songwriter#tab#state#Get('typing'))
   let l:mode = songwriter#tab#mode#Current()
   let l:insert = l:mode ==# 'insert'
   let l:note = songwriter#tab#model#NoteAt(l:line, l:col)
@@ -82,11 +84,11 @@ function! s:extends(text, digit) abort
         \ && str2nr(a:text . a:digit) <= get(g:, 'songwriter_max_fret', 24)
 endfunction
 
-" Spec 3.4.1.3: true straight after a note was typed (state#Continuing; not
+" Spec 3.4.1.3: true straight after a note was typed (the 'typing' state; not
 " a chord, spec 10), when, in the insert state, a separator key writes a
 " separator (keys.vim asks only there).
 function! songwriter#tab#typing#JustTyped() abort
-  let l:typing = songwriter#tab#state#Continuing('typing')
+  let l:typing = songwriter#tab#state#Get('typing')
   return !empty(l:typing)
         \ && !get(l:typing, 'separator', 0) && !get(l:typing, 'chord', 0)
 endfunction

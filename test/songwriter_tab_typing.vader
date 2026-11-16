@@ -3,7 +3,7 @@
 " steps matter (`normal` makes one undo step of all its keys).
 
 Before:
-  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_mode
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_insert b:songwriter_move
   unlet! g:songwriter_max_fret
   let b:songwriter_tabmode = 1
 

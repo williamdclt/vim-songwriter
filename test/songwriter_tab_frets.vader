@@ -2,7 +2,7 @@
 " mode, and every note keeps its time column, the changed one included.
 
 Before:
-  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_mode b:songwriter_repeat
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_insert b:songwriter_move b:songwriter_repeat
   unlet! g:songwriter_max_fret
   let b:songwriter_tabmode = 1
 

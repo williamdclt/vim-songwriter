@@ -65,14 +65,14 @@ endfunction
 
 " Spec 10.10: `==` after `=<CR>`, the next name, in the same undo step.
 function! songwriter#tab#chordname#NextName() abort
-  let l:last = songwriter#tab#state#Continuing('naming')
+  let l:last = songwriter#tab#state#Get('naming')
   call songwriter#tab#edit#Do(function('s:label', [l:last.index + 1]),
         \ {'prelint': 0, 'lint': 0, 'join': 1})
 endfunction
 
 " True straight after `=<CR>` or `==` wrote a name, the cursor where it was.
 function! songwriter#tab#chordname#Naming() abort
-  return !empty(songwriter#tab#state#Continuing('naming'))
+  return !empty(songwriter#tab#state#Get('naming'))
 endfunction
 
 " The edit writing name `index` (wrapping around) of the chord on the cursor's

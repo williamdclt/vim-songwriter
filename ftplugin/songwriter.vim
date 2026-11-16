@@ -74,7 +74,7 @@ augroup songwriter_move
   autocmd! * <buffer>
   autocmd CursorMoved,TextChanged <buffer> call songwriter#tab#mode#Check()
 augroup END
-let b:undo_ftplugin .= '| exe "autocmd! songwriter_move * <buffer>" | unlet! b:songwriter_mode'
+let b:undo_ftplugin .= '| exe "autocmd! songwriter_move * <buffer>" | unlet! b:songwriter_insert b:songwriter_move'
 
 augroup songwriter_annotate
   autocmd! * <buffer>
