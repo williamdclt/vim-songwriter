@@ -1,6 +1,6 @@
 " autoload/songwriter/tab/chordname.vim - naming the chord on a time column
 " (spec [Tablature][[Editing]] 13), and writing it as the column's chord label
-" (10.10). Names() and Message() are pure (block lines in); Show(), `<leader>?`,
+" (10.10). Names() and Message() are pure (block lines in); Show(), `=?<CR>`,
 " and Name() / NextName(), `=<CR>` / `==`, are the entry points.
 
 " Spec 13.1, 13.4: the chords on the time column at column `col` of line `lin`
@@ -33,7 +33,7 @@ function! songwriter#tab#chordname#Names(lines, lin, col) abort
   return {'msg': (len(l:pcs) == 1 ? 'one note, ' : 'no chord for ') . l:spelled}
 endfunction
 
-" Spec 13: the message `<leader>?` shows for the time column at column `col`
+" Spec 13: the message `=?<CR>` shows for the time column at column `col`
 " of line `lin` of `lines`: {'msg'}, or {'error'}.
 function! songwriter#tab#chordname#Message(lines, lin, col) abort
   let l:r = songwriter#tab#chordname#Names(a:lines, a:lin, a:col)
@@ -41,7 +41,7 @@ function! songwriter#tab#chordname#Message(lines, lin, col) abort
         \ : has_key(l:r, 'msg') ? {'msg': 'songwriter: ' . l:r.msg} : l:r
 endfunction
 
-" Spec 13: `<leader>?`, echo the chord on the cursor's time column. Off a tab
+" Spec 13: `=?<CR>`, echo the chord on the cursor's time column. Off a tab
 " line it does nothing.
 function! songwriter#tab#chordname#Show() abort
   let l:block = songwriter#tab#model#Read()

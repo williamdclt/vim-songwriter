@@ -1,7 +1,7 @@
-" Spec [Tablature][[Editing]] 13: `<leader>?` names the chord on a time
+" Spec [Tablature][[Editing]] 13: `=?<CR>` names the chord on a time
 " column. Pure cases call songwriter#chord#Identify(midis) (the chord names
-" for a list of MIDI pitches, in the order of 13.3); key cases type `\?` and
-" read the message.
+" for a list of MIDI pitches, in the order of 13.3); key cases type `=?<CR>`
+" and read the message.
 
 Before:
   unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing
@@ -90,7 +90,7 @@ Execute (13 the message lists the chords, and the tab is unchanged):
   call cursor(5, 5)
   let g:tick = b:changedtick
   redir => g:messages
-  silent execute "normal \\?"
+  silent execute "normal =?\<CR>"
   redir END
   Assert g:messages =~# 'C6 | Am7/C', g:messages
   AssertEqual g:tick, b:changedtick
@@ -115,7 +115,7 @@ Given songwriter (13.1 a two-digit fret, cursor on its second digit):
 Execute (13.1 the column of the note under the cursor):
   call cursor(1, 6)
   redir => g:messages
-  silent execute "normal \\?"
+  silent execute "normal =?\<CR>"
   redir END
   Assert g:messages =~# 'Am/E', g:messages
 
@@ -130,11 +130,11 @@ Given songwriter (13.1 any tuning: drop D):
 Execute (13.1 any tuning: drop D):
   call cursor(6, 5)
   redir => g:messages
-  silent execute "normal \\?"
+  silent execute "normal =?\<CR>"
   redir END
   Assert g:messages =~# 'D5', g:messages
 
-Given songwriter (13 outside tablature mode):
+Given songwriter (13 =? is not repeated by . and == does not cycle it):
   e|--0--|
   B|--0--|
   G|--1--|
@@ -142,13 +142,19 @@ Given songwriter (13 outside tablature mode):
   A|--2--|
   E|--0--|
 
-Execute (13 outside tablature mode):
-  let b:songwriter_tabmode = 0
+Execute (13 =? is not repeated by . and == does not cycle it):
   call cursor(1, 5)
-  redir => g:messages
-  silent execute "normal \\?"
-  redir END
-  Assert g:messages =~# '\<E\>', g:messages
+  silent execute "normal =?\<CR>"
+  silent! execute "normal =="
+  silent! execute "normal ."
+
+Expect songwriter (13 unchanged by == and .):
+  e|--0--|
+  B|--0--|
+  G|--1--|
+  D|--2--|
+  A|--2--|
+  E|--0--|
 
 Given songwriter (13.4 one note, notes that fit no chord, no note):
   e|--0-----|
@@ -161,21 +167,21 @@ Given songwriter (13.4 one note, notes that fit no chord, no note):
 Execute (13.4 a single pitch class):
   call cursor(1, 5)
   redir => g:messages
-  silent execute "normal \\?"
+  silent execute "normal =?\<CR>"
   redir END
   Assert g:messages =~# 'songwriter: one note, E', g:messages
 
 Execute (13.4 notes that fit no chord):
   call cursor(2, 8)
   redir => g:messages
-  silent execute "normal \\?"
+  silent execute "normal =?\<CR>"
   redir END
   Assert g:messages =~# 'songwriter: no chord for C G# B', g:messages
 
 Execute (13.4 no fretted note):
   call cursor(4, 6)
   redir => g:messages
-  silent execute "normal \\?"
+  silent execute "normal =?\<CR>"
   redir END
   Assert g:messages =~# 'songwriter: no note on this time column', g:messages
 
@@ -186,6 +192,6 @@ Given songwriter (13.4 a string name that is not a note):
 Execute (13.4 a string name that is not a note):
   call cursor(1, 5)
   redir => g:messages
-  silent execute "normal \\?"
+  silent execute "normal =?\<CR>"
   redir END
   Assert g:messages =~# 'string name X is not a note', g:messages
