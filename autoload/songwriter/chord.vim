@@ -178,8 +178,8 @@ function! songwriter#chord#ChordQuality(quality) abort
 endfunction
 
 " Toggle the chord under the cursor between major and minor (A <-> Am, D/F# <->
-" Dm/F#), leaving the rest of the quality (7, m7 -> 7, maj7 -> mmaj7) and the
-" bass intact. No-op off a chord.
+" Dm/F#), leaving the rest of the quality (`7`, `m7` -> `7`, `maj7` ->
+" `mmaj7`) and the bass intact. No-op off a chord.
 function! songwriter#chord#ToggleMinorMajor() abort
   call s:edit_at_cursor(function('s:toggle_minor'))
 endfunction

@@ -1,0 +1,153 @@
+" Spec references in comments (AGENTS.md) must exist in specification.song.txt.
+"
+" Rule. A reference is read from a comment block: consecutive lines of a .vim
+" file under autoload/, plugin/, ftplugin/ or syntax/ whose first non-blank
+" character is `"`, taken as one text (so a reference may wrap). In order:
+"   - `[Section][[Sub]]` must exist, and sets the context. `[[Sub]]` alone
+"     sets nothing: it names the subsection of the number right after it, in
+"     the context's section, else in the only section that has it.
+"   - Numbers, `N` or `N.N.N`, are checked in the context's subsection when
+"     they follow `spec ` or `(` (so `spec 4.3`, `(6.7.2)`), follow a context
+"     ref (`[[Editing]] 3.8.5`), or continue such a list with `, ` or ` and `
+"     (`spec [Tablature][[Editing]] 6.5, 6.9.4, 6.14`).
+"   - A number with no context earlier in its block is an error. Other
+"     numbers (`0.5`, `8.2.1978`, columns) are never preceded by those
+"     markers, so they are not read.
+" The header comment (the block at line 1) sets the context of the whole file:
+" a bare number in a block with no context of its own uses it.
+" An item is a line of the spec starting, after indentation, with `N.` or
+" `N.N...` inside a `[[Sub]]` of a `[Section]`.
+
+Before:
+  let g:specrefs_items = {}
+  let g:specrefs_subs = {}
+  let s:section = ''
+  let s:sub = ''
+  for s:line in readfile('specification.song.txt')
+    if s:line =~# '^\[[^\[\]]\+\]\s*$'
+      let s:section = matchstr(s:line, '^\[\zs[^\]]*')
+      let s:sub = ''
+      let g:specrefs_items[s:section . '|'] = {}
+    elseif s:line =~# '^\[\[[^\[\]]\+\]\]\s*$'
+      let s:sub = matchstr(s:line, '^\[\[\zs[^\]]*')
+      let g:specrefs_items[s:section . '|' . s:sub] = {}
+      let g:specrefs_subs[s:sub] = get(g:specrefs_subs, s:sub, []) + [s:section]
+    elseif s:line =~# '^\s*\d\+\(\.\d\+\)*\.\?\s'
+      let g:specrefs_items[s:section . '|' . s:sub][matchstr(s:line, '^\s*\zs\d\+\(\.\d\+\)*')] = 1
+    endif
+  endfor
+
+  " The problems of one comment block (its text, and the context it starts
+  " with: the file's header context; updated to the context it ends with).
+  function! SpecRefsCheck(where, text, ctx) abort
+    let l:problems = []
+    let l:cur = copy(a:ctx)
+    let l:prev = -1
+    let l:pos = 0
+    let l:re = '\(\[[A-Z][A-Za-z ]*\]\)\?\[\[[A-Za-z ]\+\]\]'
+          \ . '\|\<spec \zs\d\+\(\.\d\+\)*'
+          \ . '\|\%(\]\] \)\@<=\d\+\(\.\d\+\)*'
+          \ . '\|(\zs\d\+\(\.\d\+\)*\ze[,)]'
+          \ . '\|\%(, \| and \)\zs\d\+\(\.\d\+\)*'
+    while 1
+      let l:m = matchstrpos(a:text, l:re, l:pos)
+      if l:m[1] < 0
+        break
+      endif
+      let l:pos = l:m[2]
+      let l:tok = l:m[0]
+      if l:tok =~# '^\['
+        " Search again from the `]]`, so that the lookbehind sees it.
+        let l:pos -= 2
+        let l:sub = matchstr(l:tok, '\[\[\zs[^\]]*')
+        let l:sec = matchstr(l:tok, '^\[\zs[^\[\]]*\ze\]\[')
+        if l:sec !=# ''
+          " [Section][[Sub]]: it checks out, and sets the context.
+          let l:cur = {'section': l:sec, 'sub': l:sub, 'have': 1}
+          let l:ctx = l:cur
+          if !has_key(g:specrefs_items, l:sec . '|' . l:sub)
+            call add(l:problems, a:where . ': no such subsection ' . l:tok)
+          endif
+        else
+          " [[Sub]]: names a subsection for the number after it only.
+          let l:ctx = {'section': '', 'sub': l:sub, 'have': 0}
+        endif
+        let l:prev = l:m[2]
+        continue
+      endif
+      let l:before = strpart(a:text, 0, l:m[1])
+      let l:sep = matchstr(l:before, '\%(, \| and \)$')
+      let l:follows = l:before =~# '\]\] $' || (l:sep !=# '' && l:m[1] - len(l:sep) == l:prev)
+      if l:sep !=# '' && !l:follows
+        continue
+      endif
+      if !l:follows
+        let l:ctx = l:cur
+      endif
+      let l:prev = l:pos
+      let l:section = l:ctx.section
+      if !l:ctx.have && l:ctx.sub !=# ''
+        " [[Sub]] with no section: the one of the context, else the only one.
+        let l:section = l:cur.have ? l:cur.section : ''
+        if l:section ==# '' && len(get(g:specrefs_subs, l:ctx.sub, [])) == 1
+          let l:section = g:specrefs_subs[l:ctx.sub][0]
+        endif
+        if l:section ==# ''
+          call add(l:problems, a:where . ': [[' . l:ctx.sub . ']] ' . l:tok . ' is ambiguous or unknown')
+          continue
+        endif
+        let l:ctx = {'section': l:section, 'sub': l:ctx.sub, 'have': 1}
+      endif
+      if !l:ctx.have
+        call add(l:problems, a:where . ': ' . l:tok . ' has no [Section][[Subsection]] context')
+      elseif !has_key(get(g:specrefs_items, l:ctx.section . '|' . l:ctx.sub, {}), l:tok)
+        call add(l:problems, a:where . ': no item ' . l:tok . ' in [' . l:ctx.section . '][[' . l:ctx.sub . ']]')
+      endif
+    endwhile
+    let a:ctx.section = l:cur.section
+    let a:ctx.sub = l:cur.sub
+    let a:ctx.have = l:cur.have
+    return l:problems
+  endfunction
+
+  " The problems of every comment block under the four directories.
+  function! SpecRefsAll() abort
+    let l:problems = []
+    for l:file in glob('autoload/**/*.vim', 0, 1) + glob('plugin/**/*.vim', 0, 1) + glob('ftplugin/**/*.vim', 0, 1) + glob('syntax/**/*.vim', 0, 1)
+      let l:lines = readfile(l:file)
+      let l:block = []
+      let l:start = 0
+      let l:header = {'section': '', 'sub': '', 'have': 0}
+      for l:i in range(len(l:lines) + 1)
+        let l:l = l:i < len(l:lines) ? l:lines[l:i] : ''
+        if l:l =~# '^\s*"'
+          if empty(l:block)
+            let l:start = l:i + 1
+          endif
+          call add(l:block, substitute(l:l, '^\s*"\s\?', '', ''))
+        elseif !empty(l:block)
+          let l:ctx = copy(l:header)
+          let l:problems += SpecRefsCheck(l:file . ':' . l:start, join(l:block, ' '), l:ctx)
+          if l:start == 1
+            let l:header = l:ctx
+          endif
+          let l:block = []
+        endif
+      endfor
+    endfor
+    return l:problems
+  endfunction
+
+Execute (the checker accepts and rejects references):
+  AssertEqual [], SpecRefsCheck('t', 'spec [Tablature][[Editing]] 3.4.1, 3.3 and 6.5', {'section': '', 'sub': '', 'have': 0})
+  AssertEqual [], SpecRefsCheck('t', 'spec [Tablature][[Editing]] 3.4 (see 6.6)', {'section': '', 'sub': '', 'have': 0})
+  AssertEqual [], SpecRefsCheck('t', '[[Annotations]] 4.4 and `x` ([Chords][[Editing]])', {'section': '', 'sub': '', 'have': 0})
+  AssertEqual [], SpecRefsCheck('t', 'Vim 0.5, 8.2.1978, column 4, (0.5 s) are not refs', {'section': '', 'sub': '', 'have': 0})
+  AssertEqual 1, len(SpecRefsCheck('t', 'spec [Tablature][[Editing]] 99', {'section': '', 'sub': '', 'have': 0}))
+  AssertEqual 1, len(SpecRefsCheck('t', 'spec 4.3', {'section': '', 'sub': '', 'have': 0}))
+  AssertEqual 1, len(SpecRefsCheck('t', '[[Editing]] 3', {'section': '', 'sub': '', 'have': 0}))
+  Assert len(SpecRefsCheck('t', 'spec [Tablature][[Nope]] 3', {'section': '', 'sub': '', 'have': 0})) >= 1
+  AssertEqual 1, len(SpecRefsCheck('t', '[Tablature][[Editing]] 1, then (99.9)', {'section': '', 'sub': '', 'have': 0}))
+
+Execute (every spec reference in the code exists in the spec):
+  AssertEqual [], SpecRefsAll()

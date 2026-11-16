@@ -176,19 +176,6 @@ leave an undo step of its own.
 **Buys.** Operators read like every other edit; one undo step per operator
 by construction instead of by joining; one unit for the cursor.
 
-## 7. Spec references checked
-
-**Now.** Comments reference the spec by number (AGENTS.md), and renumbering
-it means finding them by hand; many say only `spec 4.3`, which exists in
-more than one section.
-
-**Change.** A test reads every `spec [Section][[Subsection]] n.n` reference
-in `autoload/` and checks it exists in specification.song.txt; a bare
-number is accepted only after a qualified reference in the same comment
-block.
-
-**Buys.** Renumbering the spec cannot leave stale references behind.
-
 ## 8. Later: the same layer for chords over lyrics
 
 **Now.** `[Chord annotations]` (chords above lyrics) has editing features to
