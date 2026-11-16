@@ -430,8 +430,10 @@ offset `c0 - mincol + 2`, then a fixed-point pass enforces:
   its string;
 - *cross-string de-overlap*: a note starting strictly after a note on another
   string but inside that note's span is pushed right to leave exactly one dash
-  after it. Notes starting on the same column are aligned and never split; a
-  single digit lining up with the first digit of a `12` is left alone.
+  after it, and its whole time column with it: notes starting on the same
+  column are aligned and never split, so pushing one note pushes the others
+  of its column, and with them what follows on their strings. A single digit
+  lining up with the first digit of a `12` is left alone.
 
 The pass is capped at 200 iterations (never reached in practice): pushing one
 note can collide with another on a neighbouring string.

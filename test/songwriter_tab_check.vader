@@ -41,9 +41,8 @@ Execute (two chains made one break the rule):
         \ songwriter#tab#check#Errors(old, new, songwriter#tab#colmap#Delete(6, 6), [], [])
 
 Execute (notes that started together and no longer do break the rule):
-  let old = ['e|--12--3---|', 'B|---3--12--|']
-  let lint = songwriter#tab#lint#Lint(old)
-  Assert !empty(songwriter#tab#check#Errors(old, lint.lines, lint.map, [], []))
+  let old = ['e|--3--|', 'B|--5--|']
+  AssertEqual ['note B 5 (5) -> 5: -'], songwriter#tab#check#Errors(old, ['e|--3--|', 'B|---5-|'], [], [], [])
 
 Execute (pipes out of line after a lint break the rule):
   AssertEqual ['pipes not aligned'], songwriter#tab#check#Linted(['e|--3--|', 'B|---|'])
