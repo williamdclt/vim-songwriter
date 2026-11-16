@@ -102,12 +102,6 @@ In the insert state:
   each gap; `l` past the last note adds a bar.
 - `j` / `k` after a note stay on its column, to type a chord shape: `5j7`.
 - Technique markers are typed after a note: `5h7`, `7b`, `5/9~`.
-- The arrow keys carry the note under the cursor to another string or column.
-
-`<leader>k` / `<leader>j` copy the note under the cursor onto the string above /
-below and enter a move state, shown as `-- TAB MOVE --`: there `hjkl` carry the
-copy as the arrow keys do, and the original stays. `<Esc>` or `<leader>` ends
-it.
 
 Edit an existing marker with Vim's `f` and `r`: `fhr/` turns a hammer-on into a
 slide.
@@ -140,6 +134,24 @@ name already there. `+` keeps a name that is there up to date, but adds none.
 | `L` / `H`       | same, but never opens a slot in the insert state  |
 | `W` / `B` / `E` | start of next bar / start of bar / end of bar     |
 
+### Moving notes across strings
+
+| Key                          | Action                                                  |
+|------------------------------|---------------------------------------------------------|
+| `<leader>k` / `<leader>j`    | Carry the note one string up / down, same fret (also `sk` / `sj`; in visual, every selected note) |
+| `<leader><leader>k` / `<leader><leader>j` | Copy the note one string up / down, cursor on the copy |
+| `Sk` / `Sj`                  | Carry the note, keeping its pitch                       |
+| `sK` `sJ` `SK` `SJ`          | Same, for the whole time column                         |
+| `m`                          | Enter the move state, `-- TAB MOVE --` (`m` or `<Esc>` leaves) |
+
+A carried note replaces a note it lands on, which comes back when it moves on;
+carried back where it started, the tab is as it was, and a run of carries is
+one undo step. In the move state, keys act on the note under the cursor with
+the right hand alone: `j` / `k` carry it, `J` / `K` its column, `h` / `l` move
+it a fret down / up, and `<leader>j` / `<leader>k` copy it, the cursor going to
+the copy. A chord is built by copying a note, setting its fret, and copying
+that one.
+
 ### Editing columns
 
 Operators act on whole time columns, on every string.
@@ -152,9 +164,6 @@ Operators act on whole time columns, on every string.
 | `p` / `P`           | Paste columns or bars after / before the cursor's        |
 | `gp`                | Overlay a column onto the current one (add a bass note)  |
 | `>>` / `<<`         | Push the column one dash later / earlier                 |
-| `sk` / `sj`         | Move the note one string up / down, same fret            |
-| `Sk` / `Sj`         | Same, keeping the pitch                                  |
-| `sK` `sJ` `SK` `SJ` | Same, for the whole time column                          |
 | `<C-A>` / `<C-X>`   | Move the note up / down a fret (every note in visual); also `]` / `[` |
 | `V`                 | Select the time column                                   |
 | `.`                 | Repeat                                                   |
@@ -266,9 +275,6 @@ Remap the default keys through their `<Plug>` mappings:
 | `<C-A>`     | `<Plug>(songwriter-transpose-up)`       |
 | `<C-X>`     | `<Plug>(songwriter-transpose-down)`     |
 | `]` / `[`   | `<Plug>(songwriter-transpose-up)` / `-down` |
-| `<leader>k` | `<Plug>(songwriter-duplicate-up)`       |
-| `<leader>j` | `<Plug>(songwriter-duplicate-down)`     |
-| `<leader>`  | `<Plug>(songwriter-end-move)`           |
 | `<leader>m` | `<Plug>(songwriter-toggle-minor-major)` |
 | `<leader>t` | `<Plug>(songwriter-toggle-tabmode)`     |
 | `<leader>p` | `<Plug>(songwriter-play)` (normal and visual) |
