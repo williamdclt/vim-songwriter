@@ -172,3 +172,66 @@ Then:
 Expect songwriter (3.6 a carry closes an open slot first):
   e|-----5--|
   B|--3-----|
+
+" === Visual mode (3.6.4) ===
+
+Given songwriter (3.6.4 visual <leader>k carries every selected note, the selection with them):
+  e|--------|
+  B|--5--3--|
+  G|--7-----|
+
+Execute (3.6.4 visual <leader>k carries every selected note, the selection with them):
+  call cursor(2, 5)
+  execute "normal \<C-V>j\\k\<Esc>"
+Then:
+  AssertEqual [1, 5], getpos("'<")[1:2]
+  AssertEqual [2, 5], getpos("'>")[1:2]
+
+Expect songwriter (3.6.4 visual <leader>k carries every selected note, the selection with them):
+  e|--5-----|
+  B|--7--3--|
+  G|--------|
+
+Given songwriter (3.6.4 visual <leader>j carries the notes a charwise selection touches):
+  e|--5--3--|
+  B|--------|
+
+Execute (3.6.4 visual <leader>j carries the notes a charwise selection touches):
+  call cursor(1, 4)
+  execute "normal vl\\j\<Esc>"
+Then:
+  AssertEqual [2, 4], getpos("'<")[1:2]
+  AssertEqual [2, 5], getpos("'>")[1:2]
+
+Expect songwriter (3.6.4 visual <leader>j carries the notes a charwise selection touches):
+  e|-----3--|
+  B|--5-----|
+
+Given songwriter (3.6.4 pressed again, the carry goes on in its run: a note replaced comes back):
+  e|-----|
+  B|--3--|
+  G|--5--|
+
+Execute (3.6.4 pressed again, the carry goes on in its run: a note replaced comes back):
+  call cursor(3, 5)
+  execute "normal v\\k\\k"
+
+Expect songwriter (3.6.4 pressed again, the carry goes on in its run: a note replaced comes back):
+  e|--5--|
+  B|--3--|
+  G|-----|
+
+Given songwriter (3.6.4 refused when a selected note has no string that way):
+  e|--3--|
+  B|--5--|
+
+Execute (3.6.4 refused when a selected note has no string that way):
+  call cursor(1, 5)
+  execute "normal \<C-V>j\\k\<Esc>"
+Then:
+  AssertEqual [1, 5], getpos("'<")[1:2]
+  AssertEqual [2, 5], getpos("'>")[1:2]
+
+Expect songwriter (3.6.4 refused when a selected note has no string that way):
+  e|--3--|
+  B|--5--|

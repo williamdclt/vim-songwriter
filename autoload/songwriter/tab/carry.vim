@@ -329,6 +329,73 @@ function! s:duplicate(dir, ctx) abort
   return has_key(l:step, 'error') ? {} : s:result(l:step)
 endfunction
 
+" Spec 3.6.4: visual `<leader>k` / `<leader>j` (`dir` -1 / 1) carry every note
+" the selection touches one string, and select the same part of the tab
+" around them again, so that pressing them again goes on in the run (3.6.2).
+" The tab is linted. A refusal is echoed, the selection kept.
+function! songwriter#tab#carry#Visual(dir) abort
+  let l:sel = songwriter#selection#Get()
+  execute "normal! \<Esc>"
+  let l:block = songwriter#tab#model#Read(l:sel.cursor[1])
+  if empty(l:block)
+    return songwriter#selection#Select(l:sel)
+  endif
+  let l:carry = s:running(l:block.top)
+  let l:going = !empty(l:carry) && l:carry.kind ==# 'visual'
+  if !l:going
+    let l:carry = s:lift_selection(l:block, l:sel)
+    if empty(l:carry.notes)
+      return songwriter#selection#Select(l:sel)
+    endif
+  endif
+  let l:step = songwriter#tab#carry#Step(l:carry, a:dir, 0, 0)
+  let l:res = has_key(l:step, 'error') ? l:step : songwriter#tab#carry#Render(l:step)
+  if has_key(l:res, 'error')
+    call songwriter#selection#Select(l:sel)
+    return songwriter#tab#edit#Error('songwriter: ' . l:res.error)
+  endif
+  let l:lint = songwriter#tab#lint#Lint(l:res.lines)
+  let l:map = songwriter#tab#colmap#Then(l:res.map, l:lint.map)
+  if l:going
+    silent! undojoin
+  endif
+  call songwriter#tab#edit#Write(l:block, {'lines': l:lint.lines, 'map': l:map,
+        \ 'base': l:res.home ? l:step.saved.origin : l:step.saved.base})
+  let l:new = copy(l:step.sel)
+  for l:end in ['anchor', 'cursor']
+    let [l:lin, l:col] = l:step.sel[l:end]
+    let l:lin = max([0, min([l:lin + l:step.dlin, len(l:block.lines) - 1])])
+    let l:new[l:end] = [0, l:block.start + l:lin, max([1, songwriter#tab#colmap#At(l:map, l:col)]), 0]
+  endfor
+  let l:new.cursor += [l:new.cursor[2]]
+  call songwriter#selection#Select(l:new)
+  call songwriter#tab#state#Set('carry', extend(l:step, {'line': line('.'), 'col': col('.')}))
+endfunction
+
+" The carry of the notes of `block` that selection `sel` touches, with the
+" selection's ends kept as [lin, col] of the block ('sel').
+function! s:lift_selection(block, sel) abort
+  let l:notes = []
+  for [l:lnum, l:first, l:last] in songwriter#selection#Spans(a:sel)
+    if l:lnum < a:block.start || l:lnum > a:block.end
+      continue
+    endif
+    let l:lin = l:lnum - a:block.start
+    let l:line = a:block.lines[l:lin]
+    for l:note in songwriter#tab#model#Notes(l:line)
+      if songwriter#tab#model#NoteEnd(l:note) >= l:first + 1 && l:note.col <= l:last + 1
+        call add(l:notes, s:note(l:line, l:lin, l:note))
+      endif
+    endfor
+  endfor
+  let l:lin = a:sel.cursor[1] - a:block.start
+  let l:carry = songwriter#tab#carry#Lift(a:block.lines, l:notes, 'visual', l:lin, a:sel.cursor[2])
+  let l:carry.saved = s:saved(a:block, l:carry)
+  let l:carry.sel = extend(copy(a:sel), {'anchor': [a:sel.anchor[1] - a:block.start, a:sel.anchor[2]],
+        \ 'cursor': [l:lin, a:sel.cursor[2]]})
+  return l:carry
+endfunction
+
 " === The move state (spec 3.8) ===
 
 " Whether the move state is on: entered with `m`, the cursor on a note of a tab

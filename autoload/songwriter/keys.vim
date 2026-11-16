@@ -130,7 +130,7 @@ let s:tabmode.o = {
       \ 'p': 'call songwriter#tab#operator#Doubled("p")',
       \ }
 
-" Spec 6.9.
+" Spec 6.9; 3.6.4: `<leader>k`/`<leader>j` carry the selected notes.
 let s:tabmode.x = {
       \ 'w': 'call songwriter#tab#visual#Motion("w")',
       \ 'b': 'call songwriter#tab#visual#Motion("b")',
@@ -151,6 +151,8 @@ let s:tabmode.x = {
       \ 'P': 'call songwriter#tab#visual#Put(v:register)',
       \ 'j': '=songwriter#tab#visual#Vertical("j")',
       \ 'k': '=songwriter#tab#visual#Vertical("k")',
+      \ '<leader>k': 'call songwriter#tab#carry#Visual(-1)',
+      \ '<leader>j': 'call songwriter#tab#carry#Visual(1)',
       \ }
 " Spec 6.1 / 6.9.1, 6.9.6: the text objects, the same after an operator
 " (operator.vim) and in visual mode (visual.vim): [key, function, kind,
