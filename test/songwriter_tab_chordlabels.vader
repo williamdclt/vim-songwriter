@@ -76,7 +76,7 @@ Expect songwriter (10.9 a span is not a chord label):
   A|--0--|
   E|-----|
 
-Given songwriter (10.9 a longer name pushes the next word right):
+Given songwriter (10.9 a longer name widens the tab so the next label keeps its column):
       G  C
   e|-----3--|
   B|--------|
@@ -85,18 +85,18 @@ Given songwriter (10.9 a longer name pushes the next word right):
   A|--------|
   E|--------|
 
-Execute (10.9 a longer name pushes the next word right):
+Execute (10.9 a longer name widens the tab so the next label keeps its column):
   call cursor(6, 5)
   execute "normal =Am7\<CR>"
 
-Expect songwriter (10.9 a longer name pushes the next word right):
+Expect songwriter (10.9 a longer name widens the tab so the next label keeps its column):
       Am7 C
-  e|--0--3--|
-  B|--1-----|
-  G|--0-----|
-  D|--2-----|
-  A|--0-----|
-  E|--------|
+  e|--0---3--|
+  B|--1------|
+  G|--0------|
+  D|--2------|
+  A|--0------|
+  E|---------|
 
 Given songwriter (10.9 == keeps the label):
   e|-----|
@@ -252,6 +252,75 @@ Execute (10.10 =<CR> replaces the chord label):
   execute "normal =\<CR>"
   AssertEqual '    C6', getline(1)
   AssertEqual 7, line('$')
+
+Given songwriter (10.10 a name too long for the gap widens the tab):
+        G
+  e|--3-3---|
+  B|--1-----|
+  G|--2-----|
+  D|--2-----|
+  A|--3-----|
+  E|--------|
+
+Execute (10.10 a name too long for the gap widens the tab):
+  call cursor(6, 5)
+  execute "normal =\<CR>"
+  AssertEqual [6, 5], [line('.'), col('.')]
+
+Expect songwriter (10.10 a name too long for the gap widens the tab):
+      C6 G
+  e|--3--3---|
+  B|--1------|
+  G|--2------|
+  D|--2------|
+  A|--3------|
+  E|---------|
+
+Given songwriter (10.10 a name too close to the previous label widens the tab before it):
+      Am7
+  e|--0--3--|
+  B|--1--1--|
+  G|--0--2--|
+  D|--2--2--|
+  A|--0--3--|
+  E|--------|
+
+Execute (10.10 a name too close to the previous label widens the tab before it):
+  call cursor(6, 8)
+  execute "normal =\<CR>"
+  AssertEqual [6, 9], [line('.'), col('.')]
+
+Expect songwriter (10.10 a name too close to the previous label widens the tab before it):
+      Am7 C6
+  e|--0---3--|
+  B|--1---1--|
+  G|--0---2--|
+  D|--2---2--|
+  A|--0---3--|
+  E|---------|
+
+Given songwriter (10.10 a span in the way still gives a new line):
+      PM-----
+  e|--3--3--|
+  B|--1-----|
+  G|--2-----|
+  D|--2-----|
+  A|--3-----|
+  E|--------|
+
+Execute (10.10 a span in the way still gives a new line):
+  call cursor(6, 5)
+  execute "normal =\<CR>"
+
+Expect songwriter (10.10 a span in the way still gives a new line):
+      PM-----
+      C6
+  e|--3--3--|
+  B|--1-----|
+  G|--2-----|
+  D|--2-----|
+  A|--3-----|
+  E|--------|
 
 Given songwriter (10.10 refused when no chord fits):
   e|--0--|
@@ -429,6 +498,29 @@ Expect songwriter (A10.2 =Am on a label replaces it):
   D|--2--|
   A|--0--|
   E|-----|
+
+Given songwriter (A10.2 a longer name widens the tab, the cursor staying on the label):
+      G C
+  e|--------|
+  B|--------|
+  G|----1---|
+  D|--------|
+  A|--------|
+  E|--------|
+
+Execute (A10.2 a longer name widens the tab, the cursor staying on the label):
+  call cursor(1, 5)
+  execute "normal =Am7\<CR>"
+  AssertEqual [1, 5], [line('.'), col('.')]
+
+Expect songwriter (A10.2 a longer name widens the tab, the cursor staying on the label):
+      Am7 C
+  e|--0-------|
+  B|--1-------|
+  G|--0---1---|
+  D|--2-------|
+  A|--0-------|
+  E|----------|
 
 Given songwriter (A10.2 a quality alone keeps the label's root):
       A

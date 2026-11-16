@@ -233,7 +233,8 @@ endfunction
 
 " Spec 6: annotation lines `above` with `text` written at column `col`: on the
 " last line (right above the strings) when it fits there, with a blank or the
-" line's end on each side, else on a new line under the others.
+" line's end on each side, else on a new line under the others. Edits make the
+" room first when they can (Room).
 function! songwriter#tab#annotations#Add(above, col, text) abort
   let l:width = strdisplaywidth(a:text)
   let l:last = empty(a:above) ? '' : a:above[-1]
@@ -319,6 +320,40 @@ function! songwriter#tab#annotations#ChordLabel(above, col) abort
     endfor
   endfor
   return {}
+endfunction
+
+" Spec [Tablature][[Editing]] 10.9, [[Annotations]] 6: the room the tab must
+" make so that `text`, the chord label of column `col` written as Label does
+" (`add` as there), keeps one space from the words on each side on its line:
+" {'before': columns to insert right before `col`, 'after': columns to insert
+" after `end` (the column's last)}. The words must follow the music: none for
+" a word that a widened tab does not move away (a span over `col`, a word
+" starting on the column), for which Add writes on a new line instead.
+function! songwriter#tab#annotations#Room(above, col, text, end, add) abort
+  let l:none = {'before': 0, 'after': 0}
+  let l:label = songwriter#tab#annotations#ChordLabel(a:above, a:col)
+  if !empty(l:label)
+    let l:words = songwriter#tab#annotations#Words(a:above[l:label.i])
+  elseif a:add && !empty(a:above)
+    let l:words = songwriter#tab#annotations#Words(a:above[-1])
+  else
+    return l:none
+  endif
+  let l:prev = filter(copy(l:words), 'v:val.col < a:col')
+  let l:next = filter(copy(l:words), 'v:val.col > a:col')
+  if !empty(filter(copy(l:words), 'v:val.col == a:col')) && empty(l:label)
+        \ || !empty(l:prev) && l:prev[-1].col + l:prev[-1].width > a:col
+        \ || !empty(l:next) && l:next[0].col <= a:end
+    return l:none
+  endif
+  let l:room = copy(l:none)
+  if !empty(l:prev)
+    let l:room.before = max([0, l:prev[-1].col + l:prev[-1].width + 1 - a:col])
+  endif
+  if !empty(l:next)
+    let l:room.after = max([0, a:col + strdisplaywidth(a:text) + 1 - l:next[0].col])
+  endif
+  return l:room
 endfunction
 
 " Spec [Tablature][[Editing]] 10.9, [[Annotations]] 6: annotation lines
