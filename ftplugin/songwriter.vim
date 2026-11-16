@@ -22,9 +22,6 @@ let s:plug_keys = {
       \ '<C-X>': 'songwriter-transpose-down',
       \ ']': 'songwriter-transpose-up',
       \ '[': 'songwriter-transpose-down',
-      \ '<leader>k': 'songwriter-duplicate-up',
-      \ '<leader>j': 'songwriter-duplicate-down',
-      \ '<leader>': 'songwriter-end-move',
       \ '<leader>m': 'songwriter-toggle-minor-major',
       \ '<leader>t': 'songwriter-toggle-tabmode',
       \ '<leader>p': 'songwriter-play',
@@ -72,6 +69,14 @@ let b:undo_ftplugin .= '| exe "autocmd! songwriter_column * <buffer>" | call son
 
 " Spec [Tablature][[Annotations]] 8.2: an annotation changed with `cia` is
 " tidied when insert mode is left.
+" Spec [Tablature][[Editing]] 3.8.4: the move state ends when the cursor
+" leaves the notes.
+augroup songwriter_move
+  autocmd! * <buffer>
+  autocmd CursorMoved,TextChanged <buffer> call songwriter#tab#carry#Check()
+augroup END
+let b:undo_ftplugin .= '| exe "autocmd! songwriter_move * <buffer>" | unlet! b:songwriter_moving'
+
 augroup songwriter_annotate
   autocmd! * <buffer>
   autocmd InsertLeave <buffer> call songwriter#tab#annotate#Leave()

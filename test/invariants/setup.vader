@@ -70,7 +70,7 @@ Execute (corpus and helpers):
   " [lnum, col], as a fresh undo step.
   let g:InvLoad = {lines, pos -> [
         \ execute('silent %delete _'),
-        \ execute('unlet! b:songwriter_slot b:songwriter_typing b:songwriter_insert b:songwriter_carry b:songwriter_repeat b:songwriter_voicing'),
+        \ execute('unlet! b:songwriter_slot b:songwriter_typing b:songwriter_insert b:songwriter_carry b:songwriter_repeat b:songwriter_voicing b:songwriter_moving'),
         \ execute('let b:songwriter_tabmode = 1'),
         \ setline(1, lines),
         \ execute('let &undolevels = &undolevels'),
