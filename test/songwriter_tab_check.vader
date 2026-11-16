@@ -1,0 +1,65 @@
+" The rules of the music, checked on every edit when g:songwriter_check is set
+" (tab/check.vim, design.md "Checking the rules"). Pure.
+
+Execute (an edit that keeps every note where its map puts it breaks no rule):
+  let old = ['e|--3--5--|', 'B|--1-----|']
+  let new = ['e|--3---5--|', 'B|--1------|']
+  AssertEqual [], songwriter#tab#check#Errors(old, new, songwriter#tab#colmap#Insert(5, 1), [], [])
+
+Execute (a deleted column takes its notes with it):
+  let old = ['e|--3--5--|', 'B|--1--2--|']
+  let new = ['e|--3--|', 'B|--1--|']
+  AssertEqual [], songwriter#tab#check#Errors(old, new, songwriter#tab#colmap#Delete(6, 8), [], [])
+
+Execute (a note that is no longer where its map puts it is a broken rule):
+  let old = ['e|--3--5--|']
+  let new = ['e|--3--6--|']
+  AssertEqual ['note e 8 (5) -> 8: 6'], songwriter#tab#check#Errors(old, new, [], [], [])
+
+Execute (a note the edit erased or wrote may change):
+  let old = ['e|--3--5--|']
+  let new = ['e|--3--6--|']
+  AssertEqual [], songwriter#tab#check#Errors(old, new, [], [{'lin': 0, 'col': 8}], [])
+  AssertEqual [], songwriter#tab#check#Errors(old, new, [], [], [{'lin': 0, 'col': 8}])
+
+Execute (two notes joined into one fret break the rule):
+  let old = ['e|--10-12--|', 'B|----5----|']
+  let new = ['e|--1012--|', 'B|----5---|']
+  AssertEqual ['note e 5 (10) -> 5: 1012', 'note e 8 (12) -> 7: 1012'],
+        \ songwriter#tab#check#Errors(old, new, songwriter#tab#colmap#Delete(7, 7), [], [])
+
+Execute (a note written right after another one joins them: the old one changed):
+  let old = ['e|--12-----|', 'B|----3----|']
+  let new = ['e|--124----|', 'B|----3----|']
+  AssertEqual ['note e 5 (12) -> 5: 124', 'written e 7: 124'],
+        \ songwriter#tab#check#Errors(old, new, [], [], [{'lin': 0, 'col': 7}])
+
+Execute (two chains made one break the rule):
+  let old = ['e|--5-/7--|']
+  let new = ['e|--5/7--|']
+  AssertEqual ['chains e 5, 8 joined'],
+        \ songwriter#tab#check#Errors(old, new, songwriter#tab#colmap#Delete(6, 6), [], [])
+
+Execute (notes that started together and no longer do break the rule):
+  let old = ['e|--12--3---|', 'B|---3--12--|']
+  let lint = songwriter#tab#lint#Lint(old)
+  Assert !empty(songwriter#tab#check#Errors(old, lint.lines, lint.map, [], []))
+
+Execute (pipes out of line after a lint break the rule):
+  AssertEqual ['pipes not aligned'], songwriter#tab#check#Linted(['e|--3--|', 'B|---|'])
+  AssertEqual [], songwriter#tab#check#Linted(['e|--3--|', 'B|-----|'])
+
+Execute (a broken rule throws in check mode, naming the edit):
+  let g:songwriter_check = 1
+  AssertThrows call songwriter#tab#check#Edit('x', ['e|--3--5--|'], ['e|--3--6--|'], [], [], [])
+  Assert g:vader_exception =~# 'songwriter: check: x: note e 8'
+  let g:songwriter_check = 0
+  call songwriter#tab#check#Edit('x', ['e|--3--5--|'], ['e|--3--6--|'], [], [], [])
+  unlet g:songwriter_check
+
+Execute (of a tab whose pipes are not aligned, only each string's notes in order are checked):
+  let old = ['e|-----5h7----|---|', 'B|---3/5--|--12b14--|']
+  let lint = songwriter#tab#lint#Lint(old)
+  AssertEqual [], songwriter#tab#check#Errors(old, lint.lines, lint.map, [], [])
+  AssertEqual ['notes B 3 5 12 14 -> 3 5 1214'],
+        \ songwriter#tab#check#Errors(old, ['e|----5h7--|---------|', 'B|--3/5----|--1214---|'], [], [], [])

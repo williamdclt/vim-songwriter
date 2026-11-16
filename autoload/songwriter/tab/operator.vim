@@ -165,7 +165,7 @@ endfunction
 " note column (6.11).
 function! s:write_deleted(op, block, res, s) abort
   let l:anchor = s:slot_anchor(a:res.lines, songwriter#tab#model#CursorLin(a:block), a:s)
-  let l:res = {'lines': a:res.lines, 'map': a:res.map}
+  let l:res = {'lines': a:res.lines, 'map': a:res.map, 'erased': get(a:res, 'erased', [])}
   if a:op ==# 'c'
     call s:commit(extend(l:res, {'col': l:anchor[0]}))
     if l:anchor[1] == 0
@@ -209,7 +209,7 @@ function! s:noteop(op, reg, block, s, e, exact) abort
   if l:res.removed
     call s:write_deleted(a:op, a:block, l:res, l:res.col)
   else
-    call s:commit({'lines': l:res.lines, 'map': l:res.map})
+    call s:commit({'lines': l:res.lines, 'map': l:res.map, 'erased': l:res.erased})
   endif
 endfunction
 
@@ -246,7 +246,7 @@ function! s:across(op, reg, block, a) abort
   if l:res.removed
     call s:write_deleted(a:op, a:block, l:res, l:res.col)
   else
-    call s:commit({'lines': l:res.lines, 'map': l:res.map})
+    call s:commit({'lines': l:res.lines, 'map': l:res.map, 'erased': l:res.erased})
   endif
 endfunction
 
@@ -302,7 +302,8 @@ function! songwriter#tab#operator#ApplyLines(op, reg, l1, l2) abort
         continue
       endif
       let l:new = songwriter#tab#edit#Do({ctx -> {'lines': songwriter#tab#columns#ClearNotes(ctx.block.lines),
-            \ 'map': [], 'annotations': [{'op': 'clear'}]}}, {'lnum': l:lnum, 'prelint': 0})
+            \ 'map': [], 'annotations': [{'op': 'clear'}],
+            \ 'erased': songwriter#tab#check#Notes(ctx.block.lines)}}, {'lnum': l:lnum, 'prelint': 0})
       let l:shift = l:new.end - l:block.end
       if l:cur >= l:block.start
         let l:cur += l:shift

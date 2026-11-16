@@ -32,7 +32,7 @@ function! songwriter#tab#columns#EraseNotes(lines, lin, s, e) abort
     let l:rows = map(l:rows, 'v:val . l:r[v:key]')
   endfor
   return {'lines': l:res.lines, 'rows': l:rows, 'col': l:res.col, 'removed': l:res.removed,
-        \ 'map': l:res.map}
+        \ 'map': l:res.map, 'erased': l:res.erased}
 endfunction
 
 " Erase the notes `notes` ([{'lin', 'col'}], any column of each note, on any
@@ -40,7 +40,7 @@ endfunction
 " column does not shift the next ones; on one column, the last note erased
 " takes the column with it when it goes (6.7.2). {'lines', 'rows' (what `x`
 " writes for each note, left to right), 'col' (the leftmost note's start),
-" 'removed' (a column went), 'map'}.
+" 'removed' (a column went), 'map', 'erased' (check.vim)}.
 function! songwriter#tab#columns#EraseSet(lines, notes) abort
   let l:notes = map(copy(a:notes), {_, n -> extend(copy(n),
         \ {'col': songwriter#tab#model#NoteAt(a:lines[n.lin], n.col).col})})
@@ -54,8 +54,9 @@ function! songwriter#tab#columns#EraseSet(lines, notes) abort
     let l:lines = l:res.lines
     let l:map = songwriter#tab#colmap#Then(l:map, l:res.map)
   endfor
+  " Right to left, each note is where it was in `lines` when it is erased.
   return {'lines': l:lines, 'rows': l:rows, 'col': l:notes[-1].col,
-        \ 'removed': len(l:lines[0]) < len(a:lines[0]), 'map': l:map}
+        \ 'removed': len(l:lines[0]) < len(a:lines[0]), 'map': l:map, 'erased': l:notes}
 endfunction
 
 " The columns [s, e] of every line (short lines padded with dashes).
@@ -100,7 +101,7 @@ endfunction
 " until no other string loses a note or separator there, nor has two of its
 " notes or chains joined. When not even the note's own columns can go, the
 " note and its separators become dashes, as on a shared column. Returns
-" {'lines', 'col', 'rows', 'map'} where rows is what `ac` would yank with the
+" {'lines', 'col', 'rows', 'map', 'erased' (check.vim)} where rows is what `ac` would yank with the
 " other strings as dashes (6.7.3), or {} off a note.
 function! songwriter#tab#columns#EraseNote(lines, lin, col) abort
   let l:note = songwriter#tab#model#NoteAt(a:lines[a:lin], a:col)
@@ -134,7 +135,8 @@ function! songwriter#tab#columns#EraseNote(lines, lin, col) abort
     let l:del = songwriter#tab#columns#DeleteRange(l:out, l:c, l:end)
     let [l:out, l:map] = [l:del.lines, l:del.map]
   endif
-  return {'lines': l:out, 'col': l:c, 'rows': l:rows, 'map': l:map}
+  return {'lines': l:out, 'col': l:c, 'rows': l:rows, 'map': l:map,
+        \ 'erased': [{'lin': a:lin, 'col': l:c}]}
 endfunction
 
 " True when columns [s, e] can be removed from every line but `lin` without
@@ -213,14 +215,16 @@ endfunction
 "   other string's time column; the rest of the room is dashes inserted on
 "   every string between it and the next time column, so all that follows
 "   moves together. A separator right after it stays attached to it.
-" Returns {'lines', 'col' (where it went), 'map'}, or {'error'} when the
-" room would cut a note in two on another string. Only the dashes inserted
-" move time columns.
+" Returns {'lines', 'col' (where it went), 'map', 'erased' (the note it
+" rewrites), 'written' (the note), check.vim}, or {'error'} when the room
+" would cut a note in two on another string. Only the dashes inserted move
+" time columns.
 function! songwriter#tab#columns#WriteNote(lines, lin, c, old, text) abort
   let l:lines = copy(a:lines)
   let l:map = []
   let l:c = a:c
   let l:t = l:lines[a:lin]
+  let l:erased = a:old > 0 ? [{'lin': a:lin, 'col': a:c}] : []
   if a:old == 0
     if s:in_chain(l:t, l:c)
       return {'error': printf('string %s already has a note there', songwriter#tab#model#Name(l:t))}
@@ -242,7 +246,12 @@ function! songwriter#tab#columns#WriteNote(lines, lin, c, old, text) abort
     let l:rest = empty(l:chain) ? '' : strpart(l:t, l:end, songwriter#tab#model#NoteEnd(l:chain) - l:end)
     let l:lines[a:lin] = songwriter#tab#model#Splice(l:t, l:c, a:old + len(l:rest),
           \ a:text . l:rest . repeat('-', a:old - l:w))
-    return {'lines': l:lines, 'col': l:c, 'map': l:map}
+    " The notes of the rest of the chain move with it.
+    let l:moved = a:old > l:w ? songwriter#tab#model#RowNotes(l:rest) : []
+    return {'lines': l:lines, 'col': l:c, 'map': l:map,
+          \ 'erased': l:erased + map(copy(l:moved), {_, n -> {'lin': a:lin, 'col': l:end + n.col}}),
+          \ 'written': [{'lin': a:lin, 'col': l:c}]
+          \   + map(copy(l:moved), {_, n -> {'lin': a:lin, 'col': l:c + l:w - 1 + n.col}})}
   endif
   let l:free = len(matchstr(l:t, songwriter#grammar#DashRun(), l:end))
   let l:next = l:t[l:end + l:free : l:end + l:free]
@@ -271,7 +280,8 @@ function! songwriter#tab#columns#WriteNote(lines, lin, c, old, text) abort
   endif
   let l:t = songwriter#tab#model#Pad(l:lines[a:lin], l:c + l:w - 1)
   let l:lines[a:lin] = songwriter#tab#model#Splice(l:t, l:c, l:w, a:text)
-  return {'lines': l:lines, 'col': l:c, 'map': l:map}
+  return {'lines': l:lines, 'col': l:c, 'map': l:map, 'erased': l:erased,
+        \ 'written': [{'lin': a:lin, 'col': l:c}]}
 endfunction
 
 " Write `text`, a note, on the dashes at column `c` of line `to`

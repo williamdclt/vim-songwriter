@@ -116,7 +116,8 @@ endfunction
 " separators before it), or back where it was lifted with another fret, or
 " on dashes. Returns {'lines', 'map'
 " (where the columns of the base went), 'lin', 'col' (the cursor), 'home' (1
-" when the notes are back where they started: the origin, untouched)}, or
+" when the notes are back where they started: the origin, untouched),
+" 'erased', 'written' (the notes it replaces and writes, check.vim)}, or
 " {'error'}.
 function! songwriter#tab#carry#Render(carry) abort
   if a:carry.dlin == 0 && empty(filter(copy(a:carry.notes), 'v:val.text !=# v:val.text0'))
@@ -124,6 +125,7 @@ function! songwriter#tab#carry#Render(carry) abort
   endif
   let l:lines = copy(a:carry.base)
   let l:map = []
+  let [l:erased, l:written] = [[], []]
   " Right to left, so that the room one note makes moves the notes already
   " written, never one still to write.
   for l:n in sort(copy(a:carry.notes), {a, b -> b.col - a.col})
@@ -136,6 +138,7 @@ function! songwriter#tab#carry#Render(carry) abort
         let l:old = l:there.len
       else
         let l:lines[l:to] = songwriter#tab#model#Blank(l:lines[l:to], l:there)
+        call add(l:erased, {'lin': l:to, 'col': l:there.col})
       endif
     elseif a:carry.dlin == 0
       " Lifted from there: its columns are dashes in the base.
@@ -147,6 +150,10 @@ function! songwriter#tab#carry#Render(carry) abort
     endif
     let l:lines = l:room.lines
     let l:map = songwriter#tab#colmap#Then(l:map, l:room.map)
+    " Right to left, a note's column in the base is where it is erased.
+    let l:erased += l:room.erased
+    let l:written = songwriter#tab#colmap#Positions(l:written, l:room.map)
+          \ + [{'lin': l:to, 'col': l:room.col + len(l:n.pre)}]
   endfor
   if a:carry.cur >= 0
     let l:n = a:carry.notes[a:carry.cur]
@@ -158,7 +165,8 @@ function! songwriter#tab#carry#Render(carry) abort
     let l:n = a:carry.notes[0]
     let l:col = songwriter#tab#colmap#At(l:map, l:n.col) + len(l:n.pre)
   endif
-  return {'lines': l:lines, 'map': l:map, 'lin': l:lin, 'col': l:col, 'home': 0}
+  return {'lines': l:lines, 'map': l:map, 'lin': l:lin, 'col': l:col, 'home': 0,
+        \ 'erased': l:erased, 'written': l:written}
 endfunction
 
 " Spec 3.6, 7.1: the notes `s`/`S` take from column `col` of line `lin`: the
@@ -284,6 +292,7 @@ function! s:result(carry) abort
     return l:res
   endif
   return {'lines': l:res.lines, 'map': l:res.map, 'lin': l:res.lin, 'col': l:res.col,
+        \ 'erased': get(l:res, 'erased', []), 'written': get(l:res, 'written', []),
         \ 'base': l:res.home ? a:carry.saved.origin : a:carry.saved.base,
         \ 'state': {'carry': a:carry}}
 endfunction

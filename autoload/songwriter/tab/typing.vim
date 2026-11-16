@@ -56,6 +56,7 @@ function! s:enter_note(digit, here, after_separator, ctx) abort
   let l:col = a:ctx.col
   let l:note = songwriter#tab#model#NoteAt(l:line, l:col)
   let l:map = []
+  let l:erased = []
   if a:after_separator
     let l:ins = songwriter#tab#model#InsertColumns(l:lines, l:col, 1, '-')
     let [l:lines, l:map] = [l:ins.lines, l:ins.map]
@@ -68,12 +69,14 @@ function! s:enter_note(digit, here, after_separator, ctx) abort
     if has_key(l:res, 'error')
       return l:res
     endif
-    let [l:lines, l:map] = [l:res.lines, l:res.map]
+    let [l:lines, l:map, l:erased] = [l:res.lines, l:res.map, l:res.erased]
     let l:col = l:note.col + (l:append ? len(l:text) - 1 : 0)
   else
     let l:lines[a:ctx.lin] = l:line[0 : l:col - 2] . a:digit . l:line[l:col :]
   endif
-  return {'lines': l:lines, 'col': l:col, 'map': l:map, 'state': {'typing': {}}}
+  let l:written = songwriter#tab#model#NoteAt(l:lines[a:ctx.lin], l:col)
+  return {'lines': l:lines, 'col': l:col, 'map': l:map, 'state': {'typing': {}},
+        \ 'erased': l:erased, 'written': [{'lin': a:ctx.lin, 'col': get(l:written, 'col', l:col)}]}
 endfunction
 
 " Spec 3.4.1.1: true when appending `digit` to the note `text` makes a fret:

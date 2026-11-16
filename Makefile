@@ -26,6 +26,7 @@ test: $(VADER)
 		-c "filetype plugin on" \
 		-c "runtime plugin/vader.vim" \
 		-c "runtime plugin/songwriter.vim" \
+		-c "let g:songwriter_check = 1" \
 		-c "Vader! $*.vader" \
 		-c "qa!" </dev/null >/dev/null 2>&1; then \
 		echo "ok   $*.vader: $$(grep -o 'Success/Total: [0-9/]*' $$log | tail -1)"; \

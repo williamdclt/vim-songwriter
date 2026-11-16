@@ -42,7 +42,7 @@ Execute (motions in the normal state never change the file):
       for g:inv_keys in ['l', 'h', 'w', 'b', 'e', 'ge', 'W', 'B', 'E', 'L', 'H']
         call g:InvLoad(g:inv_tab.lines, g:inv_pos)
         let g:inv_tick = b:changedtick
-        silent! call feedkeys(g:inv_keys, 'xt')
+        call InvType(g:inv_keys)
         if b:changedtick != g:inv_tick
           call add(g:inv_failures, g:InvCase(g:inv_tab, g:inv_pos, g:inv_keys))
         endif
@@ -61,7 +61,7 @@ Execute (playing never changes the file):
       for g:inv_keys in ["\\pp", "\\P", "\\pw", "\\pj", "\\pi|", "\\pap", "V\\p"]
         call g:InvLoad(g:inv_tab.lines, g:inv_pos)
         let g:inv_tick = b:changedtick
-        silent! call feedkeys(g:inv_keys, 'xt')
+        call InvType(g:inv_keys)
         if b:changedtick != g:inv_tick
           call add(g:inv_failures, g:InvCase(g:inv_tab, g:inv_pos, g:inv_keys))
         endif
