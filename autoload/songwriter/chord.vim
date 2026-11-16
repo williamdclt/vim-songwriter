@@ -3,9 +3,6 @@
 
 " === Chord model (constants + private helpers) ===
 
-" The column Vim reports and accepts for "to the end of the line".
-let s:eol = 2147483647
-
 " {name, root, quality, bass} for a whole chord token, or {} when the token is
 " not a chord (grammar ParseChord). `bass` is '' for a chord without `/bass`.
 function! s:chord_parse(name) abort
@@ -132,26 +129,11 @@ endfunction
 " again.
 function! songwriter#chord#TransposeVisual(semitones) abort
   let l:n = str2nr(a:semitones)
-  let l:mode = mode()
-  let l:to_eol = winsaveview().curswant >= s:eol
-  let [l:p, l:q] = [getpos('v'), getpos('.')]
-  let [l:anchor, l:cursor] = [l:p, getcurpos()]
+  let l:sel = songwriter#selection#Get()
   execute "normal! \<Esc>"
-  if l:p[1] > l:q[1] || (l:p[1] == l:q[1] && l:p[2] > l:q[2])
-    let [l:p, l:q] = [l:q, l:p]
-  endif
-  let [l:lcol, l:rcol] = [min([l:p[2], l:q[2]]) - 1, max([l:p[2], l:q[2]]) - 1]
   let l:tabmode = songwriter#keys#InTabMode()
   let l:frets = []
-  for l:lnum in range(l:p[1], l:q[1])
-    if l:mode ==# 'V'
-      let [l:first, l:last] = [0, s:eol]
-    elseif l:mode ==# 'v'
-      let l:first = l:lnum == l:p[1] ? l:p[2] - 1 : 0
-      let l:last = l:lnum == l:q[1] ? l:q[2] - 1 : s:eol
-    else
-      let [l:first, l:last] = [l:lcol, l:to_eol ? s:eol : l:rcol]
-    endif
+  for [l:lnum, l:first, l:last] in songwriter#selection#Spans(l:sel)
     let l:line = getline(l:lnum)
     if l:first >= len(l:line)
       continue
@@ -168,19 +150,7 @@ function! songwriter#chord#TransposeVisual(semitones) abort
     endif
   endfor
   call songwriter#tab#frets#IncrementIn(l:frets, l:n)
-  call s:reselect(l:mode, l:anchor, l:cursor, l:to_eol)
-endfunction
-
-" Start visual mode `mode` from position `anchor` (getpos()) to `cursor`
-" (getcurpos(), whose curswant sets a blockwise selection's right edge);
-" `to_eol` extends a blockwise selection to the end of every line (`$`).
-function! s:reselect(mode, anchor, cursor, to_eol) abort
-  call setpos('.', a:anchor)
-  execute 'normal! ' . a:mode
-  call setpos('.', a:cursor)
-  if a:to_eol
-    normal! $
-  endif
+  call songwriter#selection#Select(l:sel)
 endfunction
 
 " Vim's own visual <Ctrl-A>/<Ctrl-X> by |n| on 0-indexed columns [first, last]

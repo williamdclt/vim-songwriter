@@ -171,12 +171,12 @@ Given songwriter (a label over a note alone in its column):
   e|--0--3--------|
   B|-----------5--|
 
-Execute (4.5 a note carried alone in its column takes its label along, and back):
+Execute (4.5 a note carried to another string keeps its column's label, and back gives the tab as it was):
   call cursor(2, 8)
-  call songwriter#tab#insert#Enter()
-  execute "normal \<Right>"
-  AssertEqual ['    Am x', 'e|--0--3--|', 'B|-----5--|'], getline(1, '$')
-  execute "normal \<Left>"
+  execute "normal \\j"
+  AssertEqual '    Am x', getline(1)
+  AssertEqual [3, 8], [line('.'), col('.')]
+  execute "normal \\k"
   AssertEqual ['    Am x', 'e|--0--3--------|', 'B|-----------5--|'], getline(1, '$')
 
 Given songwriter (a label over an empty bar at the end):

@@ -24,8 +24,9 @@ never relies on concealing or rendering.
 | `autoload/songwriter/tab/insert.vim` | The insert state of tablature mode: entering, keeping, leaving it, and `<Esc>`. |
 | `autoload/songwriter/tab/typing.vim` | Typing notes and separators: digits, `x` on a dash, separators after a note (`EnterNote`, `EnterSeparator`). |
 | `autoload/songwriter/tab/motion.vim` | Tablature-mode motions at the cursor (`w`/`b`/`e`/`ge`, `l`/`h`, `L`/`H`, `W`/`B`/`E`), and the slots the insert state opens on the way. |
-| `autoload/songwriter/tab/stops.vim` | Where motions stop and what string motions cover after an operator, pure (`Stops`, `Advance`, `BarStop`, `StringMotion`), and the insert state's positions and how `l`/`h` and the arrows step through them (`Step`). |
-| `autoload/songwriter/tab/carry.vim` | Carrying a note with the arrow keys in the insert state, and duplicating one to carry its copy with `hjkl`. |
+| `autoload/songwriter/tab/stops.vim` | Where motions stop and what string motions cover after an operator, pure (`Stops`, `Advance`, `BarStop`, `StringMotion`), and the insert state's positions and how `l`/`h` step through them (`Step`). |
+| `autoload/songwriter/tab/carry.vim` | Carrying notes across strings: the pure carry (`Lift`, `Copy`, `Step`, `Render`, `Move`), `<leader>k`/`<leader>j` and `s`/`S`, copies, visual carries and the move state (`m`). |
+| `autoload/songwriter/selection.vim` | The visual selection, for actions that change the text from visual mode and select again (`Get`, `Spans`, `Select`). |
 | `autoload/songwriter/tab/newtab.vim` | New tabs: `o`/`O` and `:SongwriterNewTab`. |
 | `autoload/songwriter/tab/state.vim` | Buffer state valid only while `b:changedtick` is unchanged (slot, insert state, digit being typed, carried note, `.`). |
 | `autoload/songwriter/tab/lint.vim` | The linter, as a pure function over a block's lines. |
@@ -41,7 +42,6 @@ never relies on concealing or rendering.
 | `autoload/songwriter/tab/repeat.vim` | `.` for actions that are not operators. |
 | `autoload/songwriter/tab/voicings.vim` | Whole chords on a time column: voicings of a chord name in their cycle order, placing one (pure), and `=`/`==`. |
 | `autoload/songwriter/tab/chordname.vim` | Naming the chord on a time column (`<leader>?`), and writing that name as its label (`=<CR>`): the column's pitches, named by `chord#Identify`. |
-| `autoload/songwriter/tab/strings.vim` | Moving notes and time columns to another string, keeping the fret or the pitch: pure `Move()` and its entry point. |
 | `autoload/songwriter/tab/play.vim` | Playing a tab: open string pitches, the steps a target plays (pure), handed to `sound.vim`. |
 | `autoload/songwriter/sound.vim` | Plucked-string synthesis into cached WAV files, the player command, and the timers and jobs that play steps. |
 | `autoload/songwriter/sound9.vim` | The synthesis loop in compiled Vim9 script, used on Vim 9. |
@@ -186,8 +186,9 @@ cannot tell which of the columns of a repeated riff `dd` deleted).
   inside the bar: `s:in_bar`, used by both); a trailing empty bar lint drops
   is deleted. The top string stands for the block's pipes, which are aligned
   in any tab lint has seen once.
-- `carry#Lift` maps the tab to the base, and `carry#Render` the base to the
-  rendered tab, except back at the origin, which is the origin itself.
+- `carry#Lift` keeps every column (the base only blanks the carried notes),
+  and `carry#Render` maps the base to the rendered tab, except back at the
+  origin, which is the origin itself.
 
 ### Annotations (spec [Tablature][[Annotations]])
 
@@ -218,10 +219,8 @@ part of the tab, and follow its music through every edit.
   included: an edit that does not touch it leaves no trace in it.
 - **Exact restores stay exact.** A slot's mark and a carry's origin are
   snapshots, annotations included, so giving the tab back gives them back. A
-  carry renders from its base snapshot, whose annotations followed the lift;
-  the words the lift deleted (those of a note alone in its column,
-  `annotations#Cut`) travel with the note as words of the draft (`put`), at
-  the note's new column.
+  carry renders from its base snapshot, which has the origin's columns, so
+  its annotations are the origin's.
 - **Registers carry the words a deletion takes.** A column or bar register
   has the annotations deleted with it (for a yank, those a deletion would
   delete) as rows above the strings' rows, so it stays a plain blockwise
@@ -389,9 +388,7 @@ text, and arrow keys would be needed).
   too. On a note column, `l` is `a` and `h` is `i`. On the open slot, they close
   it and move on. Where a slot is, is a *position* (`stops#Step`): a column,
   the gap after or before a column (the side it was entered from), an empty
-  bar, a new bar. The arrows carry a note through the same positions (3.6), so
-  `l`/`h` and `<Right>`/`<Left>` go to the same places and open gaps the same
-  way, by construction. From a slot, the move goes on from its position:
+  bar, a new bar. From a slot, the move goes on from its position:
   towards the column it was opened from it lands back on it, away from it it
   goes to the next stop. A slot that is part of a bigger edit (`c`, `o`) has no
   position and goes on to the next stop. So from `3` in `3-5`, `l` `l` `l` gives slot, `5`, slot; each gap
@@ -462,42 +459,7 @@ text, and arrow keys would be needed).
   it. Those keys lose their meaning only for that one keystroke, where moving
   or pasting is rare; `\` is left out as it is the default `<leader>`.
 
-- **Carrying a note with the arrows (3.6)** (`tab/carry.vim`): the arrows are
-  free in tablature mode (`hjkl` are taken), and moving a note is a drag, so it
-  belongs to the insert state, next to typing. The first arrow lifts the note
-  as `x` erases it; the rest of the tab, the *base*, is kept with the carry
-  state (tied to `b:changedtick`, so any other edit ends the carry). Each arrow
-  moves a position over the base along the insert-state stops of `l`/`h`
-  (`stops#Step`, shared with them), and the tab is rendered again from the base
-  with the note there. A gap is opened from the side it is entered, as `a`
-  (`<Right>`) or `i` (`<Left>`) would; it is named after the column before it
-  only to recognise the start position. Rendering
-  from the base rather than editing the last result is what puts back a note
-  the carried one replaced and closes a gap it opened, with no bookkeeping of
-  what was overwritten; the start position renders the original lines, so
-  coming back leaves no trace. Moves after the first are joined to its undo
-  step. The base keeps as many bars as the tab had, even when the lifted note
-  leaves the last ones empty (which lint would drop): they stay stops for the
-  note to go back to (3.3.4). Back from a new bar, the note goes to the gap
-  after the last column, where it came from, rather than onto that column as
-  `h` does from the new bar's slot (5): `h` lands the cursor on a note, but a
-  carried note would replace it. Off a note the arrows keep their meaning (`carry#Key` returns the
-  arrow itself), so they still move the cursor out of a slot.
-- **Duplicating a note (3.7)**: `<leader>k`/`<leader>j` are a carry whose
-  base is the whole tab, note included (`carry#Copy`), started one string
-  away. Rendering the copy over that base never touches the original, and
-  carrying the copy back onto it renders the tab as it was, so nothing new is
-  needed beyond the carry's render. Positioning the copy is the next thing
-  done, so the move follows at once with `hjkl` as the arrows: a dispatch
-  context of its own (`s:moving` in `keys.vim`, checked first), active while
-  the carry is marked `moving`, the insert state is on and the cursor is on
-  the copy (`carry#Moving`). It needs no state of its own to end: any edit,
-  cursor move off the copy or leaving the insert state (`<Esc>`, or a lone
-  `<leader>`, `carry#EndMove`) gives `hjkl` back. A lone `<leader>` map makes
-  Vim wait 'timeoutlen' after it, as any leader prefix already does. A leader
-  that is also a context key (`<Space>`, which is `l` in the insert state)
-  has only the context map, which replaces the `<leader>` one, so `Dispatch`
-  recognises the leader itself while a copy is moved.
+- **Carrying notes (3.6-3.8)**: see "Carrying notes across strings" below.
 
 ### Linting after edits (spec [Tablature][[Editing]] 4)
 
@@ -683,39 +645,77 @@ corpus that the notes of each time column still start together afterwards.
   line), because that is what the key has always done in the buffer, and the
   cursor stays on the note's start, the column tablature mode works on.
 
-### Moving notes between strings (spec [Tablature][[Editing]] 7)
+### Carrying notes across strings (spec [Tablature][[Editing]] 3.6-3.8, 7)
 
-`tab/strings.vim`: a pure `Move()` and its entry point `Change()`, which lints
-before and after like the other tablature-mode edits.
+`tab/carry.vim`. Moving a note to another string is the edit made most often
+while transcribing, so it has right-hand keys (`<leader>k`/`<leader>j`, with a
+`<Space>` leader) next to `s`/`S`, and one engine for all of them.
 
-- **Keys.** `s` keeps the fret, `S` keeps the pitch; then `k`/`j` move the note
-  under the cursor, `K`/`J` its whole time column. `J`/`K` alone are left to
-  the user (often remapped for navigation). Native `s` edits one string only,
-  which tablature mode already rules out (spec 6). `S` is therefore not `cac`
-  (spec 6.8): a lone `S` would wait for 'timeoutlen' to rule out `Sk`, and
-  `cc` already does it. No count: digits enter notes
-  (spec 6.12), and moving one string at a time is what is needed.
-- **Chains move whole.** A hammer-on or slide cannot change strings halfway, so
-  `s`/`S` take the chain under the cursor (spec 7.1). `K`/`J` act on a time
-  column and refuse a chain that starts before it, rather than dragging notes
-  from another column along.
-- **One string per move.** A column moves as a whole, every note by one string,
-  so its notes never collide with each other: sources are cleared first, then
-  each note is written on its new string.
+- **One engine: lift, step, render.** A carry lifts notes out of the tab; the
+  rest, the *base*, is kept in the carry state (tied to `b:changedtick`, so any
+  other edit ends the run). A step moves every carried note the same number of
+  strings, or changes their texts (`S` keeps the pitch, the move state's
+  `h`/`l` change the fret), and the tab is rendered again from the base with
+  the notes written there. Rendering from the base rather than editing the last
+  result is what puts back a note the carried one replaced, with no
+  bookkeeping of what was overwritten; when the notes are back where they
+  started with their texts, the render is the origin itself, so coming back
+  leaves no trace. Steps after the first are joined to its undo step: a run is
+  "the buffer unchanged since the last step and the cursor where it left it".
+- **Strings only, never time.** Carries change strings and frets, never time
+  columns, so the base keeps every column of the tab: lifting blanks the notes,
+  and no column can disappear under a carried note. Moving in time is done
+  with delete and put (`dinp` moves a note one column later, `yinp` copies it
+  into a new column), which keeps carries simple and `[`/`]` free to change
+  frets everywhere.
+- **The note, not the chain.** `s`/`S` and `<leader>k`/`<leader>j` carry one
+  note, as do column carries (`sK`/`sJ` take the notes starting on the column,
+  even the second note of `5h7`). A separator goes with the note only when it
+  belongs to it (no note beyond it, the rule `a`/`i` use, 3.1.3: `7~`, `/5`);
+  one joining two notes stays. A note is replaced only when one starts on the
+  carried note's time column; anything else in the way (a separator, a wider
+  fret covering the column) is no room and refuses the carry.
+- **Copies are carries.** `<leader><leader>k`/`j` are a carry whose base is the
+  whole tab, note included (`carry#Copy`), started one string away. Rendering
+  the copy over that base never touches the original, and carrying the copy
+  back onto it renders the tab as it was. One more `<leader>` means "copy
+  instead of carry", inside the move state as outside it.
+- **The move state (`m`).** Building a chord is copy, set the fret, copy again:
+  many steps in a row, so they get keys without a leader. `m` enters the state
+  and `m` leaves it (also `<Esc>`); it is a buffer flag, checked by `Dispatch`
+  first (`s:moving`), and it holds while the cursor is on a note, so it needs
+  no bookkeeping of edits: `[`/`]`, typing a fret or `w` keep it, and a
+  `CursorMoved`/`TextChanged` autocmd (`carry#Check`) ends it once the cursor
+  is off the notes. There, `h`/`l` change the fret as a step of the run (a
+  replaced note still comes back), unlike `[`/`]`, which are their own edit.
+  Off a note, `m` is Vim's mark command. There is no exit on a lone
+  `<leader>`: it would make Vim wait 'timeoutlen' after every leader key.
+- **Visual carries** step the notes the selection touches (the spans of
+  visual `<C-A>`, `selection.vim`) and select the same part of the tab again,
+  its ends moved one string and followed through the render and the lint, so
+  pressing again goes on in the run.
+- **Keys.** `s` keeps the fret, `S` keeps the pitch; then `k`/`j` the note,
+  `K`/`J` its time column. `J`/`K` alone are left to the user outside the move
+  state. Native `s` edits one string only, which tablature mode already rules
+  out (spec 6). `S` is therefore not `cac` (spec 6.8): a lone `S` would wait
+  for 'timeoutlen' to rule out `Sk`, and `cc` already does it. No count:
+  digits enter notes (spec 6.12), and carrying one string at a time, in runs,
+  is what is needed.
 - **Pitch from the string names.** The interval between two neighbouring
   strings is the difference of their pitch classes (`pitch.vim`), modulo 12.
   This assumes strings listed from the highest to the lowest and less than an
   octave apart, which covers standard and drop tunings, basses and 7-strings.
   String names are one letter, so an evenly lowered tuning (E flat standard
   written `eBGDAE`) has the same intervals and works. Two strings with the same
-  letter (`E` above `e`) give no interval and the move is refused, rather than
-  guessing an octave.
+  letter (`E` above `e`) give no interval and the carry is refused, rather
+  than guessing an octave.
 - **Room, not overlap.** A note that gets wider (`7` -> `12`) could touch the
   next note on its new string and merge with it (`123`), which lint cannot
   undo. So dashes are inserted on every string, right after the note when it
   would touch the next note or the pipe, or right before the column when a
-  note ends just before it there. Insertion points never cut a note in two on
-  another string; the following lint normalises the spacing.
+  note ends just before it there (`columns#PutNote`). Insertion points never
+  cut a note in two on another string; the following lint normalises the
+  spacing.
 
 ### Chords on a column (`=`, `==`, spec [Tablature][[Editing]] 10)
 

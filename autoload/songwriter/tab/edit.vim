@@ -1,6 +1,6 @@
 " autoload/songwriter/tab/edit.vim - the buffer side of a tablature edit.
 "
-" A tablature-mode edit is a pure function (tab/columns.vim, tab/strings.vim,
+" A tablature-mode edit is a pure function (tab/columns.vim, tab/carry.vim,
 " tab/slots.vim...) returning a result; this module does the rest. A result is
 " a dict with any of
 "   'lines': the block's new lines,

@@ -45,9 +45,9 @@ Execute (a pure edit's map puts every note it did not rewrite where it is now):
         \ ['SetNote 10', {l, i, c -> songwriter#tab#columns#SetNote(l, i, g:InvStart(l, i, c), '10')}],
         \ ['SetNote 7', {l, i, c -> songwriter#tab#columns#SetNote(l, i, g:InvStart(l, i, c), '7')}],
         \ ['frets Add 5', {l, i, c -> songwriter#tab#frets#Add(l, i, g:InvStart(l, i, c), 5)}],
-        \ ['Move sk', {l, i, c -> songwriter#tab#strings#Move(l, i, c, -1, 0, 0)}],
-        \ ['Move Sj', {l, i, c -> songwriter#tab#strings#Move(l, i, c, 1, 1, 0)}],
-        \ ['Move sJ', {l, i, c -> songwriter#tab#strings#Move(l, i, c, 1, 0, 1)}],
+        \ ['Move sk', {l, i, c -> songwriter#tab#carry#Move(l, i, c, -1, 0, 'note')}],
+        \ ['Move Sj', {l, i, c -> songwriter#tab#carry#Move(l, i, c, 1, 1, 'note')}],
+        \ ['Move sJ', {l, i, c -> songwriter#tab#carry#Move(l, i, c, 1, 0, 'column')}],
         \ ['DeleteRange ac', {l, i, c -> call('songwriter#tab#columns#DeleteRange',
         \   [l] + songwriter#tab#objects#Object('c', l, i, c, 1, 1))}],
         \ ['EraseNotes aw', {l, i, c -> call('songwriter#tab#columns#EraseNotes',
@@ -55,8 +55,6 @@ Execute (a pure edit's map puts every note it did not rewrite where it is now):
         \ ['EraseSet column', {l, i, c -> songwriter#tab#columns#EraseSet(l,
         \   map(filter(range(len(l)), {_, j -> get(songwriter#tab#model#NoteAt(l[j], g:InvStart(l, i, c)), "col", 0) == g:InvStart(l, i, c)}),
         \     {_, j -> {'lin': j, 'col': g:InvStart(l, i, c)}}))}],
-        \ ['Lift', {l, i, c -> {'lines': songwriter#tab#carry#Lift(l, i, c).base,
-        \   'map': songwriter#tab#carry#Lift(l, i, c).map}}],
         \ ]
   " Edits run on every note start and dash after a note.
   let g:inv_dash_edits = [

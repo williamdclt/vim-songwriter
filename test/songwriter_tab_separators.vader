@@ -176,17 +176,24 @@ Execute (notes dropped from a register are counted as notes):
 
 " --- String moves ---
 
-Execute (s moves a note with its trailing separator):
-  let r = songwriter#tab#strings#Move(['e|--------|', 'B|--7~--9-|'], 1, 5, -1, 0, 0)
+Execute (3.6.1 s moves a note with the separator that belongs to it):
+  let r = songwriter#tab#carry#Move(['e|--------|', 'B|--7~--9-|'], 1, 5, -1, 0, 'note')
   AssertEqual ['e|--7~----|', 'B|------9-|'], r.lines
+  let r = songwriter#tab#carry#Move(['e|--------|', 'B|--/5--9-|'], 1, 6, -1, 0, 'note')
+  AssertEqual ['e|--/5----|', 'B|------9-|'], r.lines
+  AssertEqual [0, 6], [r.lin, r.col]
 
-Execute (sK refuses a column whose note is linked to an earlier one):
-  let r = songwriter#tab#strings#Move(['e|-------|', 'B|--5h7--|'], 1, 7, -1, 0, 1)
-  Assert has_key(r, 'error')
+Execute (3.6.3 a separator that belongs to the note needs room: no note under it):
+  let r = songwriter#tab#carry#Move(['e|--/5--|', 'B|--3---|'], 0, 6, 1, 0, 'note')
+  AssertEqual 'string B already has a note there', r.error
 
-Execute (sK moves a column of chains that start on it):
-  let r = songwriter#tab#strings#Move(['e|-------|', 'B|--5h7--|'], 1, 5, -1, 0, 1)
-  AssertEqual ['e|--5h7--|', 'B|-------|'], r.lines
+Execute (3.6.1 a separator joining two notes stays: sK on the second note of a chain):
+  let r = songwriter#tab#carry#Move(['e|-------|', 'B|--5h7--|'], 1, 7, -1, 0, 'column')
+  AssertEqual ['e|----7--|', 'B|--5h---|'], r.lines
+
+Execute (3.6.1 sK on the first note of a chain: the separator stays with the next note):
+  let r = songwriter#tab#carry#Move(['e|-------|', 'B|--5h7--|'], 1, 5, -1, 0, 'column')
+  AssertEqual ['e|--5----|', 'B|---h7--|'], r.lines
 
 " --- Editing separators with Vim's own f and r (3.4.2) ---
 

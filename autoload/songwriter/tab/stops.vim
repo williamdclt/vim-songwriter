@@ -157,8 +157,8 @@ function! songwriter#tab#stops#Advance(stops, col, dir, count) abort
   return l:col
 endfunction
 
-" A position in the insert state (spec 3.3.3, 3.6), over a tab's lines without
-" the slot or the carried note:
+" A position in the insert state (spec 3.3.3), over a tab's lines without the
+" slot:
 "   {'kind': 'col', 'col': c}             on the note column c
 "   {'kind': 'gap', 'side': s, 'col': c}  in a slot opened after (s 1, as `a`)
 "                                         or before (s -1, as `i`) column c,
@@ -166,7 +166,7 @@ endfunction
 "   {'kind': 'bar', 'col': m}             in the empty bar whose middle is m
 "   {'kind': 'newbar'}                    in a bar added after the last one
 "
-" Spec 3.3.3, 3.6: the position after `pos` (over `base`, on line `lin`) in
+" Spec 3.3.3: the position after `pos` (over `base`, on line `lin`) in
 " direction `dir`, through the stops of `l`/`h` in the insert state: from a
 " column into the gap on that side of it, from a gap onto the column it was
 " entered from or on to the next stop, an empty bar being one (3.3.4). Past the

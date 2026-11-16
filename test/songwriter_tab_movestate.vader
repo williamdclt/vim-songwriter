@@ -1,0 +1,220 @@
+" Spec [Tablature][[Editing]] 3.8: `m` on a note enters the move state, where
+" `j`/`k` carry the note under the cursor, `J`/`K` its column, `h`/`l` change
+" its fret in the run, and `<leader>j`/`<leader>k` copy it. The leader is the
+" default `\`.
+
+Before:
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_insert b:songwriter_carry b:songwriter_repeat b:songwriter_moving
+  let b:songwriter_tabmode = 1
+
+" === Entering and leaving ===
+
+Given songwriter (3.8 m on a note enters the move state, m again leaves it):
+  e|--3--|
+
+Execute (3.8 m on a note enters the move state, m again leaves it):
+  call cursor(1, 5)
+  normal m
+  AssertEqual 'TAB MOVE', songwriter#keys#Mode()
+  normal m
+  AssertEqual '', songwriter#keys#Mode()
+
+Given songwriter (3.8.4 <Esc> leaves the move state):
+  e|--3--|
+
+Execute (3.8.4 <Esc> leaves the move state):
+  call cursor(1, 5)
+  execute "normal m\<Esc>"
+  AssertEqual '', songwriter#keys#Mode()
+  normal k
+Then:
+  AssertEqual [1, 5], [line('.'), col('.')]
+
+Expect songwriter (3.8.4 <Esc> leaves the move state):
+  e|--3--|
+
+Given songwriter (3.8.4 off a note, m sets a mark):
+  e|--3--|
+
+Execute (3.8.4 off a note, m sets a mark):
+  call cursor(1, 4)
+  normal ma
+Then:
+  AssertEqual '', songwriter#keys#Mode()
+  AssertEqual [1, 4], getpos("'a")[1:2]
+
+Given songwriter (3.8 m leaves the insert state first):
+  e|--3--|
+
+Execute (3.8 m leaves the insert state first):
+  call cursor(1, 5)
+  execute "normal a5m"
+Then:
+  Assert !songwriter#tab#insert#Active()
+  AssertEqual 'TAB MOVE', songwriter#keys#Mode()
+
+Expect songwriter (3.8 m leaves the insert state first):
+  e|--3-5--|
+
+Given songwriter (3.8.4 the move state ends when the cursor leaves the notes):
+  e|--3--5--|
+  B|--------|
+
+Execute (3.8.4 the move state ends when the cursor leaves the notes):
+  call cursor(1, 5)
+  normal m
+  normal w
+  AssertEqual 'TAB MOVE', songwriter#keys#Mode()
+  call cursor(1, 6)
+  doautocmd CursorMoved
+  call cursor(1, 5)
+  AssertEqual '', songwriter#keys#Mode()
+  normal j
+Then:
+  AssertEqual [2, 5], [line('.'), col('.')]
+
+Expect songwriter (3.8.4 the move state ends when the cursor leaves the notes):
+  e|--3--5--|
+  B|--------|
+
+" === Keys in the move state ===
+
+Given songwriter (3.8.1 j / k carry the note):
+  e|-----|
+  B|--3--|
+  G|--5--|
+
+Execute (3.8.1 j / k carry the note):
+  call cursor(3, 5)
+  normal mk
+  AssertEqual ['e|-----|', 'B|--5--|', 'G|-----|'], getline(1, '$')
+  normal k
+Then:
+  AssertEqual [1, 5], [line('.'), col('.')]
+  AssertEqual 'TAB MOVE', songwriter#keys#Mode()
+
+Expect songwriter (3.8.1 j / k carry the note):
+  e|--5--|
+  B|--3--|
+  G|-----|
+
+Given songwriter (3.8.1 J / K carry the time column):
+  e|--------|
+  B|--5--3--|
+  G|--5-----|
+
+Execute (3.8.1 J / K carry the time column):
+  call cursor(3, 5)
+  normal mK
+Then:
+  AssertEqual [2, 5], [line('.'), col('.')]
+
+Expect songwriter (3.8.1 J / K carry the time column):
+  e|--5-----|
+  B|--5--3--|
+  G|--------|
+
+Given songwriter (3.8.2 h / l change the fret in the run: the note replaced still comes back):
+  e|-----|
+  B|--3--|
+  G|--5--|
+
+Execute (3.8.2 h / l change the fret in the run: the note replaced still comes back):
+  call cursor(3, 5)
+  normal mkl
+  AssertEqual ['e|-----|', 'B|--6--|', 'G|-----|'], getline(1, '$')
+  normal k
+
+Expect songwriter (3.8.2 h / l change the fret in the run: the note replaced still comes back):
+  e|--6--|
+  B|--3--|
+  G|-----|
+
+Given songwriter (3.8.2 back where it started with its fret, the tab is as it was):
+  e|--9--7--|
+
+Execute (3.8.2 back where it started with its fret, the tab is as it was):
+  call cursor(1, 5)
+  normal ml
+  AssertEqual ['e|--10-7--|'], getline(1, '$')
+  normal h
+
+Expect songwriter (3.8.2 back where it started with its fret, the tab is as it was):
+  e|--9--7--|
+
+Given songwriter (3.8.2 a fret out of range, or no fret, is refused):
+  e|--0--x--|
+
+Execute (3.8.2 a fret out of range, or no fret, is refused):
+  call cursor(1, 5)
+  normal mh
+  call cursor(1, 8)
+  normal l
+
+Expect songwriter (3.8.2 a fret out of range, or no fret, is refused):
+  e|--0--x--|
+
+Given songwriter (3.8.2 after J / K, h / l move every fret of the column):
+  e|-----|
+  B|--5--|
+  G|--x--|
+
+Execute (3.8.2 after J / K, h / l move every fret of the column):
+  call cursor(2, 5)
+  normal mKl
+
+Expect songwriter (3.8.2 after J / K, h / l move every fret of the column):
+  e|--6--|
+  B|--x--|
+  G|-----|
+
+Given songwriter (3.8.3 <leader>j / <leader>k copy the note, so a chord is built note by note):
+  e|-----|
+  B|-----|
+  G|--5--|
+
+Execute (3.8.3 <leader>j / <leader>k copy the note, so a chord is built note by note):
+  call cursor(3, 5)
+  execute "normal m\\kl\\kl"
+Then:
+  AssertEqual [1, 5], [line('.'), col('.')]
+  AssertEqual 'TAB MOVE', songwriter#keys#Mode()
+
+Expect songwriter (3.8.3 <leader>j / <leader>k copy the note, so a chord is built note by note):
+  e|--7--|
+  B|--6--|
+  G|--5--|
+
+Given songwriter (3.8.3 each copy and its run are one undo step):
+  e|-----|
+  B|-----|
+  G|--5--|
+
+Execute (3.8.3 each copy and its run are one undo step):
+  call cursor(3, 5)
+  call feedkeys('m', 'xt')
+  call feedkeys("\\k", 'xt')
+  call feedkeys('l', 'xt')
+  call feedkeys("\\k", 'xt')
+  call feedkeys('l', 'xt')
+  call feedkeys('u', 'xt')
+
+Expect songwriter (3.8.3 each copy and its run are one undo step):
+  e|-----|
+  B|--6--|
+  G|--5--|
+
+Given songwriter (3.8.4 other keys keep their meaning in the move state):
+  e|--3--5--|
+  B|--------|
+
+Execute (3.8.4 other keys keep their meaning in the move state):
+  call cursor(1, 5)
+  normal mwj
+Then:
+  AssertEqual [2, 8], [line('.'), col('.')]
+  AssertEqual 'TAB MOVE', songwriter#keys#Mode()
+
+Expect songwriter (3.8.4 other keys keep their meaning in the move state):
+  e|--3-----|
+  B|-----5--|

@@ -6,8 +6,8 @@
 "     {mode}noremap <buffer> <expr> {key} songwriter#keys#Dispatch({key}, {mode})
 " Dispatch picks the action for the current context, most specific first, and
 " falls back to the key's default behaviour:
-"   0. s:moving[mode]  - tablature mode, moving a duplicated note
-"                        (songwriter#tab#carry#Moving)
+"   0. s:moving[mode]  - tablature mode, the move state (`m`, spec
+"                        [Tablature][[Editing]] 3.8, songwriter#tab#carry#Moving)
 "   1. s:typed[mode]   - tablature mode, insert state, straight after a note
 "                        was typed (songwriter#tab#typing#JustTyped)
 "   2. s:tabinsert[mode] - tablature mode, insert state
@@ -19,7 +19,7 @@
 " An action is an Ex command, run with <Cmd> (no mode change, no command-line
 " echo), or, when it starts with `=`, an expression whose value is the keys to
 " run (operators need this: they return `g@`). Special keys are written in <>
-" notation ('<Esc>'). To add a context key: add it to a table.
+" notation ('<Esc>', '<leader>k'). To add a context key: add it to a table.
 
 let s:moving = {'n': {}, 'o': {}, 'x': {}}
 let s:typed = {'n': {}, 'o': {}, 'x': {}}
@@ -28,12 +28,21 @@ let s:tabmode = {}
 let s:tabline = {}
 let s:annotation = {'n': {}, 'o': {}, 'x': {}}
 
-" Spec [Tablature][[Editing]] 3.7: `hjkl` are the arrows while a duplicated
-" note is moved.
-for [s:hjkl, s:arrow] in [['h', '<Left>'], ['j', '<Down>'], ['k', '<Up>'], ['l', '<Right>']]
-  let s:moving.n[s:hjkl] = printf('call songwriter#tab#carry#Move(%s)', string(s:arrow))
-endfor
-unlet s:hjkl s:arrow
+" Spec [Tablature][[Editing]] 3.8: in the move state, keys act on the note
+" under the cursor: `j`/`k` carry it, `J`/`K` its column, `h`/`l` change its
+" fret in the run, `<leader>j`/`<leader>k` copy it; `m` or `<Esc>` leave.
+let s:moving.n = {
+      \ 'j': "call songwriter#tab#carry#Carry('note', 1, 0, 0)",
+      \ 'k': "call songwriter#tab#carry#Carry('note', -1, 0, 0)",
+      \ 'J': "call songwriter#tab#carry#Carry('column', 1, 0, 0)",
+      \ 'K': "call songwriter#tab#carry#Carry('column', -1, 0, 0)",
+      \ 'h': "call songwriter#tab#carry#Carry('', 0, -1, 0)",
+      \ 'l': "call songwriter#tab#carry#Carry('', 0, 1, 0)",
+      \ '<leader>j': 'call songwriter#tab#carry#Duplicate(1)',
+      \ '<leader>k': 'call songwriter#tab#carry#Duplicate(-1)',
+      \ 'm': 'call songwriter#tab#carry#EndMove()',
+      \ '<Esc>': 'call songwriter#tab#carry#EndMove()',
+      \ }
 
 " Spec [Tablature][[Editing]] 3.4.1.3: separator keys write a separator
 " straight after a typed note.
@@ -43,12 +52,6 @@ endfor
 unlet s:sep
 " Spec 3.4.1.2: `<Space>` is `l`.
 let s:tabinsert.n['<Space>'] = 'call songwriter#tab#motion#MoveColumn(1)'
-" Spec 3.6: the arrows carry the note under the cursor.
-for s:arrow in ['<Up>', '<Down>', '<Left>', '<Right>']
-  let s:tabinsert.n[s:arrow] = printf('=songwriter#tab#carry#Key(%s)', string(s:arrow))
-endfor
-unlet s:arrow
-
 " Spec [Tablature][[Editing]] 3, 6, 8 and 10.
 let s:tabmode.n = {
       \ 'w': 'call songwriter#tab#motion#MoveWord("w")',
@@ -83,13 +86,19 @@ let s:tabmode.n = {
       \ 'V': 'call songwriter#tab#visual#Column()',
       \ '=': 'call songwriter#tab#voicings#Prompt()',
       \ '+': 'call songwriter#tab#voicings#Plus()',
+      \ '<leader>k': "call songwriter#tab#carry#Carry('note', -1, 0, 0)",
+      \ '<leader>j': "call songwriter#tab#carry#Carry('note', 1, 0, 0)",
+      \ '<leader><leader>k': 'call songwriter#tab#carry#Duplicate(-1)',
+      \ '<leader><leader>j': 'call songwriter#tab#carry#Duplicate(1)',
+      \ 'm': '=songwriter#tab#carry#MoveKey()',
       \ }
-" Spec 7: `s` (keep the fret) / `S` (keep the pitch), then `k`/`j` (the note
-" under the cursor) or `K`/`J` (its whole time column), up/down a string.
+" Spec 3.6, 3.7, 3.8: carrying notes across strings. Spec 7: `s` (keep the
+" fret) / `S` (keep the pitch), then `k`/`j` (the note under the cursor) or
+" `K`/`J` (its whole time column), up/down a string.
 for [s:prefix, s:pitch] in [['s', 0], ['S', 1]]
   for [s:dirkey, s:dir] in [['k', -1], ['j', 1]]
-    let s:tabmode.n[s:prefix . s:dirkey] = printf('call songwriter#tab#strings#Change(%d, %d, 0)', s:dir, s:pitch)
-    let s:tabmode.n[s:prefix . toupper(s:dirkey)] = printf('call songwriter#tab#strings#Change(%d, %d, 1)', s:dir, s:pitch)
+    let s:tabmode.n[s:prefix . s:dirkey] = printf("call songwriter#tab#carry#Carry('note', %d, 0, %d)", s:dir, s:pitch)
+    let s:tabmode.n[s:prefix . toupper(s:dirkey)] = printf("call songwriter#tab#carry#Carry('column', %d, 0, %d)", s:dir, s:pitch)
   endfor
 endfor
 unlet s:prefix s:pitch s:dirkey s:dir
@@ -121,7 +130,7 @@ let s:tabmode.o = {
       \ 'p': 'call songwriter#tab#operator#Doubled("p")',
       \ }
 
-" Spec 6.9.
+" Spec 6.9; 3.6.4: `<leader>k`/`<leader>j` carry the selected notes.
 let s:tabmode.x = {
       \ 'w': 'call songwriter#tab#visual#Motion("w")',
       \ 'b': 'call songwriter#tab#visual#Motion("b")',
@@ -142,6 +151,8 @@ let s:tabmode.x = {
       \ 'P': 'call songwriter#tab#visual#Put(v:register)',
       \ 'j': '=songwriter#tab#visual#Vertical("j")',
       \ 'k': '=songwriter#tab#visual#Vertical("k")',
+      \ '<leader>k': 'call songwriter#tab#carry#Visual(-1)',
+      \ '<leader>j': 'call songwriter#tab#carry#Visual(1)',
       \ }
 " Spec 6.1 / 6.9.1, 6.9.6: the text objects, the same after an operator
 " (operator.vim) and in visual mode (visual.vim): [key, function, kind,
@@ -205,11 +216,6 @@ function! songwriter#keys#Dispatch(key, ...) abort
         if has_key(s:moving[l:mode], a:key)
           return s:action(s:moving[l:mode][a:key])
         endif
-        " Spec 3.7: a lone <leader> ends the move. Its own map is replaced
-        " by this one when the leader is a context key (a <Space> leader).
-        if l:mode ==# 'n' && s:key(a:key) ==# get(g:, 'mapleader', '\')
-          return s:action('call songwriter#tab#carry#EndMove()')
-        endif
       endif
       if has_key(s:typed[l:mode], a:key) && songwriter#tab#typing#JustTyped()
         return s:action(s:typed[l:mode][a:key])
@@ -232,9 +238,10 @@ function! songwriter#keys#Dispatch(key, ...) abort
   return s:key(a:key)
 endfunction
 
-" The keys `key` stands for, from its <> notation ('<Esc>').
+" The keys `key` stands for, from its <> notation ('<Esc>', '<leader>k').
 function! s:key(key) abort
-  return a:key =~# '^<.\+>$' ? eval('"\' . a:key . '"') : a:key
+  let l:key = substitute(a:key, '<leader>', escape(get(g:, 'mapleader', '\'), '\&'), 'g')
+  return l:key =~# '^<.\+>$' ? eval('"\' . l:key . '"') : l:key
 endfunction
 
 function! s:action(action) abort
@@ -247,8 +254,8 @@ function! songwriter#keys#InTabMode() abort
   return get(b:, 'songwriter_tabmode', 0)
 endfunction
 
-" Spec [Tablature][[Editing]] 3.1.6, 3.7: the state of tablature mode, for a
-" status line: 'TAB MOVE' while a duplicated note is moved, 'TAB INSERT' in
+" Spec [Tablature][[Editing]] 3.1.6, 3.8: the state of tablature mode, for a
+" status line: 'TAB MOVE' in the move state, 'TAB INSERT' in
 " the insert state, '' otherwise.
 function! songwriter#keys#Mode() abort
   if songwriter#tab#carry#Moving()
