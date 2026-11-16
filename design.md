@@ -36,7 +36,8 @@ never relies on concealing or rendering.
 | `autoload/songwriter/tab/frets.vim` | `<C-A>`/`<C-X>` in tablature mode: pure `Add()` and the normal and visual entry points. |
 | `autoload/songwriter/tab/objects.vim` | Text object ranges and the snapping of other ranges, pure. |
 | `autoload/songwriter/tab/paste.vim` | Pasting blockwise registers, pure: row matching, insert, overlay. |
-| `autoload/songwriter/tab/operator.vim` | Tablature-mode operators, text objects, `x`/`p`/`P`, `>>`/`<<`, `gp`: buffer entry points around the pure modules. |
+| `autoload/songwriter/tab/operator.vim` | Tablature-mode operators (`g@`, motions, text objects, ranges): buffer entry points around the pure modules. |
+| `autoload/songwriter/tab/actions.vim` | The edits at the cursor that are not operators: `x`, `p`/`P`, `>>`/`<<`, `gp`. |
 | `autoload/songwriter/tab/visual.vim` | Tablature-mode visual mode: selections, motions, operators on a selection. |
 | `autoload/songwriter/tab/register.vim` | Blockwise tab registers and the string names of their source tab. |
 | `autoload/songwriter/tab/repeat.vim` | `.` for actions that are not operators. |

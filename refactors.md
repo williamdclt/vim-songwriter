@@ -13,15 +13,6 @@ more regular, as a question for the user.
 The safety net for all of them is `test/songwriter_invariants_*.vader`, on top of
 the per-feature tests: run `make test` after every step.
 
-## 6. Split operator.vim
-
-**Now.** operator.vim (550 lines) holds the operator machinery (`g@`,
-motions, text objects, ranges) and actions that are not operators: `x`,
-`p`/`P`, `>>`/`<<`, `gp`.
-
-**Change.** Move the actions that are not operators to tab/actions.vim.
-Mechanical.
-
 ## 7. One shape for refusals
 
 **Now.** Pure functions return a refusal as {'error'}, except some that return

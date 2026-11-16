@@ -307,3 +307,11 @@ function! s:in_chain(line, col) abort
   return a:col > songwriter#tab#model#BodyOffset() && a:col <= len(a:line)
         \ && songwriter#grammar#IsChainChar(a:line[a:col - 1])
 endfunction
+
+" Pure. The first note column of `lines` at or after `col`, else the last one
+" before it, else `col`.
+function! songwriter#tab#columns#NextColumn(lines, col) abort
+  let l:cols = songwriter#tab#model#NoteColumns(songwriter#tab#model#Parse(0, a:lines))
+  let l:next = filter(copy(l:cols), 'v:val >= a:col')
+  return !empty(l:next) ? l:next[0] : !empty(l:cols) ? l:cols[-1] : a:col
+endfunction
