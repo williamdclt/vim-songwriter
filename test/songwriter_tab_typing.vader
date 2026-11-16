@@ -149,6 +149,34 @@ Execute (3.4.1.1 each note is its own undo step with its slot):
 Expect songwriter (3.4.1.1 each note is its own undo step with its slot):
   e|--4-5--|
 
+Given songwriter (3.4.1.1 moving ends the typing: the next note is its own undo step):
+  e|-----|
+  B|-----|
+
+Execute (3.4.1.1 moving ends the typing: the next note is its own undo step):
+  let &undolevels = &undolevels
+  call cursor(1, 4)
+  call feedkeys("3j5", 'xt')
+  AssertEqual ['e|--3--|', 'B|--5--|'], getline(1, 2)
+  call feedkeys("u", 'xt')
+
+Expect songwriter (3.4.1.1 moving ends the typing: the next note is its own undo step):
+  e|--3--|
+  B|-----|
+
+Given songwriter (3.4.1.1 a two-digit fret is one undo step):
+  e|-----|
+
+Execute (3.4.1.1 a two-digit fret is one undo step):
+  let &undolevels = &undolevels
+  call cursor(1, 4)
+  call feedkeys("12", 'xt')
+  AssertEqual 'e|--12--|', getline(1)
+  call feedkeys("u", 'xt')
+
+Expect songwriter (3.4.1.1 a two-digit fret is one undo step):
+  e|-----|
+
 Given songwriter (3.4.1.1 in the normal state a digit is appended when it makes a fret):
   e|--4--|
 

@@ -12,9 +12,10 @@
 " there (3.4.1.1), as it does straight after a chord (spec 10.5). Straight
 " after a separator was typed (EnterSeparator), the digit goes right after it
 " (3.4.1.3). Then lint the block, keeping the cursor on the digit (4.1); this
-" fills any open slot, in the same undo step as the slot, as is a digit
-" appended to a fret or separator (4.3.1). The state (normal or insert) is
-" kept. No-op off a tab line and on a separator (3.4.2).
+" fills any open slot, in the same undo step as the slot, as is a digit typed
+" straight after a digit or separator; after a move it is its own undo step
+" (3.4.1.1, 4.3.1). The state (normal or insert) is kept. No-op off a tab line
+" and on a separator (3.4.2).
 function! songwriter#tab#typing#EnterNote(digit) abort
   let l:line = getline('.')
   if !songwriter#grammar#IsTabLine(l:line)
@@ -23,10 +24,8 @@ function! songwriter#tab#typing#EnterNote(digit) abort
   let l:digit = a:digit . ''
   let l:col = col('.')
   let l:ch = (l:col <= len(l:line)) ? l:line[l:col - 1] : ''
-  " The digit joins the undo step of what was typed while the buffer is
-  " unchanged since, even after a move ('typing' read until a change).
-  let l:typing = songwriter#tab#state#Get('typing', 'change')
-  let l:here = !empty(songwriter#tab#state#Get('typing'))
+  let l:typing = songwriter#tab#state#Get('typing')
+  let l:here = !empty(l:typing)
   let l:mode = songwriter#tab#mode#Current()
   let l:insert = l:mode ==# 'insert'
   let l:note = songwriter#tab#model#NoteAt(l:line, l:col)
@@ -43,7 +42,7 @@ function! songwriter#tab#typing#EnterNote(digit) abort
     return
   endif
   call songwriter#tab#edit#Do(function('s:enter_note', [l:digit, l:here, l:after_separator]),
-        \ {'slot': 'fill', 'join': !empty(l:typing), 'prelint': 0, 'insert': 1})
+        \ {'slot': 'fill', 'join': l:here, 'prelint': 0, 'insert': 1})
 endfunction
 
 " Pure. The digit of EnterNote written at the cursor of `ctx`: right after the

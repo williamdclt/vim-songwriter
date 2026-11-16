@@ -189,10 +189,7 @@ the ones the features need:
 Tying a state to `b:changedtick` rather than clearing it at each place that
 changes the buffer means any change, `u` included, ends it without the other
 code having to know. `Expire` drops a state that no longer holds, for the
-one place that shows its end (the move state's message). One reader
-knowingly outlasts its state: the undo join of a digit reads `typing` under
-`change` (a digit joins what was typed before it while the buffer is
-unchanged, even after a move), passed to `Get` as a lifetime of its own.
+one place that shows its end (the move state's message).
 
 Two states are not there, because Vim puts them elsewhere: the pending
 operator (`s:pending`, `s:join` in `operator.vim`), since `'operatorfunc'`
