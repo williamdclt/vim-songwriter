@@ -13,13 +13,15 @@ more regular, as a question for the user.
 The safety net for all of them is `test/songwriter_invariants_*.vader`, on top of
 the per-feature tests: run `make test` after every step.
 
-## 6. Later: the same layer for chords over lyrics
+## 1. Later: the same layer for chords over lyrics
 
 **Now.** `[Chord annotations]` (chords above lyrics) has editing features to
 come, and `:SongwriterChordAbove` places a chord by hand.
 
-**Change.** Once refactors 2 to 4 are in, the anchored words and their layout
-do not depend on tabs: anchor them to character positions of a lyric line to
-give chords over lyrics the same following and room-making.
+**Change.** Annotations are anchored words with one layout and one set of
+operations (`annotations#Apply`, `Render`, `Room`), whose only tie to tabs is
+where the anchors come from and how room is made. Anchor them to character
+positions of a lyric line instead (room made by spaces in the lyric, or not
+at all) to give chords over lyrics the same following and room-making.
 
 **Buys.** One annotation engine for both formats instead of a second one.

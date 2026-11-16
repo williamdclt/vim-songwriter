@@ -137,9 +137,10 @@ endfunction
 
 " Pure. Where `result` takes `lines`, the cursor being on line `lin` (0-indexed)
 " at column `col`: {'lines', 'lin', 'col', 'map'}, linted with the cursor
-" following the music when `lint` is set. The map is from `lines`, or from the
+" following the music when `lint` is set, on the strings or on one of the
+" `above` annotation lines above them. The map is from `lines`, or from the
 " result's base, also given ('base'), when it has one.
-function! s:resolve(lines, lin, col, result, lint) abort
+function! s:resolve(lines, lin, col, result, lint, above) abort
   let l:lin = a:lin
   let l:col = a:col
   if has_key(a:result, 'col')
@@ -157,7 +158,7 @@ function! s:resolve(lines, lin, col, result, lint) abort
   endif
   if a:lint
     let l:linted = songwriter#tab#edit#Linted(l:lines, l:lin, l:col)
-    let [l:lines, l:col] = [l:linted.lines, l:lin < 0 ? songwriter#tab#colmap#At(l:linted.map, l:col) : l:linted.col]
+    let [l:lines, l:col] = [l:linted.lines, l:lin < 0 && -l:lin <= a:above ? songwriter#tab#colmap#At(l:linted.map, l:col) : l:linted.col]
     let l:map = songwriter#tab#colmap#Then(l:map, l:linted.map)
   endif
   let l:r = {'lines': l:lines, 'lin': l:lin, 'col': l:col, 'map': l:map}
@@ -246,7 +247,7 @@ function! s:prepare(opts) abort
   endif
   let l:lin = songwriter#tab#model#CursorLin(l:block)
   let l:pre = s:resolve(l:block.lines, l:lin, s:on_above(l:block, l:lin) ? virtcol('.') : col('.'), {},
-        \ get(a:opts, 'prelint', 1))
+        \ get(a:opts, 'prelint', 1), len(l:block.above))
   let l:pre = s:make_room(l:block, l:pre)
   if has_key(a:opts, 'open')
     call songwriter#tab#slots#Linted(l:edit.mark, l:pre)
@@ -267,7 +268,8 @@ endfunction
 function! s:write_result(edit, result) abort
   let l:post = a:edit.pre
   if a:edit.done
-    let l:post = s:resolve(l:post.lines, l:post.lin, l:post.col, a:result, get(a:edit.opts, 'lint', 1))
+    let l:post = s:resolve(l:post.lines, l:post.lin, l:post.col, a:result, get(a:edit.opts, 'lint', 1),
+          \ len(a:edit.block.above))
     if !has_key(l:post, 'base')
       let l:post.map = songwriter#tab#colmap#Then(a:edit.pre.map, l:post.map)
     endif
@@ -289,8 +291,8 @@ endfunction
 
 " Pure. `draft` of `block` with the tab widened wherever an anchored word
 " would be pushed off its column (spec [Tablature][[Annotations]] 4.4,
-" annotations#Room): dashes inserted, the map, the cursor column and the
-" annotation operations following them.
+" annotations#Room): dashes inserted, the map, the cursor column (on the
+" block) and the annotation operations following them.
 function! s:make_room(block, draft) abort
   let l:rows = s:rows(get(a:draft, 'base', songwriter#tab#model#Snapshot(a:block)))
   let l:draft = copy(a:draft)
@@ -304,7 +306,9 @@ function! s:make_room(block, draft) abort
     let l:ins = songwriter#tab#model#InsertColumns(l:draft.lines, l:room.offset, l:room.n, '-')
     let l:draft.lines = l:ins.lines
     let l:draft.map = songwriter#tab#colmap#Then(l:draft.map, l:ins.map)
-    let l:draft.col = songwriter#tab#colmap#At(l:ins.map, l:draft.col)
+    if l:draft.lin >= 0 && l:draft.lin < len(l:draft.lines) || s:on_above(a:block, l:draft.lin)
+      let l:draft.col = songwriter#tab#colmap#At(l:ins.map, l:draft.col)
+    endif
     if has_key(l:draft, 'annotations')
       let l:draft.annotations = s:moved(l:draft.annotations, l:ins.map)
     endif

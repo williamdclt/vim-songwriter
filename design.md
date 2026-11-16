@@ -17,7 +17,7 @@ never relies on concealing or rendering.
 |---|---|
 | `autoload/songwriter/grammar.vim` | The format's patterns (tab line, note, fret, separator, chain, chord, highlighting). The only place regexes for the format are written. |
 | `autoload/songwriter/tab/colmap.vim` | Column maps: where each column of a block went through an edit, pure. |
-| `autoload/songwriter/tab/annotations.vim` | Annotation lines: their words, and how they follow an edit through its column map, pure. |
+| `autoload/songwriter/tab/annotations.vim` | Annotation lines, pure: parsed into anchored words, placed through an edit's column map and its operations (`Apply`), the room the tab must make for its labels (`Room`), and the one layout (`Render`). |
 | `autoload/songwriter/tab/model.vim` | Tab block model: parse, queries (notes, time columns, bars), `Splice`/`Blank` and the column-insertion primitive, snapshots, and `Read`/`Write` (the buffer edges). |
 | `autoload/songwriter/tab/edit.vim` | The buffer side of a tablature edit: `Do`, the one pipeline every edit of a tab goes through (slot, first lint, the pure edit, lint, one write with its undo join, then the follow-ups: selection, state for the next key, register, slot, `.`, insert state); the pure `Linted`; `JoinUndo` for the changes that are not tab edits. |
 | `autoload/songwriter/tab/slots.vim` | Slots: where a new note's room goes (pure), the buffer's one open slot with how to close it, and `a`/`i` and the new bar's slot (`AddNote`, `AddBarSlot`). |
