@@ -1,6 +1,6 @@
 " Spec [Tablature][[Editing]] 4: edits in tablature mode lint the block
 " (4.1 entering a note, 4.2 before `a`/`i` open a slot). A slot closed without
-" a note gives the tab back as it was, leaving no undo step (4.3, 4.3.1), except
+" a note gives the tab back as it was, in the slot's own undo step (4.3, 4.3.1), except
 " that a motion closing it keeps the lint (4.3.3), and moving in the normal
 " state never lints (4.3.2). The cursor follows the note
 " (or the gap between notes) it was on. Typed end-to-end with `normal`, or with
@@ -232,17 +232,18 @@ Then:
 Expect songwriter:
   e|--4-5--|
 
-Given songwriter (4.3 closing a slot leaves no undo step and the buffer unmodified):
+Given songwriter (4.3 closing a slot gives the tab back in the slot's one undo step):
   e|-----4-----|
 
-Execute (4.3 closing a slot leaves no undo step and the buffer unmodified):
+Execute (4.3 closing a slot gives the tab back in the slot's one undo step):
   let &undolevels = &undolevels
-  set nomodified
   let seq = undotree().seq_cur
   call cursor(1, 8)
   call feedkeys("a\<Esc>", 'xt')
+  AssertEqual ['e|-----4-----|'], getline(1, 1)
+  AssertEqual seq + 1, undotree().seq_cur
+  call feedkeys("u", 'xt')
   AssertEqual seq, undotree().seq_cur
-  Assert !&modified
   call feedkeys("ll", 'xt')
   AssertEqual seq, undotree().seq_cur
 Expect songwriter:
@@ -252,10 +253,13 @@ Given songwriter (4.3 an earlier change is kept when a slot is closed):
   e|--4--|
 
 Execute (4.3 an earlier change is kept when a slot is closed):
+  let &undolevels = &undolevels
   call cursor(1, 5)
   call feedkeys("7", 'xt')
   let seq = undotree().seq_cur
   call feedkeys("a\<Esc>", 'xt')
+  AssertEqual seq + 1, undotree().seq_cur
+  call feedkeys("u", 'xt')
   AssertEqual seq, undotree().seq_cur
 Expect songwriter:
   e|--7--|

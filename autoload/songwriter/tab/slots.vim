@@ -136,14 +136,13 @@ function! songwriter#tab#slots#EmptyBar(lines, lin, col) abort
 endfunction
 
 " What closing a slot about to be opened by `a`/`i`, `l`/`h` or a new bar must
-" restore (spec 4.3): the block (`before`, a snapshot, model#Snapshot), the
-" cursor column (`from`), and the buffer and undo versions, taken before
-" anything (even the lint of 4.2) is changed. `side`: +1 for a slot after a
+" restore (spec 4.3): the block (`before`, a snapshot, model#Snapshot) and the
+" cursor column (`from`), taken before anything (even the lint of 4.2) is
+" changed. `side`: +1 for a slot after a
 " note, -1 before one, 0 in an empty bar.
 function! songwriter#tab#slots#Mark(side) abort
   let l:block = songwriter#tab#model#Read()
-  return {'side': a:side, 'from': col('.'), 'tick': b:changedtick,
-        \ 'seq': undotree().seq_cur,
+  return {'side': a:side, 'from': col('.'),
         \ 'before': empty(l:block) ? {} : songwriter#tab#model#Snapshot(l:block)}
 endfunction
 
@@ -173,8 +172,6 @@ function! songwriter#tab#slots#Open(...) abort
   let l:slot = {'line': line('.'), 'col': col('.')}
   if a:0
     call extend(l:slot, a:1)
-    let l:slot.changed = a:1.tick != b:changedtick
-    let l:slot.seq_after = undotree().seq_cur
   endif
   call songwriter#tab#state#Set('slot', l:slot)
   call songwriter#tab#mode#Enter('insert')
@@ -186,11 +183,11 @@ endfunction
 
 " Spec 4.3: close the open slot if it is still open and empty (the buffer has
 " not changed since, e.g. only `j`/`k` were pressed). A slot with a mark puts
-" the tab back as it was before it opened, leaving no undo step, and the cursor
-" back on its column (on the cursor's line); any other is linted. With
+" the tab back as it was before it opened, in the slot's own undo step, and the
+" cursor back on its column (on the cursor's line); any other is linted. With
 " `keep_lint` (a motion closing it, 4.3.3), a mark that recorded the lint of
-" 4.2 (see Linted) puts the tab back as it was once linted instead, the lint
-" being an undo step of its own. The insert state is kept. Returns the closed
+" 4.2 (see Linted) puts the tab back as it was once linted instead, so that
+" the slot's undo step holds the lint alone. The insert state is kept. Returns the closed
 " slot, or {} when none was open.
 function! songwriter#tab#slots#Abandon(...) abort
   let l:keep_lint = a:0 && a:1
@@ -204,13 +201,8 @@ function! songwriter#tab#slots#Abandon(...) abort
     let l:top = l:slot.before.top
     let l:lnum = line('.')
     let l:lin = l:lnum - get(songwriter#tab#model#ReadTop(l:top), 'start', l:lnum)
-    if l:slot.changed
-      call s:revert(l:slot)
-    endif
     let l:keep = l:keep_lint && has_key(l:slot, 'linted') && l:slot.linted !=# l:slot.before
-    if l:keep
-      call songwriter#tab#model#Write(songwriter#tab#model#ReadTop(l:top), l:slot.linted)
-    endif
+    call s:put_back(l:keep ? l:slot.linted : l:slot.before)
     " The cursor stays on its string, however many annotation lines are
     " above it now.
     let l:block = songwriter#tab#model#ReadTop(l:top)
@@ -227,19 +219,16 @@ function! songwriter#tab#slots#Abandon(...) abort
   return l:slot
 endfunction
 
-" Put back the block a slot replaced. Undo, when the slot's change is the last
-" undo step and that step holds nothing else (a slot opened in a macro or
-" `:normal` shares its step with earlier changes): then no undo step is left.
-" Otherwise, or if undoing did not give the block back, write it.
-function! s:revert(slot) abort
-  if a:slot.seq_after != a:slot.seq && undotree().seq_cur == a:slot.seq_after
-    silent undo
-    if s:holds(a:slot.before)
-      return
-    endif
-    silent redo
+" Write `snapshot` over the block a slot replaced, joined to the slot's undo
+" step (the slot is forgotten on any other change, so that step is the last
+" one). Nothing is written when the buffer already holds it: then the slot
+" changed nothing, and there is no step of its own to join.
+function! s:put_back(snapshot) abort
+  if s:holds(a:snapshot)
+    return
   endif
-  call songwriter#tab#model#Write(songwriter#tab#model#ReadTop(a:slot.before.top), a:slot.before)
+  call songwriter#tab#edit#JoinUndo()
+  call songwriter#tab#model#Write(songwriter#tab#model#ReadTop(a:snapshot.top), a:snapshot)
 endfunction
 
 " True when the buffer holds the block of `snapshot` as it is there.

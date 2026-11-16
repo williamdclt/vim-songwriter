@@ -668,23 +668,25 @@ Tablature-mode edits lint the block:
   no longer be there. The next `h`/`l`/`w`/`b`/`W`/`B`/`E`/`a`/`i`/`<Esc>`
   closes it first (`slots#Abandon`); `j`/`k` are not mapped, so the slot
   survives them. A digit fills the slot and forgets it.
-  - *A slot opened by moving, `a`/`i` or a new bar is undone*: closing it gives
-    the tab back exactly as it was before, including the lint of 4.2, so that
-    wandering in the insert state leaves no trace. `slots#Mark`, taken before
-    anything changes, records the block (a snapshot), the cursor column and the undo
-    sequence number. Closing runs `:undo` when the slot's change is the last
-    undo step and that step holds nothing else (its sequence number differs
-    from the one before it). Then no undo step is left behind and a file saved
-    before `a` is unmodified again. Inside `:normal`, a macro or a mapping,
-    several keys share one undo step, and `:undo` would take earlier changes
-    with it: then (or if undoing did not give the block back) the recorded
-    snapshot is written instead.
+  - *A slot opened by moving, `a`/`i` or a new bar is written back*: closing
+    it gives the tab back exactly as it was before, including the lint of 4.2,
+    so that wandering in the insert state leaves the tab as it was.
+    `slots#Mark`, taken before anything changes, records the block (a
+    snapshot) and the cursor column; closing writes the snapshot, joined to
+    the slot's undo step (the slot is forgotten on any other change, so that
+    step is the last one). The step is left behind, changing nothing, and the
+    buffer stays modified. Removing it with `:undo` was tried: it needed the
+    undo sequence numbers, a fallback for `:normal` and macros (where several
+    keys share one step and `:undo` takes earlier changes with it), and broke
+    `undojoin` after it (E790). A plain write is one rule that holds in all
+    of them.
   - *A motion closing a slot keeps the lint (4.3.3)*: otherwise walking an
     unlinted tab with `l`/`h` would lint it at every slot and unlint it at
     every close, and the whole tab would jump at each step. `AddNote` and
     `AddBarSlot` record the linted lines in the mark (`slots#Linted`); the
-    motions call `slots#Abandon(1)`, which undoes the slot as above and then
-    writes the linted lines back, an undo step of its own. `<Esc>` and the
+    motions call `slots#Abandon(1)`, which writes the linted lines back
+    instead of the snapshot, so that the slot's undo step holds the lint
+    alone. `<Esc>` and the
     other closers still give back the tab from before the lint.
   - *A slot that is part of a bigger edit is linted*: `c` (6.6), `o`/`O` (8)
     and `:SongwriterNewTab` (9) open a slot in what they made; `<Esc>` there
@@ -1234,7 +1236,7 @@ Highlighting stays permissive and accepts false positives such as the word "A"
 - **Invariants** (`test/songwriter_invariants_*.vader`) are checked over a corpus
   of tabs and every relevant cursor position rather than one example: lint is
   idempotent and keeps each string's notes, the normal state never edits, an
-  abandoned slot and a carried-back note leave no trace, each edit is one
+  abandoned slot gives the tab back in one undo step, a carried-back note leaves no trace, each edit is one
   undo step and leaves the tab linted, a rewritten note leaves every note on
   its time column, a pure edit's map puts every note it did not rewrite
   where it now is, and a label above a time column stays above the notes it
