@@ -68,44 +68,42 @@ Execute (Annotations 7 the highlight extends over the annotation lines):
   let m = filter(getmatches(), 'v:val.group ==# "songwriterTimeColumn"')
   AssertEqual [[1, 5, 1], [2, 5, 1], [3, 5, 1]], [m[0].pos1, m[0].pos2, m[0].pos3]
 
-" Spec [Tablature][[Editing]] 3.8.5: in the move state, the note under the
-" cursor is highlighted too (songwriterMovingNote), over the column.
+" Spec [Tablature][[Editing]] 3.8.5: in the move state, the time column band
+" takes another color (songwriterMoveColumn).
 
 Given songwriter (3.8.5 a tab with a two-digit note):
   e|--0--12--|
   B|--1------|
 
-Execute (3.8.5 entering the move state highlights the note, leaving it clears it):
+Execute (3.8.5 entering the move state recolors the band, leaving it restores it):
   call cursor(1, 9)
   call songwriter#tab#highlight#Update()
-  AssertEqual [], filter(getmatches(), 'v:val.group ==# "songwriterMovingNote"')
+  AssertEqual [], filter(getmatches(), 'v:val.group ==# "songwriterMoveColumn"')
   normal m
-  let m = filter(getmatches(), 'v:val.group ==# "songwriterMovingNote"')
+  AssertEqual [], filter(getmatches(), 'v:val.group ==# "songwriterTimeColumn"')
+  let m = filter(getmatches(), 'v:val.group ==# "songwriterMoveColumn"')
   AssertEqual 1, len(m)
-  AssertEqual [1, 8, 2], m[0].pos1
-  Assert !has_key(m[0], 'pos2')
-  Assert m[0].priority > 10
-  AssertEqual 1, len(filter(getmatches(), 'v:val.group ==# "songwriterTimeColumn"'))
+  AssertEqual [[1, 8, 2], [2, 8, 2]], [m[0].pos1, m[0].pos2]
   normal m
-  AssertEqual [], filter(getmatches(), 'v:val.group ==# "songwriterMovingNote"')
+  AssertEqual [], filter(getmatches(), 'v:val.group ==# "songwriterMoveColumn"')
   AssertEqual 1, len(filter(getmatches(), 'v:val.group ==# "songwriterTimeColumn"'))
 
-Execute (3.8.5 the highlight follows the note it moves with):
+Execute (3.8.5 the band follows the cursor in the move state):
   call cursor(1, 5)
   normal m
   call cursor(2, 5)
   call songwriter#tab#highlight#Update()
-  let m = filter(getmatches(), 'v:val.group ==# "songwriterMovingNote"')
-  AssertEqual [2, 5, 1], m[0].pos1
+  let m = filter(getmatches(), 'v:val.group ==# "songwriterMoveColumn"')
+  AssertEqual [[1, 5, 1], [2, 5, 1]], [m[0].pos1, m[0].pos2]
   call songwriter#tab#mode#Enter('normal')
-  AssertEqual [], filter(getmatches(), 'v:val.group ==# "songwriterMovingNote"')
+  AssertEqual [], filter(getmatches(), 'v:val.group ==# "songwriterMoveColumn"')
 
-Execute (3.8.5 the cursor leaving the notes clears it):
+Execute (3.8.5 the cursor leaving the notes ends it):
   call cursor(1, 5)
   normal m
   call cursor(1, 6)
   call songwriter#tab#highlight#Update()
-  AssertEqual [], filter(getmatches(), 'v:val.group ==# "songwriterMovingNote"')
+  AssertEqual [], filter(getmatches(), 'v:val.group ==# "songwriterMoveColumn"')
 
 Execute (3.8.5 the group has a default):
-  AssertEqual 'Search', synIDattr(synIDtrans(hlID('songwriterMovingNote')), 'name')
+  AssertEqual 'Search', synIDattr(synIDtrans(hlID('songwriterMoveColumn')), 'name')
