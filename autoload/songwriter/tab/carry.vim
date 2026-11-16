@@ -238,13 +238,11 @@ endfunction
 
 " === Entry points ===
 
-" The carry going on at the cursor of the block whose first line is `top`: the
-" buffer unchanged since its last step (tab/state.vim) and the cursor where
-" that step left it. {} otherwise.
+" The carry going on at the cursor of the block whose first line is `top`
+" (state#Continuing), {} otherwise.
 function! s:running(top) abort
-  let l:carry = songwriter#tab#state#Get('carry')
-  return !empty(l:carry) && l:carry.saved.origin.top == a:top
-        \ && l:carry.line == line('.') && l:carry.col == col('.') ? l:carry : {}
+  let l:carry = songwriter#tab#state#Continuing('carry')
+  return !empty(l:carry) && l:carry.saved.origin.top == a:top ? l:carry : {}
 endfunction
 
 " Spec 3.6, 3.8, 7: carry the notes of `kind` ('note' or 'column') under the

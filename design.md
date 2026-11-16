@@ -28,7 +28,7 @@ never relies on concealing or rendering.
 | `autoload/songwriter/tab/carry.vim` | Carrying notes across strings: the pure carry (`Lift`, `Copy`, `Step`, `Render`, `Move`), `<leader>k`/`<leader>j` and `s`/`S`, copies, visual carries and the move state (`m`). |
 | `autoload/songwriter/selection.vim` | The visual selection, for actions that change the text from visual mode and select again (`Get`, `Spans`, `Select`). |
 | `autoload/songwriter/tab/newtab.vim` | New tabs: `o`/`O` and `:SongwriterNewTab`. |
-| `autoload/songwriter/tab/state.vim` | Buffer state valid only while `b:changedtick` is unchanged (slot, insert state, digit being typed, carried note, `.`). |
+| `autoload/songwriter/tab/state.vim` | Buffer state valid only while `b:changedtick` is unchanged (slot, insert state, digit being typed, carried note, `.`), and continuations (`Continuing`): state that also needs the cursor where it was left. |
 | `autoload/songwriter/tab/lint.vim` | The linter, as a pure function over a block's lines. |
 | `autoload/songwriter/tab/highlight.vim` | The time column under the cursor, highlighted in tablature mode. |
 | `autoload/songwriter/tab.vim` | The tab commands that work outside tablature mode too: `_`, `\|\|`, `:SongwriterAddBar`, `:SongwriterAddDashes`, `:SongwriterTabChord`. |
@@ -376,6 +376,13 @@ text, and arrow keys would be needed).
   Entering shows `-- TAB INSERT --`, after a `redraw` so that repeated state
   changes replace each other instead of piling up into a hit-enter prompt;
   `songwriter#keys#Mode()` is there for status lines.
+- **Continuations.** Several keys carry on from the last action when pressed
+  straight after it: the carry run (3.6.2), the digit being typed (3.4.1),
+  `==` cycling voicings or names (10.4, 10.10). "Straight after" has one
+  definition, `state#Continuing(name)`: the value recorded under `name` while
+  the buffer is unchanged since and the cursor is where the action left it
+  (`edit#Do` records the cursor with every state). Anything else in between,
+  a move included, ends it.
 - **`w`/`b`/`e`/`ge` (3.2)**: by word (a chain, see "Vim's units in a tab")
   on the current line: `w`/`b` stop on a word's first note, `e`/`ge` on its
   last (`model#Words`). Dashes and pipes are not stops; a two-digit fret is
@@ -435,8 +442,8 @@ text, and arrow keys would be needed).
   whole note (both digits of a `12`). To type a two-digit fret, a digit typed
   straight after another is appended to it instead (3.4.1): `EnterNote` records
   `b:songwriter_typing = {line, col, tick}` after each digit, and the next
-  digit appends only when the cursor and `b:changedtick` still match. Any move
-  or edit ends the run, so coming back to a note replaces it. The block is then
+  digit appends only when the cursor and `b:changedtick` still match
+  (`state#Continuing`, see "Continuations" below). Any move or edit ends the run, so coming back to a note replaces it. The block is then
   linted (4.1, below), which fixes the spacing. `x` on a dash enters a muted
   note the same way (3.4.3); on a note it stays the erase of spec 6.7. Off tablature mode or a tab
   line, digits keep their count meaning. Digits work in both states and keep

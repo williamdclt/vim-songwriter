@@ -1,0 +1,28 @@
+" Buffer state tied to one buffer version (autoload/songwriter/tab/state.vim).
+
+Before:
+  enew!
+  call setline(1, ['e|--3--5--|', 'B|--1-----|'])
+
+Execute (Get: the value while the buffer is unchanged, {} after a change):
+  call songwriter#tab#state#Set('x', {'n': 1})
+  AssertEqual 1, songwriter#tab#state#Get('x').n
+  call setline(1, 'e|--4--5--|')
+  AssertEqual {}, songwriter#tab#state#Get('x')
+
+Execute (Continuing: the value while the buffer is unchanged and the cursor where it was recorded):
+  call cursor(1, 3)
+  call songwriter#tab#state#Set('x', {'n': 1, 'line': 1, 'col': 3})
+  AssertEqual 1, songwriter#tab#state#Continuing('x').n
+  call cursor(1, 6)
+  AssertEqual {}, songwriter#tab#state#Continuing('x')
+  AssertEqual 1, songwriter#tab#state#Get('x').n
+  call cursor(2, 3)
+  AssertEqual {}, songwriter#tab#state#Continuing('x')
+  call cursor(1, 3)
+  call setline(2, 'B|--2-----|')
+  AssertEqual {}, songwriter#tab#state#Continuing('x')
+
+Execute (Continuing: a value recorded without a cursor is not a continuation):
+  call songwriter#tab#state#Set('x', {'n': 1})
+  AssertEqual {}, songwriter#tab#state#Continuing('x')

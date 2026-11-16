@@ -24,7 +24,7 @@ function! songwriter#tab#typing#EnterNote(digit) abort
   let l:col = col('.')
   let l:ch = (l:col <= len(l:line)) ? l:line[l:col - 1] : ''
   let l:typing = songwriter#tab#state#Get('typing')
-  let l:here = !empty(l:typing) && l:typing.line == line('.') && l:typing.col == l:col
+  let l:here = !empty(songwriter#tab#state#Continuing('typing'))
   let l:insert = songwriter#tab#insert#Active()
   let l:note = songwriter#tab#model#NoteAt(l:line, l:col)
   let l:after_separator = l:here && l:insert && get(l:typing, 'separator', 0)
@@ -85,10 +85,9 @@ endfunction
 " (cursor still on it, buffer unchanged since; not a chord, spec 10), when a
 " separator key writes a separator.
 function! songwriter#tab#typing#JustTyped() abort
-  let l:typing = songwriter#tab#state#Get('typing')
+  let l:typing = songwriter#tab#state#Continuing('typing')
   return songwriter#tab#insert#Active() && !empty(l:typing)
         \ && !get(l:typing, 'separator', 0) && !get(l:typing, 'chord', 0)
-        \ && l:typing.line == line('.') && l:typing.col == col('.')
 endfunction
 
 " Spec 3.4.1.3: write the separator `char` right after the note under the

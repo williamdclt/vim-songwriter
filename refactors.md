@@ -13,20 +13,6 @@ more regular, as a question for the user.
 The safety net for all of them is `test/songwriter_invariants_*.vader`, on top of
 the per-feature tests: run `make test` after every step.
 
-## 1. One check for "carrying on from the last action"
-
-**Now.** Several features hold only while the buffer is unchanged and the
-cursor is where their last step left it. tab/state.vim checks the first;
-each feature checks the second itself (carry.vim's `s:running` compares
-`line`/`col`, which edit#Do already records with every `state`). The typed
-digit, voicing cycling and chord naming hold the same kind of state.
-
-**Change.** `state#Continuing(name)`: the value recorded under `name` when the
-buffer is unchanged since and the cursor is where it was recorded, else {}.
-Use it everywhere a feature carries on from its last step.
-
-**Buys.** One definition of a continuation; the groundwork for 2.
-
 ## 2. The states of tablature mode, in one place
 
 **Now.** The state of tablature mode is spread out: `b:songwriter_tabmode`,
@@ -42,7 +28,7 @@ itself, and the move state shows its message with insert#Show.
   insert and move. One module (tab/mode.vim) owns the current mode, with an
   enter and leave hook per mode and the message each shows. keys.vim picks its
   table from the mode.
-- **continuations**, valid only while nothing else has happened (1): the carry
+- **continuations**, valid only while nothing else has happened (`state#Continuing`): the carry
   run, the typed digit, the slot, cycling voicings, `.`.
 
 **Behaviour.** Which key wins when several states apply must stay as it is,

@@ -420,8 +420,8 @@ function! songwriter#tab#voicings#Next() abort
   if songwriter#tab#chordname#Naming()
     return songwriter#tab#chordname#NextName()
   endif
-  let l:last = songwriter#tab#state#Get('voicing')
-  if empty(l:last) || l:last.line != line('.') || l:last.col != col('.')
+  let l:last = songwriter#tab#state#Continuing('voicing')
+  if empty(l:last)
     call songwriter#tab#edit#Error('songwriter: == follows a chord entered with =')
     return
   endif
