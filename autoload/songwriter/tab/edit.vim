@@ -13,9 +13,17 @@
 "            of its lines (annotations#Follow),
 "   'label': with 'lines', {'col' (of its lines), 'text', 'add'}: the chord
 "            label of that column to write (annotations#Label),
+"   'above': with 'lines', the annotation lines, in place of those that
+"            would follow the edit (`cap` clears them, 6.3.1),
 "   'col':   the cursor column,
 "   'lin':   the cursor's 0-indexed line in the block (with 'col'; default:
 "            stays),
+"   'sel':   with 'lines', the selection to make again once written (Do's
+"            'selection' given), as selection#Get gives it but its 'anchor'
+"            and 'cursor' being [lin, col] of the lines the edit was given (or
+"            of its 'base'); its columns follow the edit and the lint,
+"   'slot':  1 when the cursor is left on a slot the edit opened as part of
+"            a bigger edit (`c`, 6.6), which closing lints (slots#Open),
 "   'msg':   a message to echo,
 "   'error': a refusal to show; nothing else is applied,
 "   'state': {name: value} to record in tab/state.vim once written, each value
@@ -26,17 +34,20 @@
 "            opts.open says (slots#InBar; Do only).
 " {} means nothing to do.
 "
-" Do() is the whole edit: what it does with an open slot, the undo step it
-" joins, the lints before and after (spec [Tablature][[Editing]] 4), the
-" insert state, the state for the next key, and `.`. The rest are its parts,
-" for the entry points that are not one edit at the cursor.
+" Do() is the one way an edit reaches the buffer, in stages: prepare (the
+" open slot, the first lint), the pure edit, write (the lint, the column map,
+" the undo step), then the follow-ups (the selection, the state for the next
+" key, the register, a slot opened, `.`, the insert state), each a small
+" function. Its target is the cursor, or a visual selection it selects again.
+" `undojoin` is only here (s:write, JoinUndo).
 "
 " What an edit writes is a draft: {'lines', 'map', 'base' (optional), 'put'
-" (optional), 'label' (optional)}, the block's new lines and where each column
-" of `base` went in them; `base` is the snapshot the edit started from, by
-" default the block being written; `put` are annotation words the edit brings
-" along (annotations#Follow); `label` a chord label it writes
-" (annotations#Label). Write() is the one way a draft reaches the buffer.
+" (optional), 'label' (optional), 'above' (optional)}, the block's new lines
+" and where each column of `base` went in them; `base` is the snapshot the
+" edit started from, by default the block being written; `put` are annotation
+" words the edit brings along (annotations#Follow); `label` a chord label it
+" writes (annotations#Label); `above` annotation lines replacing them all.
+" s:write is the one way a draft reaches the buffer.
 
 " Pure. The snapshot of `lines`, made from the snapshot `base` by an edit
 " whose column map is `map`: the annotations follow the music
@@ -55,20 +66,19 @@ function! s:snapshot(block, draft) abort
   if !has_key(a:draft, 'map')
     throw 'songwriter: a draft needs a map (tab/colmap.vim)'
   endif
-  return songwriter#tab#edit#Derive(get(a:draft, 'base', songwriter#tab#model#Snapshot(a:block)),
+  let l:snapshot = songwriter#tab#edit#Derive(get(a:draft, 'base', songwriter#tab#model#Snapshot(a:block)),
         \ a:draft.lines, a:draft.map, get(a:draft, 'put', []), get(a:draft, 'label', {}))
+  if has_key(a:draft, 'above')
+    let l:snapshot.above = copy(a:draft.above)
+  endif
+  return l:snapshot
 endfunction
 
-" Write `draft` over `block` and return the block written (model#Write). A
-" draft without a map is an error: every edit says where the tab went.
-function! songwriter#tab#edit#Write(block, draft) abort
-  return songwriter#tab#model#Write(a:block, s:snapshot(a:block, a:draft))
-endfunction
-
-" Show a refusal.
+" Show a refusal, `msg` as a pure function gives it ({'error'}), prefixed
+" with the plugin's name.
 function! songwriter#tab#edit#Error(msg) abort
   echohl ErrorMsg
-  echo a:msg
+  echo 'songwriter: ' . a:msg
   echohl None
 endfunction
 
@@ -83,32 +93,28 @@ function! songwriter#tab#edit#Linted(lines, lin, col) abort
   return {'lines': l:result.lines, 'col': l:col, 'map': l:result.map}
 endfunction
 
-" Lint `block`, write it back and keep the cursor on the same note (or in the
-" same gap between notes) when it is inside the block. Returns the re-read
-" block, or {} when `block` is empty.
-function! songwriter#tab#edit#LintAndFollow(block) abort
-  if empty(a:block)
-    return {}
+" Write `draft` over `block` and put the cursor on line `lin` of the block
+" at column `col`; a cursor off the block's strings stays on its line. `join`:
+" the write, if anything changes, is joined to the previous undo step.
+function! s:write(block, draft, lin, col, join) abort
+  let l:snapshot = s:snapshot(a:block, a:draft)
+  let l:block = a:block
+  if l:snapshot !=# songwriter#tab#model#Snapshot(a:block)
+    if a:join
+      silent! undojoin
+    endif
+    let l:block = songwriter#tab#model#Write(a:block, l:snapshot)
   endif
-  let l:lin = songwriter#tab#model#CursorLin(a:block)
-  let l:linted = songwriter#tab#edit#Linted(a:block.lines, l:lin, col('.'))
-  let l:block = songwriter#tab#edit#Write(a:block, l:linted)
-  if l:lin >= 0 && l:lin < len(a:block.lines)
-    call cursor(l:block.start + l:lin, l:linted.col)
-  endif
-  return songwriter#tab#model#ReadTop(a:block.top)
+  call cursor(a:lin >= 0 && a:lin < len(a:draft.lines) ? l:block.start + a:lin : line('.'), a:col)
+  return l:block
 endfunction
 
-" Write a result's lines and move the cursor, without linting.
-function! songwriter#tab#edit#Apply(block, result) abort
-  let l:block = a:block
-  if has_key(a:result, 'lines')
-    let l:block = songwriter#tab#edit#Write(a:block, a:result)
-  endif
-  if has_key(a:result, 'col')
-    call cursor(has_key(a:result, 'lin') ? l:block.start + a:result.lin
-          \ : line('.') + l:block.start - a:block.start, a:result.col)
-  endif
+" Join the next change to the previous undo step, for a change that is not an
+" edit of a tab's strings (whole tabs deleted by a line-wise operator, an
+" annotation line retyped once Vim's insert mode is left) made in a later
+" command than the change it belongs with.
+function! songwriter#tab#edit#JoinUndo() abort
+  silent! undojoin
 endfunction
 
 " Pure. Where `result` takes `lines`, the cursor being on line `lin` (0-indexed)
@@ -137,9 +143,11 @@ function! s:resolve(lines, lin, col, result, lint) abort
     let l:map = songwriter#tab#colmap#Then(l:map, l:linted.map)
   endif
   let l:r = {'lines': l:lines, 'lin': l:lin, 'col': l:col, 'map': l:map}
-  if has_key(a:result, 'base')
-    let l:r.base = a:result.base
-  endif
+  for l:key in ['base', 'above']
+    if has_key(a:result, l:key)
+      let l:r[l:key] = a:result[l:key]
+    endif
+  endfor
   " The words' columns follow the lint, as the rest of the tab.
   let l:lint = a:lint ? l:linted.map : []
   if has_key(a:result, 'put')
@@ -153,50 +161,20 @@ function! s:resolve(lines, lin, col, result, lint) abort
   return l:r
 endfunction
 
-" Write `draft` over `block` and put the cursor on line `lin` of the block
-" (the cursor's line when outside it), column `col`. `join`: the write, if
-" anything changes, is joined to the previous undo step.
-function! s:write(block, draft, lin, col, join) abort
-  let l:snapshot = s:snapshot(a:block, a:draft)
-  let l:block = a:block
-  if l:snapshot !=# songwriter#tab#model#Snapshot(a:block)
-    if a:join
-      silent! undojoin
-    endif
-    let l:block = songwriter#tab#model#Write(a:block, l:snapshot)
-  endif
-  call cursor(a:lin >= 0 && a:lin < len(a:draft.lines) ? l:block.start + a:lin
-        \ : line('.') + l:block.start - a:block.start, a:col)
-endfunction
-
-" Apply a result to `block`, linted with the cursor kept on the music, in one
-" write, and echo its message. Returns the linted block, or {} when the result
-" was a refusal or nothing to do.
-function! songwriter#tab#edit#Commit(block, result) abort
-  if has_key(a:result, 'error')
-    call songwriter#tab#edit#Error(a:result.error)
-    return {}
-  endif
-  if empty(a:result)
-    return {}
-  endif
-  let l:r = s:resolve(a:block.lines, songwriter#tab#model#CursorLin(a:block), col('.'), a:result, 1)
-  call s:write(a:block, l:r, l:r.lin, l:r.col, 0)
-  if !empty(get(a:result, 'msg', ''))
-    echo a:result.msg
-  endif
-  return songwriter#tab#model#ReadTop(a:block.top)
-endfunction
-
-" A whole edit at the cursor, written once: the block is linted (in memory),
-" Fn(ctx) gives a result for it (see the top), and the result is linted again
-" and written. ctx is {'block' (the linted block, as Read gives it), 'lin',
-" 'col', 'line' (as
-" model#Cursor), 'insert' (whether the insert state is on)}. A refusal or an
-" empty result still writes the first lint, except for an edit that opens a
-" slot: the lint is part of opening it (spec 4.2), so with no slot nothing
-" changes.
+" A whole edit, written once: the block is linted (in memory), Fn(ctx) gives a
+" result for it (see the top), and the result is linted again and written.
+" ctx is {'block' (the linted block, as Read gives it), 'lin', 'col', 'line'
+" (as model#Cursor; 'line' is '' when the cursor is off the block's strings),
+" 'insert' (whether the insert state is on), 'sel' (the selection, when one
+" is given)}. A refusal or an empty result still writes the first lint,
+" except for an edit that opens a slot: the lint is part of opening it (spec
+" 4.2), so with no slot nothing changes.
 " `opts` (all optional):
+"   'lnum':    a line of the block to edit (default: the cursor's), when the
+"              cursor may be elsewhere.
+"   'selection': the target is this visual selection (selection#Get, read
+"              before leaving visual mode), selected again once written (the
+"              result's 'sel', else as it was).
 "   'slot':    the open slot (spec 4.3): 'close' closes it first, 'motion'
 "              closes it keeping the lint (4.3.3), 'fill' means the edit fills
 "              it (joined to its undo step, then forgotten); default: left as
@@ -208,74 +186,162 @@ endfunction
 "              bar): closing it gives back the block as it was before the
 "              edit, prelint included (slots#Mark, slots#Open).
 "   'insert':  keep the insert state when it is on (default: an edit ends it).
-"   'repeat':  a call for `.` (repeat#Record), with 'count'.
+"   'repeat':  [Fn, args] or [Fn, args, count index]: the call `.` repeats
+"              (repeat#Record).
 " Returns the written block, {} when nothing was done (off a tab line, a
 " refusal, nothing to do).
 function! songwriter#tab#edit#Do(Fn, ...) abort
-  let l:opts = a:0 ? a:1 : {}
-  let l:insert = songwriter#tab#insert#Active()
-  let l:slot = get(l:opts, 'slot', '')
-  let l:join = get(l:opts, 'join', 0)
+  let l:edit = s:prepare(a:0 ? a:1 : {})
+  if empty(l:edit)
+    return {}
+  endif
+  let l:result = a:Fn(l:edit.ctx)
+  let l:edit.done = !empty(l:result) && !has_key(l:result, 'error')
+  call s:write_result(l:edit, l:result)
+  call s:select(l:edit, l:result)
+  call s:report(l:edit, l:result)
+  if l:edit.done
+    call s:fill_slot(l:edit, l:result)
+    call s:record_state(l:edit, l:result)
+    call s:set_register(l:edit, l:result)
+    call s:open_slot(l:edit, l:result)
+    call s:record_repeat(l:edit, l:result)
+  endif
+  call s:keep_insert(l:edit)
+  return l:edit.done ? songwriter#tab#model#ReadTop(l:edit.block.top) : {}
+endfunction
+
+" Stage 1: what Do works on, {'opts', 'block' (as read), 'pre' (the first
+" lint, resolved), 'ctx' (for Fn), 'join', 'insert', 'mark' (with 'open')},
+" once the open slot is dealt with; {} off a tab.
+function! s:prepare(opts) abort
+  let l:edit = {'opts': a:opts, 'insert': songwriter#tab#mode#Current() ==# 'insert',
+        \ 'join': get(a:opts, 'join', 0)}
+  let l:slot = get(a:opts, 'slot', '')
   if l:slot ==# 'close'
     call songwriter#tab#slots#Abandon()
   elseif l:slot ==# 'motion'
     call songwriter#tab#slots#Abandon(1)
   elseif l:slot ==# 'fill'
-    let l:join = l:join || !empty(songwriter#tab#state#Get('slot'))
+    let l:edit.join = l:edit.join || !empty(songwriter#tab#state#Get('slot'))
   endif
-  let l:block = songwriter#tab#model#Read()
+  let l:block = has_key(a:opts, 'lnum') ? songwriter#tab#model#Around(a:opts.lnum)
+        \ : songwriter#tab#model#Read()
   if empty(l:block)
     return {}
   endif
-  if has_key(l:opts, 'open')
-    let l:mark = songwriter#tab#slots#Mark(l:opts.open)
+  let l:edit.block = l:block
+  if has_key(a:opts, 'open')
+    let l:edit.mark = songwriter#tab#slots#Mark(a:opts.open)
   endif
   let l:pre = s:resolve(l:block.lines, songwriter#tab#model#CursorLin(l:block), col('.'), {},
-        \ get(l:opts, 'prelint', 1))
-  if has_key(l:opts, 'open')
-    call songwriter#tab#slots#Linted(l:mark, l:pre)
+        \ get(a:opts, 'prelint', 1))
+  if has_key(a:opts, 'open')
+    call songwriter#tab#slots#Linted(l:edit.mark, l:pre)
   endif
-  let l:result = a:Fn({'block': songwriter#tab#model#FromSnapshot(s:snapshot(l:block, l:pre)),
-        \ 'lin': l:pre.lin, 'col': l:pre.col, 'line': l:pre.lines[l:pre.lin], 'insert': l:insert})
-  let l:done = !empty(l:result) && !has_key(l:result, 'error')
-  let l:post = l:pre
-  if l:done
-    let l:post = s:resolve(l:pre.lines, l:pre.lin, l:pre.col, l:result, get(l:opts, 'lint', 1))
+  let l:edit.pre = l:pre
+  let l:edit.ctx = {'block': songwriter#tab#model#FromSnapshot(s:snapshot(l:block, l:pre)),
+        \ 'lin': l:pre.lin, 'col': l:pre.col, 'insert': l:edit.insert,
+        \ 'line': l:pre.lin >= 0 && l:pre.lin < len(l:pre.lines) ? l:pre.lines[l:pre.lin] : ''}
+  if has_key(a:opts, 'selection')
+    let l:edit.ctx.sel = a:opts.selection
+  endif
+  return l:edit
+endfunction
+
+" Stage 3: write the result, linted, or only the first lint when it is a
+" refusal or nothing (none of it for an edit that opens a slot). Records what
+" was written in `edit` ('post', the draft; 'written', the block).
+function! s:write_result(edit, result) abort
+  let l:post = a:edit.pre
+  if a:edit.done
+    let l:post = s:resolve(l:post.lines, l:post.lin, l:post.col, a:result, get(a:edit.opts, 'lint', 1))
     if !has_key(l:post, 'base')
-      let l:post.map = songwriter#tab#colmap#Then(l:pre.map, l:post.map)
+      let l:post.map = songwriter#tab#colmap#Then(a:edit.pre.map, l:post.map)
     endif
   endif
-  if l:done || !has_key(l:opts, 'open')
-    call s:write(l:block, l:post, l:post.lin, l:post.col, l:join)
+  let a:edit.post = l:post
+  let a:edit.written = a:edit.block
+  if a:edit.done || !has_key(a:edit.opts, 'open')
+    let a:edit.written = s:write(a:edit.block, l:post, l:post.lin, l:post.col, a:edit.join)
   endif
-  if has_key(l:result, 'error')
-    call songwriter#tab#edit#Error(l:result.error)
-  elseif l:done && !empty(get(l:result, 'msg', ''))
-    echo l:result.msg
+endfunction
+
+" Follow-up: select the selection target again, its columns following the
+" edit when the result says where it went ('sel').
+function! s:select(edit, result) abort
+  if !has_key(a:edit.opts, 'selection')
+    return
   endif
-  if l:done
-    if l:slot ==# 'fill'
-      call songwriter#tab#slots#Forget()
-    endif
-    for [l:name, l:value] in items(get(l:result, 'state', {}))
-      call songwriter#tab#state#Set(l:name, extend(copy(l:value), {'line': line('.'), 'col': col('.')}))
-    endfor
-    if has_key(l:result, 'register')
-      let l:r = l:result.register
-      call songwriter#tab#register#Set(l:r.name, l:r.rows, l:r.type, l:r.names, get(l:r, 'above', 0))
-    endif
-    if has_key(l:opts, 'open')
-      if get(l:result, 'side', l:mark.side) == 0
-        call songwriter#tab#slots#InBar(l:mark, col('.'))
-      endif
-      call songwriter#tab#slots#Open(l:mark)
-    endif
-    if has_key(l:opts, 'repeat')
-      call songwriter#tab#repeat#Record(l:opts.repeat, get(l:opts, 'count', 1))
-    endif
+  if !a:edit.done || !has_key(a:result, 'sel')
+    return songwriter#selection#Select(a:edit.opts.selection)
   endif
-  if l:insert && get(l:opts, 'insert', 0) && !has_key(l:opts, 'open')
-    call songwriter#tab#insert#Keep()
+  let l:sel = copy(a:result.sel)
+  for l:end in ['anchor', 'cursor']
+    let [l:lin, l:col] = a:result.sel[l:end]
+    let l:sel[l:end] = [0, a:edit.written.start + l:lin,
+          \ max([1, songwriter#tab#colmap#At(a:edit.post.map, l:col)]), 0]
+  endfor
+  let l:sel.cursor += [l:sel.cursor[2]]
+  call songwriter#selection#Select(l:sel)
+endfunction
+
+" Follow-up: echo the refusal, or the message.
+function! s:report(edit, result) abort
+  if has_key(a:result, 'error')
+    call songwriter#tab#edit#Error(a:result.error)
+  elseif a:edit.done && !empty(get(a:result, 'msg', ''))
+    echo a:result.msg
   endif
-  return l:done ? songwriter#tab#model#ReadTop(l:block.top) : {}
+endfunction
+
+" Follow-up: a slot the edit filled is forgotten.
+function! s:fill_slot(edit, result) abort
+  if get(a:edit.opts, 'slot', '') ==# 'fill'
+    call songwriter#tab#slots#Forget()
+  endif
+endfunction
+
+" Follow-up: record the result's state for the next key, with the cursor
+" where the edit left it (state#Continuing).
+function! s:record_state(edit, result) abort
+  for [l:name, l:value] in items(get(a:result, 'state', {}))
+    call songwriter#tab#state#Set(l:name, extend(copy(l:value), {'line': line('.'), 'col': col('.')}))
+  endfor
+endfunction
+
+" Follow-up: set the result's register.
+function! s:set_register(edit, result) abort
+  if has_key(a:result, 'register')
+    let l:r = a:result.register
+    call songwriter#tab#register#Set(l:r.name, l:r.rows, l:r.type, l:r.names, get(l:r, 'above', 0))
+  endif
+endfunction
+
+" Follow-up: remember the slot the edit opened: with a mark (opts.open), in
+" the empty bar it landed in when that is not the side it was opened on
+" (slots#InBar); without one, a slot of a bigger edit (the result's 'slot').
+function! s:open_slot(edit, result) abort
+  if has_key(a:edit.opts, 'open')
+    if has_key(a:result, 'side') && a:result.side != a:edit.mark.side
+      call songwriter#tab#slots#InBar(a:edit.mark, col('.'))
+    endif
+    call songwriter#tab#slots#Open(a:edit.mark)
+  elseif get(a:result, 'slot', 0)
+    call songwriter#tab#slots#Open()
+  endif
+endfunction
+
+" Follow-up: record the edit for `.`.
+function! s:record_repeat(edit, result) abort
+  if has_key(a:edit.opts, 'repeat')
+    call call('songwriter#tab#repeat#Record', a:edit.opts.repeat)
+  endif
+endfunction
+
+" Follow-up: keep the insert state the edit was made in, when asked.
+function! s:keep_insert(edit) abort
+  if a:edit.insert && get(a:edit.opts, 'insert', 0) && !has_key(a:edit.opts, 'open')
+    call songwriter#tab#mode#Keep()
+  endif
 endfunction

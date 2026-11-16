@@ -6,16 +6,17 @@
 "     {mode}noremap <buffer> <expr> {key} songwriter#keys#Dispatch({key}, {mode})
 " Dispatch picks the action for the current context, most specific first, and
 " falls back to the key's default behaviour:
-"   0. s:moving[mode]  - tablature mode, the move state (`m`, spec
-"                        [Tablature][[Editing]] 3.8, songwriter#tab#carry#Moving)
-"   1. s:typed[mode]   - tablature mode, insert state, straight after a note
-"                        was typed (songwriter#tab#typing#JustTyped)
-"   2. s:tabinsert[mode] - tablature mode, insert state
-"   3. s:tabmode[mode] - tablature mode on (<leader>t) and cursor on a tab line
-"   4. s:tabline[mode] - cursor on a tab line
-"   5. s:annotation[mode] - tablature mode, cursor on an annotation line of a
+"   1. tablature mode on (<leader>t) and cursor on a tab line: the tables of
+"      the current mode of tablature mode (tab/mode.vim, s:tables), each
+"      falling back to the normal one:
+"        normal: s:tabmode[mode]
+"        insert: s:typed[mode] straight after a note was typed
+"                (songwriter#tab#typing#JustTyped), then s:tabinsert[mode]
+"        move:   s:moving[mode] (`m`, spec [Tablature][[Editing]] 3.8)
+"   2. s:tabline[mode] - cursor on a tab line
+"   3. s:annotation[mode] - tablature mode, cursor on an annotation line of a
 "                        tab ([[Annotations]] 1)
-"   6. the key itself
+"   4. the key itself
 " An action is an Ex command, run with <Cmd> (no mode change, no command-line
 " echo), or, when it starts with `=`, an expression whose value is the keys to
 " run (operators need this: they return `g@`). Special keys are written in <>
@@ -40,8 +41,8 @@ let s:moving.n = {
       \ 'l': "call songwriter#tab#carry#Carry('', 0, 1, 0)",
       \ '<leader>j': 'call songwriter#tab#carry#Duplicate(1)',
       \ '<leader>k': 'call songwriter#tab#carry#Duplicate(-1)',
-      \ 'm': 'call songwriter#tab#carry#EndMove()',
-      \ '<Esc>': 'call songwriter#tab#carry#EndMove()',
+      \ 'm': "call songwriter#tab#mode#Enter('normal')",
+      \ '<Esc>': "call songwriter#tab#mode#Enter('normal')",
       \ }
 
 " Spec [Tablature][[Editing]] 3.4.1.3: separator keys write a separator
@@ -67,19 +68,19 @@ let s:tabmode.n = {
       \ 'E': 'call songwriter#tab#motion#MoveBar("E", v:count1)',
       \ 'a': 'call songwriter#tab#slots#AddNote(1)',
       \ 'i': 'call songwriter#tab#slots#AddNote(-1)',
-      \ '<Esc>': 'call songwriter#tab#insert#Escape()',
+      \ '<Esc>': "call songwriter#tab#mode#Enter('normal')",
       \ 'd': '=songwriter#tab#operator#Start("d")',
       \ 'y': '=songwriter#tab#operator#Start("y")',
       \ 'c': '=songwriter#tab#operator#Start("c")',
       \ 'Y': '=songwriter#tab#operator#StartOn("y", "column")',
       \ 'D': '=songwriter#tab#operator#StartOn("d", "bar-end")',
       \ 'C': '=songwriter#tab#operator#StartOn("c", "bar-end")',
-      \ '>>': 'call songwriter#tab#operator#Shift(1, v:count1)',
-      \ '<<': 'call songwriter#tab#operator#Shift(-1, v:count1)',
-      \ 'gp': 'call songwriter#tab#operator#Overlay(v:register)',
-      \ 'x': 'call songwriter#tab#operator#EraseOrMute(v:count1, v:register)',
-      \ 'p': 'call songwriter#tab#operator#Put(0, v:count1, v:register)',
-      \ 'P': 'call songwriter#tab#operator#Put(1, v:count1, v:register)',
+      \ '>>': 'call songwriter#tab#actions#Shift(1, v:count1)',
+      \ '<<': 'call songwriter#tab#actions#Shift(-1, v:count1)',
+      \ 'gp': 'call songwriter#tab#actions#Overlay(v:register)',
+      \ 'x': 'call songwriter#tab#actions#EraseOrMute(v:count1, v:register)',
+      \ 'p': 'call songwriter#tab#actions#Put(0, v:count1, v:register)',
+      \ 'P': 'call songwriter#tab#actions#Put(1, v:count1, v:register)',
       \ '.': '=songwriter#tab#repeat#Repeat()',
       \ 'o': 'call songwriter#tab#newtab#NewTab(1)',
       \ 'O': 'call songwriter#tab#newtab#NewTab(0)',
@@ -90,7 +91,7 @@ let s:tabmode.n = {
       \ '<leader>j': "call songwriter#tab#carry#Carry('note', 1, 0, 0)",
       \ '<leader><leader>k': 'call songwriter#tab#carry#Duplicate(-1)',
       \ '<leader><leader>j': 'call songwriter#tab#carry#Duplicate(1)',
-      \ 'm': '=songwriter#tab#carry#MoveKey()',
+      \ 'm': '=songwriter#tab#mode#MoveKey()',
       \ }
 " Spec 3.6, 3.7, 3.8: carrying notes across strings. Spec 7: `s` (keep the
 " fret) / `S` (keep the pitch), then `k`/`j` (the note under the cursor) or
@@ -208,24 +209,26 @@ function! songwriter#keys#ContextKeys(...) abort
         \ + keys(s:tabmode[l:mode]) + keys(s:tabline[l:mode]) + keys(s:annotation[l:mode])))
 endfunction
 
+" Every action of every table (for the test that their functions exist).
+function! songwriter#keys#Actions() abort
+  let l:actions = []
+  for l:table in [s:moving, s:typed, s:tabinsert, s:tabmode, s:tabline, s:annotation]
+    for l:mode in ['n', 'o', 'x']
+      call extend(l:actions, values(get(l:table, l:mode, {})))
+    endfor
+  endfor
+  return l:actions
+endfunction
+
 function! songwriter#keys#Dispatch(key, ...) abort
   let l:mode = a:0 ? a:1 : 'n'
   if songwriter#grammar#IsTabLine(getline('.'))
     if songwriter#keys#InTabMode()
-      if songwriter#tab#carry#Moving()
-        if has_key(s:moving[l:mode], a:key)
-          return s:action(s:moving[l:mode][a:key])
+      for l:table in s:tables(songwriter#tab#mode#Current())
+        if has_key(l:table[l:mode], a:key)
+          return s:action(l:table[l:mode][a:key])
         endif
-      endif
-      if has_key(s:typed[l:mode], a:key) && songwriter#tab#typing#JustTyped()
-        return s:action(s:typed[l:mode][a:key])
-      endif
-      if has_key(s:tabinsert[l:mode], a:key) && songwriter#tab#insert#Active()
-        return s:action(s:tabinsert[l:mode][a:key])
-      endif
-      if has_key(s:tabmode[l:mode], a:key)
-        return s:action(s:tabmode[l:mode][a:key])
-      endif
+      endfor
     endif
     if has_key(s:tabline[l:mode], a:key)
       return s:action(s:tabline[l:mode][a:key])
@@ -236,6 +239,17 @@ function! songwriter#keys#Dispatch(key, ...) abort
     return s:action(s:annotation[l:mode][a:key])
   endif
   return s:key(a:key)
+endfunction
+
+" The tables of tablature mode's mode `name` (tab/mode.vim), most specific
+" first.
+function! s:tables(name) abort
+  if a:name ==# 'move'
+    return [s:moving, s:tabmode]
+  elseif a:name ==# 'insert'
+    return (songwriter#tab#typing#JustTyped() ? [s:typed] : []) + [s:tabinsert, s:tabmode]
+  endif
+  return [s:tabmode]
 endfunction
 
 " The keys `key` stands for, from its <> notation ('<Esc>', '<leader>k').
@@ -254,14 +268,11 @@ function! songwriter#keys#InTabMode() abort
   return get(b:, 'songwriter_tabmode', 0)
 endfunction
 
-" Spec [Tablature][[Editing]] 3.1.6, 3.8: the state of tablature mode, for a
-" status line: 'TAB MOVE' in the move state, 'TAB INSERT' in
-" the insert state, '' otherwise.
+" Spec [Tablature][[Editing]] 3.1.6, 3.8: the mode of tablature mode, for a
+" status line: 'TAB MOVE', 'TAB INSERT', or '' in the normal state
+" (tab/mode.vim).
 function! songwriter#keys#Mode() abort
-  if songwriter#tab#carry#Moving()
-    return 'TAB MOVE'
-  endif
-  return songwriter#tab#insert#Active() ? 'TAB INSERT' : ''
+  return songwriter#tab#mode#Status()
 endfunction
 
 function! songwriter#keys#ToggleTabMode() abort

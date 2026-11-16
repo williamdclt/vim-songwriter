@@ -1,0 +1,23 @@
+" `.` for actions that are not operators (autoload/songwriter/tab/repeat.vim).
+
+Before:
+  enew!
+  call setline(1, 'e|--3--|')
+  let g:calls = []
+  function! g:Called(...) abort
+    call add(g:calls, a:000)
+  endfunction
+
+Execute (Record: `.` calls the function with its arguments, while the buffer is unchanged):
+  call songwriter#tab#repeat#Record(function('g:Called'), ['it''s', 2])
+  AssertEqual "\<Cmd>call songwriter#tab#repeat#Run(0)\<CR>", songwriter#tab#repeat#Repeat()
+  call songwriter#tab#repeat#Run(0)
+  AssertEqual [['it''s', 2]], g:calls
+  call setline(1, 'e|--5--|')
+  AssertEqual '.', songwriter#tab#repeat#Repeat()
+
+Execute (Record: a new count replaces the argument it stands for):
+  call songwriter#tab#repeat#Record(function('g:Called'), ['a', 2], 1)
+  call songwriter#tab#repeat#Run(5)
+  call songwriter#tab#repeat#Run(0)
+  AssertEqual [['a', 5], ['a', 2]], g:calls

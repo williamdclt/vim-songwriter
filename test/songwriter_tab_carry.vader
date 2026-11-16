@@ -4,7 +4,7 @@
 " (`normal` makes one undo step of all its keys).
 
 Before:
-  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_insert b:songwriter_carry b:songwriter_repeat b:songwriter_moving
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_mode b:songwriter_carry b:songwriter_repeat
   let b:songwriter_tabmode = 1
 
 " === Carrying ===
@@ -167,7 +167,7 @@ Execute (3.6 a carry closes an open slot first):
   call cursor(1, 5)
   execute "normal \\j"
 Then:
-  Assert !songwriter#tab#insert#Active()
+  Assert songwriter#tab#mode#Current() !=# 'insert'
 
 Expect songwriter (3.6 a carry closes an open slot first):
   e|-----5--|

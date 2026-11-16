@@ -156,14 +156,14 @@ function! songwriter#tab#visual#Put(reg) abort
   let l:sel = s:take_selection()
   if len(l:sel) == 2
     if l:type !=# 'V'
-      return songwriter#tab#edit#Error('songwriter: only a line-wise register can replace whole tabs')
+      return songwriter#tab#edit#Error('only a line-wise register can replace whole tabs')
     endif
     call songwriter#tab#operator#ApplyLines('d', '_', l:sel[0], l:sel[1])
     call append(line('.') - (line('.') >= l:sel[0] ? 1 : 0), l:rows)
     return
   endif
   if empty(songwriter#tab#register#BlockRows(a:reg))
-    return songwriter#tab#edit#Error('songwriter: cannot paste a character-wise register into a tab')
+    return songwriter#tab#edit#Error('cannot paste a character-wise register into a tab')
   endif
   let [l:lnum, l:s, l:e, l:exact, l:note] = l:sel
   let l:block = songwriter#tab#model#Read(l:lnum)
@@ -180,5 +180,6 @@ function! songwriter#tab#visual#Put(reg) abort
     let l:res.map = songwriter#tab#colmap#Then(l:del.map, l:res.map)
   endif
   let l:res.lin = l:lnum - l:block.start
-  call songwriter#tab#edit#Commit(l:block, l:res)
+  call cursor(l:lnum, l:s)
+  call songwriter#tab#edit#Do({_ -> l:res}, {'prelint': 0})
 endfunction

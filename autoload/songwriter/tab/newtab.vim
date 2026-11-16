@@ -40,7 +40,7 @@ endfunction
 function! songwriter#tab#newtab#NewTabNamed(names) abort
   let l:names = empty(a:names) ? s:default_names : a:names
   if !songwriter#grammar#IsStringNames(l:names)
-    call songwriter#tab#edit#Error('songwriter: string names are single letters, highest first (eBGDAE): ' . l:names)
+    call songwriter#tab#edit#Error('string names are single letters, highest first (eBGDAE): ' . l:names)
     return
   endif
   call songwriter#tab#slots#Abandon()

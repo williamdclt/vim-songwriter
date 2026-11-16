@@ -3,7 +3,7 @@
 " songwriter#sound#Last().
 
 Before:
-  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_insert b:songwriter_carry
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_mode b:songwriter_carry
   let b:songwriter_tabmode = 1
   let g:songwriter_player = []
   call songwriter#sound#Stop()
@@ -27,7 +27,7 @@ Execute (12.3 the lowest string is between B1 and A#2):
   AssertEqual [47, 46], songwriter#tab#play#OpenPitches(['B', 'A#']).midi
 
 Execute (12.3 a string name that is not a note):
-  AssertEqual {'error': 'songwriter: string name X is not a note'},
+  AssertEqual {'error': 'string name X is not a note'},
         \ songwriter#tab#play#OpenPitches(['e', 'X', 'G'])
 
 " === Steps (12.2) ===

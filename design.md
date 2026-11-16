@@ -19,16 +19,16 @@ never relies on concealing or rendering.
 | `autoload/songwriter/tab/colmap.vim` | Column maps: where each column of a block went through an edit, pure. |
 | `autoload/songwriter/tab/annotations.vim` | Annotation lines: their words, and how they follow an edit through its column map, pure. |
 | `autoload/songwriter/tab/model.vim` | Tab block model: parse, queries (notes, time columns, bars), `Splice`/`Blank` and the column-insertion primitive, snapshots, and `Read`/`Write` (the buffer edges). |
-| `autoload/songwriter/tab/edit.vim` | The buffer side of a tablature edit: `Do` runs a whole edit at the cursor (slot, undo join, lints, one write, insert state, state for the next key, register, `.`); `Commit`, `LintAndFollow`, `Apply` and the pure `Linted` are its parts; `Write` is the one way a draft reaches the buffer. |
+| `autoload/songwriter/tab/edit.vim` | The buffer side of a tablature edit: `Do`, the one pipeline every edit of a tab goes through (slot, first lint, the pure edit, lint, one write with its undo join, then the follow-ups: selection, state for the next key, register, slot, `.`, insert state); the pure `Linted`; `JoinUndo` for the changes that are not tab edits. |
 | `autoload/songwriter/tab/slots.vim` | Slots: where a new note's room goes (pure), the buffer's one open slot with how to close it, and `a`/`i` and the new bar's slot (`AddNote`, `AddBarSlot`). |
-| `autoload/songwriter/tab/insert.vim` | The insert state of tablature mode: entering, keeping, leaving it, and `<Esc>`. |
+| `autoload/songwriter/tab/mode.vim` | The states of tablature mode (normal, insert, move): the current one, entering and leaving them, their messages, `m`. |
 | `autoload/songwriter/tab/typing.vim` | Typing notes and separators: digits, `x` on a dash, separators after a note (`EnterNote`, `EnterSeparator`). |
 | `autoload/songwriter/tab/motion.vim` | Tablature-mode motions at the cursor (`w`/`b`/`e`/`ge`, `l`/`h`, `L`/`H`, `W`/`B`/`E`), and the slots the insert state opens on the way. |
 | `autoload/songwriter/tab/stops.vim` | Where motions stop and what string motions cover after an operator, pure (`Stops`, `Advance`, `BarStop`, `StringMotion`), and the insert state's positions and how `l`/`h` step through them (`Step`). |
 | `autoload/songwriter/tab/carry.vim` | Carrying notes across strings: the pure carry (`Lift`, `Copy`, `Step`, `Render`, `Move`), `<leader>k`/`<leader>j` and `s`/`S`, copies, visual carries and the move state (`m`). |
 | `autoload/songwriter/selection.vim` | The visual selection, for actions that change the text from visual mode and select again (`Get`, `Spans`, `Select`). |
 | `autoload/songwriter/tab/newtab.vim` | New tabs: `o`/`O` and `:SongwriterNewTab`. |
-| `autoload/songwriter/tab/state.vim` | Buffer state valid only while `b:changedtick` is unchanged (slot, insert state, digit being typed, carried note, `.`). |
+| `autoload/songwriter/tab/state.vim` | Buffer state valid only while `b:changedtick` is unchanged (slot, insert state, digit being typed, carried note, `.`), and continuations (`Continuing`): state that also needs the cursor where it was left. |
 | `autoload/songwriter/tab/lint.vim` | The linter, as a pure function over a block's lines. |
 | `autoload/songwriter/tab/highlight.vim` | The time column under the cursor, highlighted in tablature mode. |
 | `autoload/songwriter/tab.vim` | The tab commands that work outside tablature mode too: `_`, `\|\|`, `:SongwriterAddBar`, `:SongwriterAddDashes`, `:SongwriterTabChord`. |
@@ -36,7 +36,8 @@ never relies on concealing or rendering.
 | `autoload/songwriter/tab/frets.vim` | `<C-A>`/`<C-X>` in tablature mode: pure `Add()` and the normal and visual entry points. |
 | `autoload/songwriter/tab/objects.vim` | Text object ranges and the snapping of other ranges, pure. |
 | `autoload/songwriter/tab/paste.vim` | Pasting blockwise registers, pure: row matching, insert, overlay. |
-| `autoload/songwriter/tab/operator.vim` | Tablature-mode operators, text objects, `x`/`p`/`P`, `>>`/`<<`, `gp`: buffer entry points around the pure modules. |
+| `autoload/songwriter/tab/operator.vim` | Tablature-mode operators (`g@`, motions, text objects, ranges): buffer entry points around the pure modules. |
+| `autoload/songwriter/tab/actions.vim` | The edits at the cursor that are not operators: `x`, `p`/`P`, `>>`/`<<`, `gp`. |
 | `autoload/songwriter/tab/visual.vim` | Tablature-mode visual mode: selections, motions, operators on a selection. |
 | `autoload/songwriter/tab/register.vim` | Blockwise tab registers and the string names of their source tab. |
 | `autoload/songwriter/tab/repeat.vim` | `.` for actions that are not operators. |
@@ -47,7 +48,7 @@ never relies on concealing or rendering.
 | `autoload/songwriter/sound9.vim` | The synthesis loop in compiled Vim9 script, used on Vim 9. |
 | `autoload/songwriter/chord.vim` | Chord model, chord editing, and naming the chord of some pitches (`Identify`). |
 | `autoload/songwriter/pitch.vim` | Pitch classes: note names to semitones and back (sharp spelling). Shared by chords and tab string intervals. |
-| `autoload/songwriter/keys.vim` | Context-dependent keys: tables and `Dispatch()`, tablature-mode flag and state (`Mode()`), tab-line `w`/`b`/`W`/`B`. |
+| `autoload/songwriter/keys.vim` | Context-dependent keys: tables per mode of tablature mode and `Dispatch()`, tablature-mode flag, `Mode()` for status lines, tab-line `w`/`b`/`W`/`B`. |
 | `plugin/songwriter.vim` | `:Songwriter*` commands and `<Plug>(songwriter-*)` maps. |
 | `ftplugin/songwriter.vim` | Buffer options and key bindings, with a complete `b:undo_ftplugin`. |
 | `syntax/songwriter.vim` | Highlighting, with patterns taken from the grammar. |
@@ -67,31 +68,53 @@ An operation is a thin buffer entry point around pure logic:
    `register`);
 3. the result is written back.
 
-`edit#Do(Fn, opts)` is the whole sequence for an edit at the cursor, and the
+`edit#Do(Fn, opts)` is the one way an edit of a tab reaches the buffer, and the
 one place that applies the rules of spec 4 (linting after edits) and 4.3
 (slots): what happens to an open slot (closed, closed keeping the lint,
 filled), whether the edit joins the previous undo step, lints before and
 after, opens a slot, keeps the insert state, and records itself for `.`. An
 entry point states these as options instead of writing them out, so a rule is
-never forgotten in one place. The lints and the edit are computed in memory
-(`edit#Linted` is lint plus cursor-following, pure) and written once, and
-`model#Write` sets only the lines that differ: an edit that changes nothing
-leaves no undo step, and the undo join happens only on an actual write. Entry
-points that are not one edit at the cursor (operators, which run through
-`g@`; slots closed by motions) use its parts: `Commit` (lint, follow, write),
-`LintAndFollow`, `Apply` (write, no lint).
+never forgotten in one place. It runs in stages: prepare (the slot, the first
+lint), the pure edit, write (the lint, the column map, the undo step), then
+the follow-ups, each a small function (the selection, the state for the next
+key, the register, a slot opened, `.`, the insert state). The lints and the
+edit are computed in memory (`edit#Linted` is lint plus cursor-following,
+pure) and written once, and `model#Write` sets only the lines that differ: an
+edit that changes nothing leaves no undo step, and the undo join happens only
+on an actual write.
+
+Every entry point goes through it, with options for what it is not: an edit
+of another block than the cursor's (`lnum`: a slot closed from elsewhere,
+each tab of a line-wise `cap`, each block of a visual `<C-A>`), one that keeps
+the tab as it is (`prelint` and `lint` off: `_`, `:SongwriterAddBar`, a slot
+opened by `c`), an operator's edit (no first lint: `g@` runs after the lint
+of its own `<Cmd>`, whose undo step it joins), a lint alone (`||`, the
+operators' first lint: an edit that does nothing). A visual edit hands over
+its selection (`selection`, `selection.vim`), which is selected again once
+written, its ends where the edit says they went (`sel`), followed through the
+column map: visual carries are a step like any other. `undojoin` is only in
+`edit.vim`; `JoinUndo` is there for the two changes that are not edits of a
+tab's strings but belong with one made in an earlier command: whole tabs
+deleted by a line-wise operator after its first lint, and an annotation line
+retyped when Vim's insert mode is left after `cia`.
 
 **Drafts and snapshots.** What reaches the buffer is a draft: the block's new
 lines, and where each column of its base went in them (`{'lines', 'map',
 'base'}`). The base is the snapshot (`model#Snapshot`, the block as written:
 its first line and lines) the edit started from: by default the block being
 written; for a carry, the origin or the base it saved, since it renders from
-those rather than from what is in the buffer. `edit#Write` turns a draft into
+those rather than from what is in the buffer. `edit#Do` turns a draft into
 a snapshot (`edit#Derive`) and `model#Write` writes it; restoring a saved
 snapshot (a slot closed, 4.3) writes it as it is. A draft without a map is an
 error, thrown, so no write path can lose track of where the tab went; every
 part of a block other than its strings is kept in step in `Derive` and
 `model#Write`, and nowhere else.
+
+**Refusals.** A pure function that can refuse returns a dict, with 'error'
+(a message without the plugin's name) on a refusal, whatever it returns
+otherwise (`{'notes'}`, `{'voicings'}`, a result), so callers test one key
+rather than a type; `edit#Error` (and `edit#Do` for an edit's result) shows
+it with the `songwriter: ` prefix, added in that one place.
 
 Pure functions are testable without buffer setup and composable: spec item 4
 (lint after an edit) is "edit, then lint, then follow the moved note", which is
@@ -132,8 +155,14 @@ the block.
   Being the default class, notation the plugin has never heard of is safe.
 - **Chain**: a run of notes and separators with no dash. Used by string moves
   only, since a hammer-on stays on one string; everything else works on notes.
-  Decoration around a note (`(5)`, `<12>`) is separators too, so erasing the 5
-  leaves `()`; digits that are not frets (`7b1/2`) read as notes.
+  Decoration around a note (`(5)`, `<12>`) is separators too, which belong to
+  the note (`model#NoteSpan`, 3.1.3), so erasing or carrying the 5 takes them
+  with it; digits that are not frets (`7b1/2`) read as notes.
+- **The separators of a note.** A separator with no note beyond it in its
+  chain belongs to the note at that end (`7~`, `/5`); one joining two notes
+  belongs to neither. `model#NoteSpan` is the one definition, used by the
+  slots (a slot goes past them, 3.1.3), carries (they go with the note) and
+  `x` (they go with the note, 6.7.4).
 - **Bar**: the region between two pipes. On a line, the bar around column `c` is
   bounded by the nearest pipes strictly left and right of `c`
   (`model#BarAt`).
@@ -147,7 +176,7 @@ notes (`{col, len, text}`) and pipe columns. Columns are 1-indexed byte columns,
 as `col()` returns (tab lines are ASCII). Queries on a parsed block:
 `NoteColumns` (block-wide, sorted, unique), `ColumnEnd`, `IsShared`,
 `BarColumns` (a bar and its time columns), `BarNotes`, `GapEnd`; on a line,
-`BarAt`, `InBar`, `NoteAt`; on a list, `ColumnFor`;
+`BarAt`, `InBar`, `NoteAt`, `NoteSpan`; on a list, `ColumnFor`;
 and `Cursor`, the cursor as `{block, lin, col, line}`. The pure column code
 (`columns.vim`, `objects.vim`, `paste.vim`) takes a block's lines and parses them
 once on entry. Pure
@@ -359,23 +388,45 @@ something, so that its keys keep their instinctive sense:
 A buffer-local flag, `b:songwriter_tabmode`, set on by the ftplugin when a
 buffer is opened (and unset by `b:undo_ftplugin`); unset means off.
 
-**Two states, as in Vim.** In the normal state moving never changes the file:
+**Modes, as in Vim.** In the normal state moving never changes the file:
 Vim's contract is that motions only move, and a motion that edits puts cursor
 moves in the undo history, marks a file modified just by reading it, and fills
 the change list. The insert state is for writing: there, moving across notes
 opens slots for new ones. It is a state of tablature mode rather than Vim's
 own insert mode so that `h`/`l` keep moving (in Vim's insert mode they would be
-text, and arrow keys would be needed).
+text, and arrow keys would be needed). The move state (`m`) is for building
+chords: keys act on the note under the cursor (see "Carrying notes across
+strings").
 
-- **The state** (`tab/insert.vim`) is kept in `tab/state.vim`, valid only while
-  `b:changedtick` is unchanged: the edits made in it (opening, filling, closing
-  a slot) record it again (`insert#Keep`), and any other change (`u`, `x`, an
-  operator) ends it without the other code having to know about it. Opening a
-  slot enters it (`slots#Open`), so `a`/`i`, `c`, `o`/`O` and
-  `:SongwriterNewTab` all do; `<Esc>` closes the slot and leaves it.
-  Entering shows `-- TAB INSERT --`, after a `redraw` so that repeated state
-  changes replace each other instead of piling up into a hit-enter prompt;
-  `songwriter#keys#Mode()` is there for status lines.
+- **Two kinds of state.** *States* are what the user sees and enters and
+  leaves explicitly: normal, insert and move, one at a time, owned by
+  `tab/mode.vim` (`Current`, `Enter`, the message each shows). `keys.vim`
+  picks its tables from the current state, each falling back to the normal
+  one, so a key's meaning follows from one value and a new state is a table
+  and its entry in `mode.vim`. *Continuations* (below) hold only straight
+  after an action. The keys typed straight after a note (separators,
+  3.4.1.3) are a continuation inside the insert state: its table is checked
+  first there.
+- **How long a state holds.** The insert state is valid only while
+  `b:changedtick` is unchanged: the edits made in it (opening, filling,
+  closing a slot) record it again (`mode#Keep`), and any other change (`u`,
+  `x`, an operator) ends it without the other code having to know about it.
+  Opening a slot enters it (`slots#Open`), so `a`/`i`, `c`, `o`/`O` and
+  `:SongwriterNewTab` all do; leaving it closes the slot (`<Esc>`). The move
+  mode holds while the cursor is on a note, edits included. Entering a state
+  leaves the current one, so `m` leaves the insert state; a digit run in the
+  normal or move state borrows the insert state to open its slot (3.4.1.1) and
+  goes back to the state it was typed in. Entering shows the state
+  (`-- TAB INSERT --`), after a `redraw` so that repeated changes replace each
+  other instead of piling up into a hit-enter prompt; `songwriter#keys#Mode()`
+  is there for status lines.
+- **Continuations.** Several keys carry on from the last action when pressed
+  straight after it: the carry run (3.6.2), the digit being typed (3.4.1),
+  `==` cycling voicings or names (10.4, 10.10). "Straight after" has one
+  definition, `state#Continuing(name)`: the value recorded under `name` while
+  the buffer is unchanged since and the cursor is where the action left it
+  (`edit#Do` records the cursor with every state). Anything else in between,
+  a move included, ends it.
 - **`w`/`b`/`e`/`ge` (3.2)**: by word (a chain, see "Vim's units in a tab")
   on the current line: `w`/`b` stop on a word's first note, `e`/`ge` on its
   last (`model#Words`). Dashes and pipes are not stops; a two-digit fret is
@@ -435,8 +486,8 @@ text, and arrow keys would be needed).
   whole note (both digits of a `12`). To type a two-digit fret, a digit typed
   straight after another is appended to it instead (3.4.1): `EnterNote` records
   `b:songwriter_typing = {line, col, tick}` after each digit, and the next
-  digit appends only when the cursor and `b:changedtick` still match. Any move
-  or edit ends the run, so coming back to a note replaces it. The block is then
+  digit appends only when the cursor and `b:changedtick` still match
+  (`state#Continuing`, see "Continuations" below). Any move or edit ends the run, so coming back to a note replaces it. The block is then
   linted (4.1, below), which fixes the spacing. `x` on a dash enters a muted
   note the same way (3.4.3); on a note it stays the erase of spec 6.7. Off tablature mode or a tab
   line, digits keep their count meaning. Digits work in both states and keep
@@ -508,7 +559,7 @@ note and inside the bar. Notes before/after the cursor stay before/after it, so
 `a`/`i` find the same anchor after the lint as before. `||` lints without
 moving the cursor.
 
-`<Esc>` is a context key like the others (`insert#Escape`). Outside tablature mode `Dispatch`
+`<Esc>` is a context key like the others (`mode#Enter('normal')`). Outside tablature mode `Dispatch`
 returns the key itself. Special keys are written in `<>` notation in the
 tables, and the ftplugin passes them to `Dispatch` as `<lt>Esc>`, since
 `<Esc>` would otherwise be translated in the map's right side.
@@ -596,8 +647,9 @@ The spec items carry the behaviour; this records why, and how it is built.
   yank, so after `ya|` a `.` repeats the yank (native `y` is not repeatable);
   accepted rather than reimplementing redo. `x`, `p`, `P`, `>>`, `<<` are `<Cmd>`
   actions, invisible to redo: they record themselves in `b:songwriter_repeat`
-  (`repeat#Record`) with the changedtick they left, and the `.` map runs
-  them again while the buffer is unchanged since. The string moves (spec 7)
+  (`repeat#Record`: a Funcref, its arguments and which one a count
+  replaces, so nothing is quoted by hand) with the changedtick they left,
+  and the `.` map runs them again while the buffer is unchanged since. The string moves (spec 7)
   record themselves the same way.
 - **No counts in front of a command.** Digits enter notes in tablature mode
   (spec 3.4), so `3x` types a 3. Counts work after an operator (`d2ac`, `d3w`)
@@ -619,9 +671,15 @@ time column. Splicing the new text into its line alone shifts everything after
 it on that string by the difference, so the string drifts out of the time
 columns it shared with the others (a different rhythm), and lint cannot tell:
 it aligns pipes and splits overlaps, but has no memory of which notes were
-together. So every edit that rewrites a note goes through one primitive,
-`columns#SetNote`, and `test/songwriter_invariants_frets.vader` checks over the
-corpus that the notes of each time column still start together afterwards.
+together. So every edit that writes a note goes through one primitive,
+`columns#WriteNote`, whichever key changes its width (`]`/`[`, `<C-A>`, a
+digit, a carry keeping the pitch, the move state's `h`/`l`, a chord's frets):
+one rule, so the same change of fret gives the same tab whatever key made it.
+`SetNote` rewrites a note in place, `PutNote` writes one on dashes, and a
+carry renders its notes with it, as rewriting the note it replaces, or the
+one it was lifted from. `test/songwriter_invariants_frets.vader` checks over
+the corpus that the notes of each time column still start together
+afterwards.
 
 - **Narrower: the chain closes up, dashes after it.** The note keeps its
   start; the rest of its chain follows it (`10h7` -> `9h7-`), because a dash
@@ -633,10 +691,13 @@ corpus that the notes of each time column still start together afterwards.
   are used while one stays before its string's next chain (that dash is what
   keeps `10` and `7` two notes) and the note covers no other string's time
   column. What is still missing is inserted on every string between the note
-  and the next time column, so all that follows moves together. Unlike
-  `MakeRoom` (a note written onto a free column), the note is already there:
-  no dash goes before it, and a separator right after it is not pushed off,
+  and the next time column, so all that follows moves together. No dash goes
+  before a rewritten note, and a separator right after it is not pushed off,
   since the chain must stay whole.
+- **On dashes, apart from the previous chain.** A note written where there
+  was none (a carry to another string, a chord's fret) is its own chain: when
+  a note ends right before its column, a dash is inserted there on every
+  string, rather than merging the two (`123`), which lint cannot undo.
 - **Visual `<C-A>` changes every fret selected**, so a riff is moved up the
   neck in one go, rather than Vim's first number per line, which means
   nothing in a tab. The notes change right to left: each one's room or
@@ -682,11 +743,11 @@ while transcribing, so it has right-hand keys (`<leader>k`/`<leader>j`, with a
   instead of carry", inside the move state as outside it.
 - **The move state (`m`).** Building a chord is copy, set the fret, copy again:
   many steps in a row, so they get keys without a leader. `m` enters the state
-  and `m` leaves it (also `<Esc>`); it is a buffer flag, checked by `Dispatch`
-  first (`s:moving`), and it holds while the cursor is on a note, so it needs
-  no bookkeeping of edits: `[`/`]`, typing a fret or `w` keep it, and a
-  `CursorMoved`/`TextChanged` autocmd (`carry#Check`) ends it once the cursor
-  is off the notes. There, `h`/`l` change the fret as a step of the run (a
+  and `m` leaves it (also `<Esc>`); it is a state of tablature mode
+  (`tab/mode.vim`, its keys in `s:moving`), and it holds while the cursor is
+  on a note, so it needs no bookkeeping of edits: `[`/`]`, typing a fret or
+  `w` keep it, and a `CursorMoved`/`TextChanged` autocmd (`mode#Check`)
+  clears its message once the cursor is off the notes. There, `h`/`l` change the fret as a step of the run (a
   replaced note still comes back), unlike `[`/`]`, which are their own edit.
   Off a note, `m` is Vim's mark command. There is no exit on a lone
   `<leader>`: it would make Vim wait 'timeoutlen' after every leader key.
@@ -709,13 +770,13 @@ while transcribing, so it has right-hand keys (`<leader>k`/`<leader>j`, with a
   written `eBGDAE`) has the same intervals and works. Two strings with the same
   letter (`E` above `e`) give no interval and the carry is refused, rather
   than guessing an octave.
-- **Room, not overlap.** A note that gets wider (`7` -> `12`) could touch the
-  next note on its new string and merge with it (`123`), which lint cannot
-  undo. So dashes are inserted on every string, right after the note when it
-  would touch the next note or the pipe, or right before the column when a
-  note ends just before it there (`columns#PutNote`). Insertion points never
-  cut a note in two on another string; the following lint normalises the
-  spacing.
+- **Room, not overlap.** A carried note is written as any note that changes
+  width (`columns#WriteNote`, see "Rewriting a note in place"): a wider one
+  takes the gap or gets dashes inserted on every string, a narrower one closes
+  up its chain, and on another string it keeps apart from a note ending right
+  before it. A note it lands on is rewritten in place, keeping its chain
+  (`5h12` -> `5h7`). Rendering from the base keeps all of it undoable: the
+  room exists only in the render.
 
 ### Chords on a column (`=`, `==`, spec [Tablature][[Editing]] 10)
 
@@ -741,7 +802,7 @@ voicings in their cycle order out) and `Place()`, and the entry points.
   `S` does (spec 7.3), so drop D gets its one-finger shape for free.
 - **The chord replaces the column**, as a digit replaces a note: the notes
   starting on it go, and a two-digit fret gets room as a moved note does
-  (`columns#MakeRoom`, spec 7.5). Unplayed strings stay dashes: muting marks are
+  (`columns#PutNote`, spec 11.2). Unplayed strings stay dashes: muting marks are
   the user's call (`x`).
 - **A quality alone changes the chord there** (10.7). The root is the note on
   the lowest string of the column: no chord recognition, so it works on any
@@ -961,7 +1022,10 @@ Highlighting stays permissive and accepts false positives such as the word "A"
 - Vader reuses one buffer across the cases of a file, so buffer state (the
   tablature-mode flag) is reset in a `Before:` block wherever keys are typed.
 - Key mappings are exercised end-to-end with `normal` where the result is
-  observable; `Dispatch` and `b:undo_ftplugin` have their own tests.
+  observable; `Dispatch` and `b:undo_ftplugin` have their own tests. The
+  actions of the key tables are strings, so a test checks that every function
+  they call exists (`keys#Actions`): a misspelt name fails the suite rather
+  than the key.
 - **Invariants** (`test/songwriter_invariants_*.vader`) are checked over a corpus
   of tabs and every relevant cursor position rather than one example: lint is
   idempotent and keeps each string's notes, the normal state never edits, an

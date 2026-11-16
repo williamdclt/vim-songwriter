@@ -24,8 +24,9 @@ function! songwriter#tab#typing#EnterNote(digit) abort
   let l:col = col('.')
   let l:ch = (l:col <= len(l:line)) ? l:line[l:col - 1] : ''
   let l:typing = songwriter#tab#state#Get('typing')
-  let l:here = !empty(l:typing) && l:typing.line == line('.') && l:typing.col == l:col
-  let l:insert = songwriter#tab#insert#Active()
+  let l:here = !empty(songwriter#tab#state#Continuing('typing'))
+  let l:mode = songwriter#tab#mode#Current()
+  let l:insert = l:mode ==# 'insert'
   let l:note = songwriter#tab#model#NoteAt(l:line, l:col)
   let l:after_separator = l:here && l:insert && get(l:typing, 'separator', 0)
   if !l:after_separator && l:here && (get(l:typing, 'chord', 0) || !empty(l:note)
@@ -33,7 +34,7 @@ function! songwriter#tab#typing#EnterNote(digit) abort
     call songwriter#tab#slots#AddNote(1)
     call songwriter#tab#typing#EnterNote(a:digit)
     if !l:insert
-      call songwriter#tab#insert#Leave()
+      call songwriter#tab#mode#Enter(l:mode)
     endif
     return
   elseif !l:after_separator && songwriter#grammar#IsSeparatorChar(l:ch)
@@ -63,7 +64,7 @@ function! s:enter_note(digit, here, after_separator, ctx) abort
     let l:text = l:append ? l:note.text . a:digit : a:digit
     let l:res = songwriter#tab#columns#SetNote(l:lines, a:ctx.lin, l:note.col, l:text)
     if has_key(l:res, 'error')
-      return {'error': 'songwriter: ' . l:res.error}
+      return l:res
     endif
     let [l:lines, l:map] = [l:res.lines, l:res.map]
     let l:col = l:note.col + (l:append ? len(l:text) - 1 : 0)
@@ -81,14 +82,13 @@ function! s:extends(text, digit) abort
         \ && str2nr(a:text . a:digit) <= get(g:, 'songwriter_max_fret', 24)
 endfunction
 
-" Spec 3.4.1.3: true in the insert state straight after a note was typed
-" (cursor still on it, buffer unchanged since; not a chord, spec 10), when a
-" separator key writes a separator.
+" Spec 3.4.1.3: true straight after a note was typed (state#Continuing; not
+" a chord, spec 10), when, in the insert state, a separator key writes a
+" separator (keys.vim asks only there).
 function! songwriter#tab#typing#JustTyped() abort
-  let l:typing = songwriter#tab#state#Get('typing')
-  return songwriter#tab#insert#Active() && !empty(l:typing)
+  let l:typing = songwriter#tab#state#Continuing('typing')
+  return !empty(l:typing)
         \ && !get(l:typing, 'separator', 0) && !get(l:typing, 'chord', 0)
-        \ && l:typing.line == line('.') && l:typing.col == col('.')
 endfunction
 
 " Spec 3.4.1.3: write the separator `char` right after the note under the

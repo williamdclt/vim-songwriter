@@ -55,6 +55,48 @@ Expect songwriter (6.7.2 x keeps the column when removing it would join another 
   e|--10-12--|
   B|---------|
 
+Given songwriter (6.7.4 x takes the separators before a note that belong to it):
+  e|--3--/5--7--|
+
+Execute (6.7.4 x takes the separators before a note that belong to it):
+  call cursor(1, 9)
+  normal x
+
+Expect songwriter (6.7.4 x takes the separators before a note that belong to it):
+  e|--3---7--|
+
+Given songwriter (6.7.4 x takes the decoration around a note):
+  e|--3--(5)--7--|
+
+Execute (6.7.4 x takes the decoration around a note):
+  call cursor(1, 9)
+  normal x
+
+Expect songwriter (6.7.4 x takes the decoration around a note):
+  e|--3---7--|
+
+Given songwriter (6.7.4 x on a shared column turns the note and its separators into dashes):
+  e|--3--5~--7--|
+  B|-----5------|
+
+Execute (6.7.4 x on a shared column turns the note and its separators into dashes):
+  call cursor(1, 8)
+  normal x
+
+Expect songwriter (6.7.4 x on a shared column turns the note and its separators into dashes):
+  e|--3------7--|
+  B|-----5------|
+
+Given songwriter (6.7.4 x keeps a separator joining two notes):
+  e|--5h7--|
+
+Execute (6.7.4 x keeps a separator joining two notes):
+  call cursor(1, 7)
+  normal x
+
+Expect songwriter (6.7.4 x keeps a separator joining two notes):
+  e|--5h--|
+
 Given songwriter (6.7.3 xp swaps a note with the next one):
   e|--3--5--7--|
 

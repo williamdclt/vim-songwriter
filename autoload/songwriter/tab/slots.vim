@@ -105,23 +105,17 @@ function! songwriter#tab#slots#Prepend(block, lin, col) abort
 endfunction
 
 " The width of the separators right after (dir 1) / before (dir -1) column
-" `edge`, on a string where a note ends / starts at `edge`, when they do not
-" lead to another note: they belong to that note, so a slot goes beyond them.
+" `edge` that belong to a note ending / starting there, on any string
+" (model#NoteSpan): a slot goes beyond them.
 function! s:loose_separators(block, edge, dir) abort
   let l:width = 0
   for l:s in a:block.strings
-    if empty(filter(copy(l:s.notes), a:dir > 0
-          \ ? 'v:val.col + v:val.len - 1 == a:edge' : 'v:val.col == a:edge'))
-      continue
-    endif
-    let l:k = 0
-    while songwriter#grammar#IsSeparatorChar(strpart(l:s.text, a:edge - 1 + a:dir * (l:k + 1), 1))
-      let l:k += 1
-    endwhile
-    let l:after = strpart(l:s.text, a:edge - 1 + a:dir * (l:k + 1), 1)
-    if l:k > 0 && !songwriter#grammar#IsChainChar(l:after)
-      let l:width = max([l:width, l:k])
-    endif
+    for l:n in l:s.notes
+      if (a:dir > 0 ? songwriter#tab#model#NoteEnd(l:n) : l:n.col) == a:edge
+        let l:span = songwriter#tab#model#NoteSpan(l:s.text, l:n)
+        let l:width = max([l:width, len(a:dir > 0 ? l:span.post : l:span.pre)])
+      endif
+    endfor
   endfor
   return l:width
 endfunction
@@ -183,7 +177,7 @@ function! songwriter#tab#slots#Open(...) abort
     let l:slot.seq_after = undotree().seq_cur
   endif
   call songwriter#tab#state#Set('slot', l:slot)
-  call songwriter#tab#insert#Enter()
+  call songwriter#tab#mode#Enter('insert')
 endfunction
 
 function! songwriter#tab#slots#Forget() abort
@@ -205,7 +199,7 @@ function! songwriter#tab#slots#Abandon(...) abort
   if empty(l:slot)
     return {}
   endif
-  let l:insert = songwriter#tab#insert#Active()
+  let l:insert = songwriter#tab#mode#Current() ==# 'insert'
   if has_key(l:slot, 'from')
     let l:top = l:slot.before.top
     let l:lnum = line('.')
@@ -225,10 +219,10 @@ function! songwriter#tab#slots#Abandon(...) abort
     endif
     call cursor(l:lnum, l:keep ? l:slot.linted_col : l:slot.from)
   else
-    call songwriter#tab#edit#LintAndFollow(songwriter#tab#model#Read(l:slot.line))
+    call songwriter#tab#edit#Do({_ -> {}}, {'lnum': l:slot.line})
   endif
   if l:insert
-    call songwriter#tab#insert#Keep()
+    call songwriter#tab#mode#Keep()
   endif
   return l:slot
 endfunction
@@ -257,23 +251,18 @@ endfunction
 " Spec 6.6: open a slot at the cursor: before its note (side -1, as `i`),
 " after it (+1, as `a`), or, side 0, in the cursor's empty bar.
 function! songwriter#tab#slots#OpenHere(side) abort
-  let l:c = songwriter#tab#model#Cursor()
-  if empty(l:c)
-    return
-  endif
-  let l:block = l:c.block
+  call songwriter#tab#edit#Do(function('s:open_here', [a:side]), {'prelint': 0, 'lint': 0})
+endfunction
+
+function! s:open_here(side, ctx) abort
   if a:side < 0
-    let l:res = songwriter#tab#slots#Prepend(l:block, l:c.lin, l:c.col)
+    let l:res = songwriter#tab#slots#Prepend(a:ctx.block, a:ctx.lin, a:ctx.col)
   elseif a:side > 0
-    let l:res = songwriter#tab#slots#Append(l:block, l:c.lin, l:c.col)
+    let l:res = songwriter#tab#slots#Append(a:ctx.block, a:ctx.lin, a:ctx.col)
   else
-    let l:res = songwriter#tab#slots#EmptyBar(l:block.lines, l:c.lin, l:c.col)
+    let l:res = songwriter#tab#slots#EmptyBar(a:ctx.block.lines, a:ctx.lin, a:ctx.col)
   endif
-  if empty(l:res)
-    return
-  endif
-  call songwriter#tab#edit#Apply(l:block, l:res)
-  call songwriter#tab#slots#Open()
+  return empty(l:res) ? {} : extend(l:res, {'slot': 1})
 endfunction
 
 " Spec [Tablature][[Editing]] 3.1: open room for a new note on every string,

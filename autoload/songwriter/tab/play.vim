@@ -15,7 +15,7 @@ function! songwriter#tab#play#OpenPitches(names) abort
   for l:name in reverse(copy(a:names))
     let l:pc = songwriter#pitch#Class(l:name)
     if l:pc < 0
-      return {'error': printf('songwriter: string name %s is not a note', l:name)}
+      return {'error': printf('string name %s is not a note', l:name)}
     endif
     if empty(l:midi)
       call add(l:midi, s:lowest + (l:pc - s:lowest % 12 + 12) % 12)

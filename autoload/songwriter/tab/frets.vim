@@ -39,21 +39,25 @@ endfunction
 " the cursor on the note, and records itself for `.` (11.4). A refusal is
 " echoed.
 function! songwriter#tab#frets#Increment(n) abort
-  let l:sign = a:n < 0 ? '-' : ''
   call songwriter#tab#edit#Do(function('s:increment', [a:n]), {
         \ 'slot': 'close',
-        \ 'repeat': 'songwriter#tab#frets#Increment(' . l:sign . '%d)', 'count': abs(a:n)})
+        \ 'repeat': [function('s:by', [a:n < 0 ? -1 : 1]), [abs(a:n)], 0]})
+endfunction
+
+" Increment by `n` frets in the direction `sign`, for `.` with a count.
+function! s:by(sign, n) abort
+  call songwriter#tab#frets#Increment(a:sign * a:n)
 endfunction
 
 function! s:increment(n, ctx) abort
   let l:notes = songwriter#tab#frets#Targets(a:ctx.line, a:ctx.col, len(a:ctx.line))
   if empty(l:notes)
-    return {'error': 'songwriter: no fret under or after the cursor'}
+    return {'error': 'no fret under or after the cursor'}
   endif
   let l:note = l:notes[0]
   let l:res = songwriter#tab#frets#Add(a:ctx.block.lines, a:ctx.lin, l:note.col, a:n)
   if has_key(l:res, 'error')
-    return {'error': 'songwriter: ' . l:res.error}
+    return l:res
   endif
   let l:width = songwriter#tab#model#NoteAt(l:res.lines[a:ctx.lin], l:note.col).len
   let l:res.col = l:note.col + min([max([a:ctx.col - l:note.col, 0]), l:width - 1])
@@ -74,27 +78,31 @@ function! songwriter#tab#frets#IncrementIn(ranges, n) abort
       continue
     endif
     let l:done[l:block.start] = 1
-    let l:targets = []
-    for [l:l, l:f, l:e] in a:ranges
-      if l:l >= l:block.start && l:l <= l:block.end
-        for l:note in songwriter#tab#frets#Targets(l:block.lines[l:l - l:block.start], l:f, l:e)
-          call add(l:targets, [l:note.col, l:l - l:block.start])
-        endfor
-      endif
-    endfor
-    let l:lines = l:block.lines
-    let l:map = []
-    for [l:c, l:lin] in reverse(sort(l:targets, {a, b -> a[0] - b[0]}))
-      let l:res = songwriter#tab#frets#Add(l:lines, l:lin, l:c, a:n)
-      if !has_key(l:res, 'error')
-        let l:lines = l:res.lines
-        let l:map = songwriter#tab#colmap#Then(l:map, l:res.map)
-      endif
-    endfor
-    if l:lines !=# l:block.lines
-      let l:lint = songwriter#tab#lint#Lint(l:lines)
-      call songwriter#tab#edit#Write(l:block, {'lines': l:lint.lines,
-            \ 'map': songwriter#tab#colmap#Then(l:map, l:lint.map)})
+    call songwriter#tab#edit#Do(function('s:increment_in', [a:ranges, a:n]),
+          \ {'lnum': l:lnum, 'prelint': 0})
+  endfor
+endfunction
+
+" Pure. The frets of `ranges` in the block of `ctx` changed by `n`, as an edit
+" result (edit.vim), {} when none changes.
+function! s:increment_in(ranges, n, ctx) abort
+  let l:block = a:ctx.block
+  let l:targets = []
+  for [l:l, l:f, l:e] in a:ranges
+    if l:l >= l:block.start && l:l <= l:block.end
+      for l:note in songwriter#tab#frets#Targets(l:block.lines[l:l - l:block.start], l:f, l:e)
+        call add(l:targets, [l:note.col, l:l - l:block.start])
+      endfor
     endif
   endfor
+  let l:lines = l:block.lines
+  let l:map = []
+  for [l:c, l:lin] in reverse(sort(l:targets, {a, b -> a[0] - b[0]}))
+    let l:res = songwriter#tab#frets#Add(l:lines, l:lin, l:c, a:n)
+    if !has_key(l:res, 'error')
+      let l:lines = l:res.lines
+      let l:map = songwriter#tab#colmap#Then(l:map, l:res.map)
+    endif
+  endfor
+  return l:lines ==# l:block.lines ? {} : {'lines': l:lines, 'map': l:map}
 endfunction

@@ -44,19 +44,19 @@ let s:standard = ['e', 'b', 'g', 'd', 'a', 'e']
 " `lin` first, then each lower string, then each higher one; on a string, by
 " fret (open-position shapes first on the same fret); the voicings at the 12th
 " fret after all the others. The root's letter may be lowercase (10.1).
-" {'error'} when there is none.
+" {'voicings'}, or {'error'} when there is none.
 function! songwriter#tab#voicings#Voicings(names, chord, lin) abort
   let l:parsed = songwriter#grammar#ParseChord(songwriter#tab#voicings#Name(a:chord))
   if empty(l:parsed)
-    return {'error': printf('songwriter: %s is not a chord', a:chord)}
+    return {'error': printf('%s is not a chord', a:chord)}
   endif
   let [l:root, l:spelling, l:bass] = l:parsed
   if !empty(l:bass)
-    return {'error': printf('songwriter: no voicing for a slash chord (%s)', a:chord)}
+    return {'error': printf('no voicing for a slash chord (%s)', a:chord)}
   endif
   let l:quality = get(s:qualities, l:spelling, '')
   if empty(l:quality)
-    return {'error': printf('songwriter: no chord shape for %s', a:chord)}
+    return {'error': printf('no chord shape for %s', a:chord)}
   endif
   let l:pc = songwriter#pitch#Class(l:root)
   if l:quality ==# '5'
@@ -64,7 +64,7 @@ function! songwriter#tab#voicings#Voicings(names, chord, lin) abort
   elseif map(copy(a:names), 'tolower(v:val)') ==# s:standard
     let l:all = s:shaped(a:names, l:pc, l:quality)
   else
-    return {'error': 'songwriter: chord shapes need standard tuning (eBGDAE); power chords follow any tuning'}
+    return {'error': 'chord shapes need standard tuning (eBGDAE); power chords follow any tuning'}
   endif
   let l:n = len(a:names)
   let l:order = [a:lin] + range(a:lin + 1, l:n - 1) + reverse(range(0, a:lin - 1))
@@ -76,9 +76,9 @@ function! songwriter#tab#voicings#Voicings(names, chord, lin) abort
     endfor
   endfor
   if empty(l:result)
-    return {'error': printf('songwriter: no voicing of %s on these strings', a:chord)}
+    return {'error': printf('no voicing of %s on these strings', a:chord)}
   endif
-  return l:result
+  return {'voicings': l:result}
 endfunction
 
 " Spec 10.1: `chord` with its root's letter in uppercase (`am` -> `Am`, `bb5`
@@ -123,18 +123,19 @@ function! songwriter#tab#voicings#Requality(lines, lin, col, quality) abort
     endfor
   endfor
   if empty(l:root)
-    return {'error': 'songwriter: no fretted note on this column to take the root from'}
+    return {'error': 'no fretted note on this column to take the root from'}
   endif
   let l:names = songwriter#tab#model#Names(a:lines)
   let l:open = songwriter#pitch#Class(l:names[l:root.lin])
   if l:open < 0
-    return {'error': printf('songwriter: string name %s is not a note', l:names[l:root.lin])}
+    return {'error': printf('string name %s is not a note', l:names[l:root.lin])}
   endif
   let l:chord = songwriter#pitch#Name(l:open + l:root.fret) . a:quality
   let l:voicings = songwriter#tab#voicings#Voicings(l:names, l:chord, l:root.lin)
-  if type(l:voicings) == v:t_dict
+  if has_key(l:voicings, 'error')
     return l:voicings
   endif
+  let l:voicings = l:voicings.voicings
   let l:index = 0
   for l:k in range(len(l:voicings))
     if l:voicings[l:k].lin == l:root.lin && l:voicings[l:k].fret == l:root.fret
@@ -163,13 +164,13 @@ function! songwriter#tab#voicings#Extend(lines, lin, col) abort
     endif
   endfor
   if empty(l:note) || l:note.text !~# '^' . songwriter#grammar#Fret() . '$'
-    return {'error': 'songwriter: + goes on a fretted note'}
+    return {'error': '+ goes on a fretted note'}
   endif
   let l:fret = str2nr(l:note.text, 10)
   let l:names = songwriter#tab#model#Names(a:lines)
   let l:open = songwriter#pitch#Class(l:names[a:lin])
   if l:open < 0
-    return {'error': printf('songwriter: string name %s is not a note', l:names[a:lin])}
+    return {'error': printf('string name %s is not a note', l:names[a:lin])}
   endif
   let l:root = songwriter#pitch#Name(l:open + l:fret)
   let l:column = s:frets(a:lines, l:note.col)
@@ -184,12 +185,13 @@ function! songwriter#tab#voicings#Extend(lines, lin, col) abort
   endif
   let l:chord = l:root . l:quality
   let l:voicings = songwriter#tab#voicings#Voicings(l:names, l:chord, a:lin)
-  if type(l:voicings) == v:t_dict
+  if has_key(l:voicings, 'error')
     return l:voicings
   endif
+  let l:voicings = l:voicings.voicings
   let l:index = s:rooted(l:names, l:chord, a:lin, l:fret, [])
   if l:index < 0
-    return {'error': printf('songwriter: no %s rooted on %s, fret %d', l:chord, l:names[a:lin], l:fret)}
+    return {'error': printf('no %s rooted on %s, fret %d', l:chord, l:names[a:lin], l:fret)}
   endif
   return {'chord': l:chord, 'voicings': l:voicings, 'index': l:index}
 endfunction
@@ -199,9 +201,10 @@ endfunction
 " whose frets are `column`. -1 when there is none.
 function! s:rooted(names, chord, lin, fret, column) abort
   let l:voicings = songwriter#tab#voicings#Voicings(a:names, a:chord, a:lin)
-  if type(l:voicings) == v:t_dict
+  if has_key(l:voicings, 'error')
     return -1
   endif
+  let l:voicings = l:voicings.voicings
   for l:k in range(len(l:voicings))
     let l:v = l:voicings[l:k]
     if l:v.lin == a:lin && l:v.fret == a:fret && (empty(a:column) || l:v.frets ==# a:column)
@@ -298,11 +301,11 @@ endfunction
 " Spec 10.5, 10.6: write `voicing` on the time column at column `col` of line
 " `lin`: the column of the note under the cursor, or `col` itself on a dash.
 " Every note starting on that column is replaced; a fret that needs room gets
-" it as in spec 7.5. Returns {'lines', 'col', 'map'}, or {'error'} on a pipe or the
+" it as in spec 11.2 (columns#PutNote). Returns {'lines', 'col', 'map'}, or {'error'} on a pipe or the
 " string name, or when a note on another string covers the column.
 function! songwriter#tab#voicings#Place(lines, lin, col, voicing) abort
   if songwriter#tab#columns#OnPipeOrName(a:lines[a:lin], a:col)
-    return {'error': 'songwriter: a chord goes on a time column, not on a pipe or a string name'}
+    return {'error': 'a chord goes on a time column, not on a pipe or a string name'}
   endif
   let l:c = s:column(a:lines, a:lin, a:col)
   let l:lines = copy(a:lines)
@@ -322,7 +325,7 @@ function! songwriter#tab#voicings#Place(lines, lin, col, voicing) abort
     let l:text = string(a:voicing.frets[l:i])
     let l:room = songwriter#tab#columns#PutNote(l:lines, l:i, l:c, l:text)
     if has_key(l:room, 'error')
-      return {'error': 'songwriter: ' . l:room.error}
+      return l:room
     endif
     let [l:lines, l:c] = [l:room.lines, l:room.col]
     let l:map = songwriter#tab#colmap#Then(l:map, l:room.map)
@@ -390,10 +393,11 @@ function! songwriter#tab#voicings#Enter(chord) abort
   let l:chord = songwriter#tab#voicings#Name(a:chord)
   let l:voicings = songwriter#tab#voicings#Voicings(
         \ songwriter#tab#model#Names(l:block.lines), l:chord, l:lin)
-  if type(l:voicings) == v:t_dict
+  if has_key(l:voicings, 'error')
     call songwriter#tab#edit#Error(l:voicings.error)
     return
   endif
+  let l:voicings = l:voicings.voicings
   call s:put(l:chord, l:voicings, 0, 0, 1)
 endfunction
 
@@ -420,9 +424,9 @@ function! songwriter#tab#voicings#Next() abort
   if songwriter#tab#chordname#Naming()
     return songwriter#tab#chordname#NextName()
   endif
-  let l:last = songwriter#tab#state#Get('voicing')
-  if empty(l:last) || l:last.line != line('.') || l:last.col != col('.')
-    call songwriter#tab#edit#Error('songwriter: == follows a chord entered with =')
+  let l:last = songwriter#tab#state#Continuing('voicing')
+  if empty(l:last)
+    call songwriter#tab#edit#Error('== follows a chord entered with =')
     return
   endif
   let l:index = (l:last.index + 1) % len(l:last.voicings)
@@ -451,31 +455,32 @@ function! s:from_label(name) abort
   endfor
   let l:parsed = empty(l:word) || l:word.span ? [] : songwriter#grammar#ParseChord(l:word.text)
   if empty(l:parsed)
-    return songwriter#tab#edit#Error('songwriter: = on an annotation line goes on a chord name')
+    return songwriter#tab#edit#Error('= on an annotation line goes on a chord name')
   endif
   if l:word.col >= max(songwriter#tab#model#Pipes(l:block.lines[0]))
-    return songwriter#tab#edit#Error('songwriter: this chord name is past the end of the tab')
+    return songwriter#tab#edit#Error('this chord name is past the end of the tab')
   endif
   let l:chord = empty(a:name) ? l:word.text
         \ : songwriter#tab#voicings#IsQuality(a:name) ? l:parsed[0] . a:name
         \ : songwriter#tab#voicings#Name(a:name)
   let l:names = songwriter#tab#model#Names(l:block.lines)
   let l:all = songwriter#tab#voicings#Voicings(l:names, l:chord, len(l:names) - 1)
-  if type(l:all) == v:t_dict
+  if has_key(l:all, 'error')
     return songwriter#tab#edit#Error(l:all.error)
   endif
+  let l:all = l:all.voicings
   let l:first = l:all[0]
   for l:v in l:all
     if l:v.fret < l:first.fret
       let l:first = l:v
     endif
   endfor
-  let l:voicings = songwriter#tab#voicings#Voicings(l:names, l:chord, l:first.lin)
+  let l:voicings = songwriter#tab#voicings#Voicings(l:names, l:chord, l:first.lin).voicings
   let l:index = index(l:voicings, l:first)
   let l:label = {'col': l:word.col, 'off': l:vcol - l:word.col,
         \ 'row': l:block.start - 1 - line('.')}
   if !empty(s:on_label(l:chord, l:voicings, l:index, 0, l:label))
-    call songwriter#tab#repeat#Record(printf('songwriter#tab#voicings#Enter(%s)', string(a:name)), 1)
+    call songwriter#tab#repeat#Record(function('songwriter#tab#voicings#Enter'), [a:name])
   endif
 endfunction
 

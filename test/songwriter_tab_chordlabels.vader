@@ -4,7 +4,7 @@
 
 Before:
   unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing
-  unlet! b:songwriter_insert b:songwriter_voicing b:songwriter_naming b:songwriter_repeat
+  unlet! b:songwriter_mode b:songwriter_voicing b:songwriter_naming b:songwriter_repeat
   let b:songwriter_tabmode = 1
 
 " --- [[Editing]] 10.9 `=` writes the chord label ---

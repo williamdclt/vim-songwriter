@@ -6,7 +6,7 @@
 " the tab adds a new bar (5).
 
 Before:
-  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_insert b:songwriter_typing
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_mode b:songwriter_typing
   let b:songwriter_tabmode = 1
 
 " === Normal state ===
@@ -79,7 +79,7 @@ Execute (3.3.2 l on the last note of the tab stays, with no slot nor new bar):
   call songwriter#tab#motion#MoveColumn(1)
   AssertEqual 10, col('.')
 Then:
-  Assert !songwriter#tab#insert#Active()
+  Assert songwriter#tab#mode#Current() !=# 'insert'
 Expect songwriter:
   e|--3--5--|
   B|--------|
@@ -142,11 +142,11 @@ Given songwriter (3.3.3 l from a note opens a slot after it, staying in the inse
 
 Execute (3.3.3 l from a note opens a slot after it, staying in the insert state):
   call cursor(1, 5)
-  call songwriter#tab#insert#Enter()
+  call songwriter#tab#mode#Enter('insert')
   call songwriter#tab#motion#MoveColumn(1)
 Then:
   AssertEqual 7, col('.')
-  Assert songwriter#tab#insert#Active()
+  Assert songwriter#tab#mode#Current() ==# 'insert'
 Expect songwriter:
   e|--3---5--|
 
@@ -155,12 +155,12 @@ Given songwriter (3.3.3 l on the slot closes it and lands on the next note):
 
 Execute (3.3.3 l on the slot closes it and lands on the next note):
   call cursor(1, 5)
-  call songwriter#tab#insert#Enter()
+  call songwriter#tab#mode#Enter('insert')
   call songwriter#tab#motion#MoveColumn(1)
   call songwriter#tab#motion#MoveColumn(1)
 Then:
   AssertEqual 7, col('.')
-  Assert songwriter#tab#insert#Active()
+  Assert songwriter#tab#mode#Current() ==# 'insert'
 Expect songwriter:
   e|--3-5--|
 
@@ -169,7 +169,7 @@ Given songwriter (3.3.3 a third l opens a slot after the next note):
 
 Execute (3.3.3 a third l opens a slot after the next note):
   call cursor(1, 5)
-  call songwriter#tab#insert#Enter()
+  call songwriter#tab#mode#Enter('insert')
   call songwriter#tab#motion#MoveColumn(1)
   call songwriter#tab#motion#MoveColumn(1)
   call songwriter#tab#motion#MoveColumn(1)
@@ -183,12 +183,12 @@ Given songwriter (3.3.3 a digit on the slot enters a note between the two):
 
 Execute (3.3.3 a digit on the slot enters a note between the two):
   call cursor(1, 5)
-  call songwriter#tab#insert#Enter()
+  call songwriter#tab#mode#Enter('insert')
   call songwriter#tab#motion#MoveColumn(1)
   call songwriter#tab#typing#EnterNote(7)
 Then:
   AssertEqual 7, col('.')
-  Assert songwriter#tab#insert#Active()
+  Assert songwriter#tab#mode#Current() ==# 'insert'
 Expect songwriter:
   e|--3-7-5--|
 
@@ -197,7 +197,7 @@ Given songwriter (3.3.3 h from a note opens a slot before it, h again lands on t
 
 Execute (3.3.3 h from a note opens a slot before it, h again lands on the previous note):
   call cursor(1, 7)
-  call songwriter#tab#insert#Enter()
+  call songwriter#tab#mode#Enter('insert')
   call songwriter#tab#motion#MoveColumn(-1)
   AssertEqual 7, col('.')
   AssertEqual 'e|--3---5--|', getline(1)
@@ -212,7 +212,7 @@ Given songwriter (3.3.3 h on a slot opened by l goes back to its note):
 
 Execute (3.3.3 h on a slot opened by l goes back to its note):
   call cursor(1, 5)
-  call songwriter#tab#insert#Enter()
+  call songwriter#tab#mode#Enter('insert')
   call songwriter#tab#motion#MoveColumn(1)
   call songwriter#tab#motion#MoveColumn(-1)
 Then:
@@ -226,7 +226,7 @@ Given songwriter (3.3.3 crossing a bar: a slot in the bar, then the next bar's f
 
 Execute (3.3.3 crossing a bar: a slot in the bar, then the next bar's first note):
   call cursor(1, 5)
-  call songwriter#tab#insert#Enter()
+  call songwriter#tab#mode#Enter('insert')
   call songwriter#tab#motion#MoveColumn(1)
   AssertEqual 7, col('.')
   AssertEqual ['e|--4----|--2--|', 'b|-------|-----|'], getline(1, 2)
@@ -242,7 +242,7 @@ Given songwriter (3.3.3 crossing back: a slot before the bar's first note, then 
 
 Execute (3.3.3 crossing back: a slot before the bar's first note, then the previous note):
   call cursor(1, 11)
-  call songwriter#tab#insert#Enter()
+  call songwriter#tab#mode#Enter('insert')
   call songwriter#tab#motion#MoveColumn(-1)
   AssertEqual 11, col('.')
   AssertEqual 'e|--4--|----2--|', getline(1)
@@ -258,7 +258,7 @@ Given songwriter (3.3.3 on an empty string of a note column, l opens the slot on
 
 Execute (3.3.3 on an empty string of a note column, l opens the slot on every string):
   call cursor(2, 5)
-  call songwriter#tab#insert#Enter()
+  call songwriter#tab#mode#Enter('insert')
   call songwriter#tab#motion#MoveColumn(1)
 Then:
   AssertEqual [2, 7], [line('.'), col('.')]
@@ -271,7 +271,7 @@ Given songwriter (3.3.3 off any stop, l moves to the next one):
 
 Execute (3.3.3 off any stop, l moves to the next one):
   call cursor(1, 6)
-  call songwriter#tab#insert#Enter()
+  call songwriter#tab#mode#Enter('insert')
   call songwriter#tab#motion#MoveColumn(1)
 Then:
   AssertEqual 8, col('.')
@@ -284,7 +284,7 @@ Given songwriter (3.3.4 the insert state opens a slot in an empty bar it lands i
 
 Execute (3.3.4 the insert state opens a slot in an empty bar it lands in):
   call cursor(1, 5)
-  call songwriter#tab#insert#Enter()
+  call songwriter#tab#mode#Enter('insert')
   call songwriter#tab#motion#MoveColumn(1)
   call songwriter#tab#motion#MoveColumn(1)
 Then:
@@ -298,7 +298,7 @@ Given songwriter (3.3.4 a digit fills the slot of the empty bar):
 
 Execute (3.3.4 a digit fills the slot of the empty bar):
   call cursor(1, 5)
-  call songwriter#tab#insert#Enter()
+  call songwriter#tab#mode#Enter('insert')
   call songwriter#tab#motion#MoveColumn(1)
   call songwriter#tab#motion#MoveColumn(1)
   call songwriter#tab#typing#EnterNote(7)
@@ -310,7 +310,7 @@ Given songwriter (3.3.4 l on the slot of the empty bar closes it and moves on):
 
 Execute (3.3.4 l on the slot of the empty bar closes it and moves on):
   call cursor(1, 5)
-  call songwriter#tab#insert#Enter()
+  call songwriter#tab#mode#Enter('insert')
   call songwriter#tab#motion#MoveColumn(1)
   call songwriter#tab#motion#MoveColumn(1)
   call songwriter#tab#motion#MoveColumn(1)
@@ -324,7 +324,7 @@ Given songwriter (3.3.4 h reaches the empty bar through the slot before the next
 
 Execute (3.3.4 h reaches the empty bar through the slot before the next note):
   call cursor(1, 14)
-  call songwriter#tab#insert#Enter()
+  call songwriter#tab#mode#Enter('insert')
   call songwriter#tab#motion#MoveColumn(-1)
   call songwriter#tab#motion#MoveColumn(-1)
 Then:
@@ -337,7 +337,7 @@ Given songwriter (3.3.4 h on the slot of the empty bar closes it and moves on):
 
 Execute (3.3.4 h on the slot of the empty bar closes it and moves on):
   call cursor(1, 17)
-  call songwriter#tab#insert#Enter()
+  call songwriter#tab#mode#Enter('insert')
   call songwriter#tab#motion#MoveColumn(-1)
   call songwriter#tab#motion#MoveColumn(-1)
   AssertEqual 11, col('.')
@@ -354,7 +354,7 @@ Given songwriter (5 l on the last note opens a slot in its bar, a second l makes
 
 Execute (5 l on the last note opens a slot in its bar, a second l makes the new bar, a digit fills it):
   call cursor(1, 8)
-  call songwriter#tab#insert#Enter()
+  call songwriter#tab#mode#Enter('insert')
   call songwriter#tab#motion#MoveColumn(1)
   AssertEqual 'e|--3--5----|', getline(1)
   call songwriter#tab#motion#MoveColumn(1)
@@ -371,7 +371,7 @@ Given songwriter (5 l on the new bar's slot does nothing):
 
 Execute (5 l on the new bar's slot does nothing):
   call cursor(1, 5)
-  call songwriter#tab#insert#Enter()
+  call songwriter#tab#mode#Enter('insert')
   call songwriter#tab#motion#MoveColumn(1)
   call songwriter#tab#motion#MoveColumn(1)
   call songwriter#tab#motion#MoveColumn(1)
@@ -385,7 +385,7 @@ Given songwriter (5 h on the new bar's slot removes it and goes back to the last
 
 Execute (5 h on the new bar's slot removes it and goes back to the last note):
   call cursor(1, 5)
-  call songwriter#tab#insert#Enter()
+  call songwriter#tab#mode#Enter('insert')
   call songwriter#tab#motion#MoveColumn(1)
   call songwriter#tab#motion#MoveColumn(1)
   call songwriter#tab#motion#MoveColumn(-1)
@@ -400,7 +400,7 @@ Given songwriter (5 l past the last note of the last bar appends a new bar):
 
 Execute (5 l past the last note of the last bar appends a new bar):
   call cursor(2, 9)
-  call songwriter#tab#insert#Enter()
+  call songwriter#tab#mode#Enter('insert')
   call songwriter#tab#motion#MoveColumn(1)
 Then:
   AssertEqual [2, 14], [line('.'), col('.')]
@@ -414,7 +414,7 @@ Given songwriter (5 l on the closing pipe of the tab appends a new bar, linting 
 
 Execute (5 l on the closing pipe of the tab appends a new bar, linting first):
   call cursor(1, 10)
-  call songwriter#tab#insert#Enter()
+  call songwriter#tab#mode#Enter('insert')
   call songwriter#tab#motion#MoveColumn(1)
 Then:
   AssertEqual 11, col('.')
@@ -427,7 +427,7 @@ Given songwriter (5 a bar that is not the last one never gets a new bar after it
 
 Execute (5 a bar that is not the last one never gets a new bar after it):
   call cursor(1, 6)
-  call songwriter#tab#insert#Enter()
+  call songwriter#tab#mode#Enter('insert')
   call songwriter#tab#motion#MoveColumn(1)
 Then:
   AssertEqual 11, col('.')
@@ -449,7 +449,7 @@ Execute (3.3.5 L/H move across time columns in the normal state):
   normal H
   AssertEqual 8, col('.')
 Then:
-  Assert !songwriter#tab#insert#Active()
+  Assert songwriter#tab#mode#Current() !=# 'insert'
 Expect songwriter:
   e|--3--5--|--7--|
   B|--1-----|-----|
@@ -459,13 +459,13 @@ Given songwriter (3.3.5 L/H in the insert state move across notes without openin
 
 Execute (3.3.5 L/H in the insert state move across notes without opening a slot):
   call cursor(1, 5)
-  call songwriter#tab#insert#Enter()
+  call songwriter#tab#mode#Enter('insert')
   normal LL
   AssertEqual 14, col('.')
   normal H
   AssertEqual 8, col('.')
 Then:
-  Assert songwriter#tab#insert#Active()
+  Assert songwriter#tab#mode#Current() ==# 'insert'
 Expect songwriter:
   e|--3--5--|--7--|
 
@@ -496,7 +496,7 @@ Given songwriter (3.3.5 L stops on an empty bar without opening its slot):
 
 Execute (3.3.5 L stops on an empty bar without opening its slot):
   call cursor(1, 5)
-  call songwriter#tab#insert#Enter()
+  call songwriter#tab#mode#Enter('insert')
   normal L
 Then:
   AssertEqual 11, col('.')
@@ -509,7 +509,7 @@ Given songwriter (3.3.5 L on the last note of the tab stays, with no new bar):
 
 Execute (3.3.5 L on the last note of the tab stays, with no new bar):
   call cursor(1, 8)
-  call songwriter#tab#insert#Enter()
+  call songwriter#tab#mode#Enter('insert')
   normal L
 Then:
   AssertEqual 8, col('.')
@@ -525,6 +525,6 @@ Execute (l stays put on a prose line, in either state):
   call cursor(1, 1)
   call songwriter#tab#motion#MoveColumn(1)
   AssertEqual 1, col('.')
-  call songwriter#tab#insert#Enter()
+  call songwriter#tab#mode#Enter('insert')
   call songwriter#tab#motion#MoveColumn(1)
   AssertEqual 1, col('.')
