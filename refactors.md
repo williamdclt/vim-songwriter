@@ -46,28 +46,6 @@ rather than stopping silently.
 **Buys.** Every existing test case checks the rules, for free, and so does
 every case written for a new feature.
 
-## 2. Tuning and options in one place each
-
-**Now.** String names become pitches in three places: `carry.vim`
-(`s:interval`, for `S`), `play#OpenPitches` (also used by `chordname.vim`,
-so naming a chord depends on the module that plays sound) and
-`voicings.vim` (pitch classes per string, the standard-tuning check, power
-chords). `g:songwriter_max_fret` and its default of 24 are read in
-`typing.vim`, `frets.vim` and `carry.vim`; the other options
-(`songwriter_play_bpm`, `songwriter_strum_ms`, `songwriter_player`,
-`songwriter_sound_cache`) each have their default where they are read.
-
-**Change.** A pure `tuning.vim`: the tuning of string names, `{'pitches'
-(open string pitches, spec 12.3), 'standard'}` or `{'error'}` (a name that
-is not a note), and the interval between two strings (7.3, refusing the
-same letter twice). Carries, playing, naming and voicings use it. A
-`config.vim` with one table of options and their defaults, read through
-one function.
-
-**Buys.** One rule for what a string name means, so a new tuning feature
-(capo, alternate tunings for `=`) is one change; one place to find every
-option.
-
 ## 3. One mechanism for state and how long it holds
 
 **Now.** `state.vim` keeps values valid while `b:changedtick` is unchanged,
