@@ -258,3 +258,14 @@ Execute (x on a separator does nothing):
   normal x
 Expect songwriter:
   e|--5h7--|
+
+Given songwriter (6.7.4 x on the second note of a chain keeps its separator off the next note):
+  e|--5h7--9--|
+
+Execute (6.7.4 x on the second note of a chain keeps its separator off the next note):
+  let b:songwriter_tabmode = 1
+  call cursor(1, 7)
+  normal x
+
+Expect songwriter (the h stays with the 5, a dash before the 9):
+  e|--5h-9--|

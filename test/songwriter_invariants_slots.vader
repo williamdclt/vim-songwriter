@@ -5,14 +5,7 @@ Include: invariants/setup.vader
 " === An abandoned slot leaves no trace (spec 4.3) ===
 
 Execute (a or i then <Esc> gives the tab back as it was, with no undo step):
-  " Spec [[Bugs]] 3: the lint of 4.2 splits the time columns of a tab whose
-  " notes overlap.
   let g:inv_known = []
-  for [g:inv_l, g:inv_c] in [[1, 5], [1, 7], [1, 9], [1, 10], [1, 16], [1, 18], [1, 19], [1, 21],
-        \ [2, 6], [2, 7], [2, 9], [2, 11], [2, 18], [2, 19], [3, 11], [3, 12], [3, 16], [3, 17]]
-    let g:inv_known += [printf('check: overlapping frets, %d:%d, a', g:inv_l, g:inv_c),
-          \ printf('check: overlapping frets, %d:%d, i', g:inv_l, g:inv_c)]
-  endfor
   let g:inv_failures = []
   for g:inv_tab in g:inv_tabs + g:inv_unlinted
     for g:inv_pos in g:InvKeyPositions(g:inv_tab.lines)

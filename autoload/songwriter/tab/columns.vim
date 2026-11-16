@@ -50,7 +50,8 @@ function! songwriter#tab#columns#EraseSet(lines, notes) abort
   let l:rows = []
   for l:n in l:notes
     let l:res = songwriter#tab#columns#EraseNote(l:lines, l:n.lin, l:n.col)
-    call insert(l:rows, l:res.rows)
+    " What `x` writes for the note in the tab as it was (6.7.3).
+    call insert(l:rows, songwriter#tab#columns#EraseNote(a:lines, l:n.lin, l:n.col).rows)
     let l:lines = l:res.lines
     let l:map = songwriter#tab#colmap#Then(l:map, l:res.map)
   endfor
@@ -66,8 +67,11 @@ endfunction
 
 " Remove columns [s, e] from every line. When the range holds a bar line and
 " does not start right after one, a pipe is put back at s: the bar where the
-" range starts is closed there. Returns {'lines', 'rows' (what was removed,
-" one per line), 'map'}: the range is deleted, a pipe put back is new.
+" range starts is closed there. Where the range was, two chains of a string
+" never meet (spec [Tablature][[Editing]] 6.7.2: `10-12` never becomes
+" `1012`): when they would, a dash is put back on every string (KeepApart).
+" Returns {'lines', 'rows' (what was removed, one per line), 'map'}: the
+" range is deleted, a pipe or a dash put back is new.
 function! songwriter#tab#columns#DeleteRange(lines, s, e) abort
   let l:rows = songwriter#tab#columns#Extract(a:lines, a:s, a:e)
   let l:out = []
@@ -82,7 +86,22 @@ function! songwriter#tab#columns#DeleteRange(lines, s, e) abort
     endif
     call add(l:out, l:keep . strpart(l:l, a:e))
   endfor
-  return {'lines': l:out, 'rows': l:rows, 'map': songwriter#tab#colmap#Then(l:map, l:pipe)}
+  let l:map = songwriter#tab#colmap#Then(l:map, l:pipe)
+  let l:apart = songwriter#tab#columns#KeepApart(l:out, a:s - 1 + len(l:pipe))
+  return {'lines': l:apart.lines, 'rows': l:rows, 'map': songwriter#tab#colmap#Then(l:map, l:apart.map)}
+endfunction
+
+" Two chains of a string must never meet between byte `o` and `o + 1` (0 =
+" line start) of `lines` once an edit has removed or inserted columns there:
+" when a string has a chain on both sides, a dash is inserted after `o` on
+" every string. Returns {'lines', 'map'}.
+function! songwriter#tab#columns#KeepApart(lines, o) abort
+  for l:l in a:lines
+    if s:in_chain(l:l, a:o) && s:in_chain(l:l, a:o + 1)
+      return songwriter#tab#model#InsertColumns(a:lines, a:o, 1, '-')
+    endif
+  endfor
+  return {'lines': a:lines, 'map': []}
 endfunction
 
 " Spec 6.3.1: every note becomes dashes; bars and pipes are kept.
@@ -250,7 +269,7 @@ function! songwriter#tab#columns#WriteNote(lines, lin, c, old, text) abort
     let l:moved = a:old > l:w ? songwriter#tab#model#RowNotes(l:rest) : []
     return {'lines': l:lines, 'col': l:c, 'map': l:map,
           \ 'erased': l:erased + map(copy(l:moved), {_, n -> {'lin': a:lin, 'col': l:end + n.col}}),
-          \ 'written': [{'lin': a:lin, 'col': l:c}]
+          \ 'written': [{'lin': a:lin, 'col': l:c + s:note_offset(a:text)}]
           \   + map(copy(l:moved), {_, n -> {'lin': a:lin, 'col': l:c + l:w - 1 + n.col}})}
   endif
   let l:free = len(matchstr(l:t, songwriter#grammar#DashRun(), l:end))
@@ -281,7 +300,7 @@ function! songwriter#tab#columns#WriteNote(lines, lin, c, old, text) abort
   let l:t = songwriter#tab#model#Pad(l:lines[a:lin], l:c + l:w - 1)
   let l:lines[a:lin] = songwriter#tab#model#Splice(l:t, l:c, l:w, a:text)
   return {'lines': l:lines, 'col': l:c, 'map': l:map, 'erased': l:erased,
-        \ 'written': [{'lin': a:lin, 'col': l:c}]}
+        \ 'written': [{'lin': a:lin, 'col': l:c + s:note_offset(a:text)}]}
 endfunction
 
 " Write `text`, a note, on the dashes at column `c` of line `to`
@@ -295,6 +314,11 @@ endfunction
 function! songwriter#tab#columns#SetNote(lines, lin, c, text) abort
   return songwriter#tab#columns#WriteNote(a:lines, a:lin, a:c,
         \ songwriter#tab#model#NoteAt(a:lines[a:lin], a:c).len, a:text)
+endfunction
+
+" Where the note of `text` (a note with its separators) starts in it.
+function! s:note_offset(text) abort
+  return max([0, match(a:text, songwriter#grammar#Note())])
 endfunction
 
 " `lines` without line `lin`.

@@ -140,8 +140,9 @@ endfunction
 " that
 "   - a string's notes and separators keep their original relative gaps, and
 "   - a note starting inside a different string's number is pushed right to
-"     leave one dash after it (spec 1.3); aligned starts are never split.
-"     Separators take no part in this: they occupy no time.
+"     leave one dash after it (spec 1.3), and the notes starting on its time
+"     column with it: a time column moves as a whole, so aligned starts are
+"     never split. Separators take no part in this: they occupy no time.
 function! s:relax_bar(atoms, mincol) abort
   let l:work = []
   for l:a in a:atoms
@@ -175,6 +176,14 @@ function! s:relax_bar(atoms, mincol) abort
       if l:need > l:a.start
         let l:a.start = l:need
         let l:changed = 1
+        if l:a.note
+          " The time column moves as a whole.
+          for l:b in l:work
+            if l:b.note && l:b.c0 == l:a.c0 && l:b.start < l:need
+              let l:b.start = l:need
+            endif
+          endfor
+        endif
       endif
       let l:last[l:a.lin] = {'c0': l:a.c0, 'start': l:a.start}
     endfor

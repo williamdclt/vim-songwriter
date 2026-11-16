@@ -33,7 +33,7 @@ never relies on concealing or rendering.
 | `autoload/songwriter/tab/lint.vim` | The linter, as a pure function over a block's lines. |
 | `autoload/songwriter/tab/highlight.vim` | The time column under the cursor, highlighted in tablature mode. |
 | `autoload/songwriter/tab.vim` | The tab commands that work outside tablature mode too: `_`, `\|\|`, `:SongwriterAddBar`, `:SongwriterAddDashes`, `:SongwriterTabChord`. |
-| `autoload/songwriter/tab/columns.vim` | Editing time columns, pure: extract, delete, erase (any set of notes, `EraseSet`), shift, make room for a note, rewrite a note in place (`SetNote`). |
+| `autoload/songwriter/tab/columns.vim` | Editing time columns, pure: extract, delete, erase (any set of notes, `EraseSet`), shift, make room for a note, rewrite a note in place (`SetNote`), and the guards that keep chains apart (`KeepApart`, `WriteNote`). |
 | `autoload/songwriter/tab/frets.vim` | `<C-A>`/`<C-X>` in tablature mode: pure `Add()` and the normal and visual entry points. |
 | `autoload/songwriter/tab/objects.vim` | Text object ranges and the snapping of other ranges, pure. |
 | `autoload/songwriter/tab/paste.vim` | Pasting blockwise registers, pure: row matching, insert, overlay. |
@@ -375,6 +375,39 @@ part of the tab, and follow its music through every edit.
   a display column of an annotation is the byte column of the strings under
   it.
 
+### Keeping notes apart
+
+Two chains of a string that touch are one chain: `10` next to `12` is the
+fret `1012`, `5h` next to `9` a hammer-on onto the 9, and no lint can tell.
+Every edit that removes or inserts columns, or writes a note, can make two
+chains meet, so the rule lives in the three primitives those edits go
+through, not in each edit:
+
+- **Removing columns** (`columns#DeleteRange`: `dac`, `dd`, `d|`, `x` on a
+  lone note, `<<`): where the range was, a dash is put back on every string
+  when two chains of a string would meet (`columns#KeepApart`). `x` first
+  removes less of a note's gap where another string needs it (6.7.2), so it
+  rarely needs the dash.
+- **Inserting columns** with content (`paste.vim`, `p`/`P`): `KeepApart` at
+  each edge of each copy.
+- **Writing a note** (`columns#WriteNote`, and so `SetNote`, `PutNote`,
+  carries, chords, `gp`): on dashes, a dash is inserted before it when a
+  chain ends right before its column; wider, it keeps a dash before the next
+  chain.
+
+Inserting dashes alone (`model#InsertColumns`: slots, `_`, room for a label)
+never joins chains; it may split one, which is how a slot opens inside
+`5h7` (3.1.3). Check mode (see "Checking the rules") catches any edit that
+still makes two notes meet.
+
+These guards replace a time-grid model (the tab parsed into time columns and
+rendered back, the only code writing text), considered for the same purpose:
+with them, every known way of joining notes is closed in one place each, and
+check mode covers the rest on every test, whereas the grid would rewrite the
+column code around separators (which belong to no column) and unlinted tabs
+(which have no columns yet) for the same guarantee. The linter moves time
+columns as a whole for the same reason (see "Linter").
+
 ### Column insertion (`_`, `:SongwriterAddBar`)
 
 `_` (spec [Tablature][[Editing]] 2) inserts a dash, `:SongwriterAddBar` a pipe,
@@ -430,8 +463,10 @@ offset `c0 - mincol + 2`, then a fixed-point pass enforces:
   its string;
 - *cross-string de-overlap*: a note starting strictly after a note on another
   string but inside that note's span is pushed right to leave exactly one dash
-  after it. Notes starting on the same column are aligned and never split; a
-  single digit lining up with the first digit of a `12` is left alone.
+  after it, and its whole time column with it: notes starting on the same
+  column are aligned and never split, so pushing one note pushes the others
+  of its column, and with them what follows on their strings. A single digit
+  lining up with the first digit of a `12` is left alone.
 
 The pass is capped at 200 iterations (never reached in practice): pushing one
 note can collide with another on a neighbouring string.

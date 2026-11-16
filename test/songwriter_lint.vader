@@ -292,3 +292,14 @@ Expect songwriter (1.4 a tab with no bar left gets one empty bar):
 
 Execute (1.4 a tab of bare string names and pipes lints to one empty bar):
   AssertEqual ['e|-----|'], songwriter#tab#lint#Lint(['e|']).lines
+
+Given songwriter (1.3 a note pushed off another string's two-digit fret moves its whole time column):
+  e|--12--3---|
+  B|---3--12--|
+
+Execute (1.3 a note pushed off another string's two-digit fret moves its whole time column):
+  SongwriterLint
+
+Expect songwriter (the 3 and the 12 still start together):
+  e|--12----3---|
+  B|-----3--12--|
