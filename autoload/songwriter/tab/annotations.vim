@@ -13,6 +13,33 @@
 " One layout (s:layout) turns words placed at the columns they want into a
 " line, left to right, one space at least between them: every line written
 " goes through it.
+"
+" Nothing here is about tabs but the host, what the words are anchored to:
+" {'anchors': the columns a word stands for when it starts there, sorted;
+" 'first': the first column a word may start at; 'End': Fn(col), the last
+" column of the anchor at `col` (what a word over it must not run into);
+" 'Fit': Fn(offset), the offset at or before `offset` where the host can make
+" room for a word (columns inserted after it), or -1 when it cannot}. A tab
+" is one (TabHost: its time columns, room made with dashes); the functions
+" that take a host take a tab's lines for it.
+
+" The host of the tab whose strings are `lines`: anchored to its time
+" columns, words never in the first two columns (so that a line stays an
+" annotation line, spec 1), room made by inserting dashes anywhere no note
+" runs across (spec 4.4).
+function! songwriter#tab#annotations#TabHost(lines) abort
+  let l:tab = songwriter#tab#model#Parse(0, a:lines)
+  return {'anchors': songwriter#tab#model#NoteColumns(l:tab),
+        \ 'first': songwriter#tab#model#BodyOffset() + 1,
+        \ 'End': {c -> songwriter#tab#model#ColumnEnd(l:tab, c)},
+        \ 'Fit': {o -> s:outside_notes(l:tab, o) >= songwriter#tab#model#BodyOffset()
+        \   ? s:outside_notes(l:tab, o) : -1}}
+endfunction
+
+" `host`, or the host of a tab's lines (TabHost).
+function! s:host(host) abort
+  return type(a:host) == v:t_list ? songwriter#tab#annotations#TabHost(a:host) : a:host
+endfunction
 
 " Spec 3: the annotation lines `above` as rows of words, top first, a word
 " anchored when its first column is one of `cols` (the tab's time columns).
@@ -96,8 +123,9 @@ endfunction
 "   words of row `row` (counted as for 'put') starting in the `width` display
 "   columns from `col` replaced by `text` (spec 8.1, 8.2), the row's words
 "   being those of `line` when given (the line before it was typed into).
-function! songwriter#tab#annotations#Apply(rows, map, ops, lines) abort
-  let l:cols = songwriter#tab#model#NoteColumns(songwriter#tab#model#Parse(0, a:lines))
+function! songwriter#tab#annotations#Apply(rows, map, ops, host) abort
+  let l:host = s:host(a:host)
+  let l:cols = l:host.anchors
   let l:put = filter(copy(a:ops), 'v:val.op ==# "put"')
   let l:label = filter(copy(a:ops), 'v:val.op ==# "label"')
   let l:rows = empty(filter(copy(a:ops), 'v:val.op ==# "clear"')) ? a:rows
@@ -122,12 +150,13 @@ function! songwriter#tab#annotations#Apply(rows, map, ops, lines) abort
       call add(l:words, s:word(l:p.text, l:p.col, index(l:cols, l:p.col) >= 0))
       let l:moved = 1
     endfor
-    call add(l:out, {'text': l:rows[l:i].text, 'moved': l:moved, 'words': l:words})
+    call add(l:out, {'text': l:rows[l:i].text, 'moved': l:moved, 'words': l:words,
+          \ 'first': l:host.first})
   endfor
   for l:o in filter(copy(a:ops), 'v:val.op ==# "retype"')
     call s:retype(l:out, l:o, a:map, l:cols)
   endfor
-  return empty(l:label) ? l:out : s:label(l:out, l:label[-1], a:lines)
+  return empty(l:label) ? l:out : s:label(l:out, l:label[-1], l:host)
 endfunction
 
 " Placed rows `rows` (Apply) with the 'retype' operation `op` done, `map`
@@ -146,7 +175,7 @@ function! s:retype(rows, op, map, cols) abort
   for l:w in songwriter#tab#annotations#Words(repeat(' ', a:op.col - 1) . a:op.text)
     call add(l:words, s:word(l:w.text, l:w.col, index(a:cols, l:w.col) >= 0))
   endfor
-  let a:rows[l:i] = {'text': l:r.text, 'moved': 1, 'words': l:words}
+  let a:rows[l:i] = {'text': l:r.text, 'moved': 1, 'words': l:words, 'first': l:r.first}
 endfunction
 
 " A placed word (s:place) of `text` at column `col`.
@@ -169,7 +198,7 @@ endfunction
 " above the strings, unless a word there is in the way however the tab is
 " widened (one over the column, or starting over its notes): then on a new
 " line under the others.
-function! s:label(rows, label, lines) abort
+function! s:label(rows, label, host) abort
   let l:new = s:word(a:label.text, a:label.col, 1)
   for l:i in range(len(a:rows) - 1, 0, -1)
     for l:k in range(len(a:rows[l:i].words))
@@ -184,14 +213,14 @@ function! s:label(rows, label, lines) abort
   if !a:label.add
     return a:rows
   endif
-  let l:end = songwriter#tab#model#ColumnEnd(songwriter#tab#model#Parse(0, a:lines), a:label.col)
-  if !empty(a:rows) && empty(filter(copy(s:layout(a:rows[-1].words).words),
+  let l:end = a:host.End(a:label.col)
+  if !empty(a:rows) && empty(filter(copy(s:layout(a:rows[-1].words, a:host.first).words),
         \ {_, w -> w.at <= a:label.col && w.end >= a:label.col || w.at > a:label.col && w.at <= l:end}))
     call add(a:rows[-1].words, l:new)
     let a:rows[-1].moved = 1
     return a:rows
   endif
-  return a:rows + [{'text': '', 'moved': 1, 'words': [l:new]}]
+  return a:rows + [{'text': '', 'moved': 1, 'words': [l:new], 'first': a:host.first}]
 endfunction
 
 " The annotation lines of placed rows `rows` (Apply), laid out: a row whose
@@ -202,31 +231,32 @@ function! songwriter#tab#annotations#Render(rows) abort
     if !l:r.moved
       call add(l:out, l:r.text)
     elseif !empty(l:r.words)
-      call add(l:out, s:layout(l:r.words).text)
+      call add(l:out, s:layout(l:r.words, l:r.first).text)
     endif
   endfor
   return l:out
 endfunction
 
-" Spec 4.4: where the tab under placed rows `rows` (Apply), its lines being
-" `lines`, must widen so that an anchored word the layout would push right
-" stays on its column: {'offset', 'n'}, `n` dashes to insert after byte
-" `offset` (right before the word's column, outside any note), the leftmost
-" such place; {} for none. A word whose room would widen or move the word
-" before it (a span over that place) stays pushed.
-function! songwriter#tab#annotations#Room(rows, lines) abort
-  let l:tab = songwriter#tab#model#Parse(0, a:lines)
+" Spec 4.4: where `host` (a tab's lines for its host) under placed rows
+" `rows` (Apply) must widen so that an anchored word the layout would push
+" right stays on its column: {'offset', 'n'}, `n` columns to insert after
+" `offset` (right before the word's column, where the host can: for a tab,
+" outside any note), the leftmost such place; {} for none. A word whose room
+" would widen or move the word before it (a span over that place) stays
+" pushed, as does one the host can make no room for.
+function! songwriter#tab#annotations#Room(rows, host) abort
+  let l:host = s:host(a:host)
   let l:best = {}
   for l:r in filter(copy(a:rows), 'v:val.moved')
-    let l:laid = s:layout(l:r.words).words
+    let l:laid = s:layout(l:r.words, l:r.first).words
     for l:k in range(1, max([len(l:laid) - 1, 0]))
       let l:w = l:laid[l:k]
       let l:want = s:start(l:w)
       if !l:w.anchored || l:w.at <= l:want
         continue
       endif
-      let l:offset = s:outside_notes(l:tab, l:want - 1)
-      if l:offset < songwriter#tab#model#BodyOffset() || s:last(l:laid[l:k - 1]) > l:offset
+      let l:offset = l:host.Fit(l:want - 1)
+      if l:offset < 0 || s:last(l:laid[l:k - 1]) > l:offset
         continue
       endif
       if empty(l:best) || l:offset < l:best.offset
@@ -342,12 +372,12 @@ endfunction
 
 " The layout: the annotation line of placed words (s:place), left to right by
 " where they want to start, one space at least between them, none before
-" column 3. {'text', 'words': each placed word with 'at' and 'end', the
-" columns it got, in the order laid out}.
-function! s:layout(words) abort
+" column `first` (the host's). {'text', 'words': each placed word with 'at'
+" and 'end', the columns it got, in the order laid out}.
+function! s:layout(words, first) abort
   let l:words = sort(copy(a:words), {a, b -> s:start(a) - s:start(b)})
   let l:line = ''
-  let l:next = songwriter#tab#model#BodyOffset() + 1
+  let l:next = a:first
   let l:out = []
   for l:w in l:words
     let l:text = ''

@@ -1,0 +1,31 @@
+" The annotation layer is not tied to tabs: a host says what its words are
+" anchored to (tab/annotations.vim, design.md "Annotations"). Pure.
+
+Execute (a lyric host: chord names follow a word inserted in the lyric):
+  " Anchors are every character of the lyric, words may start in column 1,
+  " and the lyric makes no room for them.
+  let lyric = 'I walk a lonely road'
+  let host = {'anchors': range(1, len(lyric)), 'first': 1,
+        \ 'End': {c -> c}, 'Fit': {o -> -1}}
+  let rows = songwriter#tab#annotations#Parse(['Am      C'], host.anchors)
+  " `very ` inserted before `lonely` (after byte 9).
+  let map = songwriter#tab#colmap#Insert(9, 5)
+  let placed = songwriter#tab#annotations#Apply(rows, map, [], host)
+  AssertEqual ['Am      C'], songwriter#tab#annotations#Render(placed)
+  let map = songwriter#tab#colmap#Insert(2, 5)
+  let placed = songwriter#tab#annotations#Apply(rows, map, [], host)
+  AssertEqual ['Am           C'], songwriter#tab#annotations#Render(placed)
+  AssertEqual {}, songwriter#tab#annotations#Room(placed, host)
+
+Execute (a label written over a lyric: it starts where the host lets it):
+  let host = {'anchors': range(1, 10), 'first': 1, 'End': {c -> c}, 'Fit': {o -> -1}}
+  let placed = songwriter#tab#annotations#Apply([], [], [{'op': 'label', 'text': 'G', 'col': 1, 'add': 1}], host)
+  AssertEqual ['G'], songwriter#tab#annotations#Render(placed)
+
+Execute (the tab is a host like any other: its lines stand for it):
+  let lines = ['e|--3--5--|']
+  let host = songwriter#tab#annotations#TabHost(lines)
+  AssertEqual [5, 8], host.anchors
+  AssertEqual 3, host.first
+  let placed = songwriter#tab#annotations#Apply([], [], [{'op': 'label', 'text': 'G', 'col': 5, 'add': 1}], host)
+  AssertEqual placed, songwriter#tab#annotations#Apply([], [], [{'op': 'label', 'text': 'G', 'col': 5, 'add': 1}], lines)

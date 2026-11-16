@@ -303,6 +303,14 @@ part of the tab, and follow its music through every edit.
   stands for. Queries (`Over`, the word under the cursor) read the rows;
   display columns become bytes only where a line is read or written
   (`Bytes`).
+- **A host, not a tab.** The layer knows nothing of tabs but its host
+  (`annotations.vim`): the columns words stand for (`anchors`), the first
+  column a word may start at (`first`), the last column of an anchor (`End`,
+  which a label added over it must not run into) and where room can be made
+  (`Fit`). A tab is one (`TabHost`: its time columns, column 3, dashes
+  inserted where no note runs across), and the functions taking a host take
+  a tab's lines for it. Chords over lyrics ([Chord annotations]) are meant to
+  be another host: anchored to the lyric's characters, from column 1.
 - **Following is the column map applied to words**, in two steps.
   `annotations#Apply` places each word where its column goes (a label is
   deleted with its column, as `x` deletes a note's gap with it; a span's ends
