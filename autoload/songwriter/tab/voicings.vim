@@ -523,7 +523,7 @@ function! s:place(chord, voicings, index, add, ctx) abort
   let l:name = songwriter#tab#voicings#Spelled(a:chord)
   let l:result.msg = songwriter#tab#voicings#Describe(l:name, a:voicings, a:index,
         \ songwriter#tab#model#Names(a:ctx.block.lines))
-  let l:result.label = {'col': l:result.col, 'text': l:name, 'add': a:add}
+  let l:result.annotations = [{'op': 'label', 'col': l:result.col, 'text': l:name, 'add': a:add}]
   let l:result.state = {'voicing': {'chord': a:chord, 'voicings': a:voicings,
         \ 'index': a:index, 'lin': a:ctx.lin, 'add': a:add}}
   if a:ctx.insert

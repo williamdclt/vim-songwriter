@@ -247,13 +247,21 @@ part of the tab, and follow its music through every edit.
 - **Following is the column map applied to words**, in two steps.
   `annotations#Apply` places each word where its column goes (a label is
   deleted with its column, as `x` deletes a note's gap with it; a span's ends
-  go to the first and last columns it still covers), adds the words an edit
-  brings (`put`) and writes a chord label (`label`); `annotations#Render`
+  go to the first and last columns it still covers), then does the draft's
+  operations on annotations; `annotations#Render`
   lays each row out (`s:layout`, the one layout: left to right, a space
   between words, never in the first two columns, so that a line stays an
   annotation line). A line none of whose words moved is kept byte for byte,
   whitespace included: an edit that does not touch it leaves no trace in it.
   `edit#Derive` does both, so every write path has it.
+- **One vocabulary for what an edit does to annotations.** Beyond following
+  the map, a draft says what it does to the annotations as a list of
+  operations (`annotations`): `put` (words it brings along: a paste, a
+  register's rows), `label` (a chord label it writes), `clear` (`cap`).
+  `edit.vim` only carries them, their columns following the lint and the
+  room made like any column (`s:moved`), and `annotations#Apply` does them;
+  a new kind of annotation edit is a new operation there, not a new draft
+  field threaded through the pipeline.
 - **A label is never moved off its column: the tab makes room.** The file is
   plain text, so a label's position is the only record of the column it
   stands for; pushing it right (as the layout would when it runs into the
@@ -274,7 +282,7 @@ part of the tab, and follow its music through every edit.
   has the annotations deleted with it (for a yank, those a deletion would
   delete) as rows above the strings' rows, so it stays a plain blockwise
   register, and `register.vim` records how many rows are annotations. A paste
-  puts them back as words of its draft (`put`), above each copy. A register
+  puts them back as `put` operations of its draft, above each copy. A register
   changed since (a native yank) has no annotation rows, and pastes as before.
   `gp` adds notes to a column that keeps its own annotations, so it leaves
   them out.
@@ -848,10 +856,10 @@ voicings in their cycle order out) and `Place()`, and the entry points.
 - **The name and the notes are two views of one chord.** Whatever writes a
   chord by name (`=Am`, `=m7`) writes its label too, so they never disagree;
   `+` builds riffs note by note, where labels would be clutter, so it only
-  keeps an existing label true. The label is a draft field (`label`, beside
-  `put`): `edit#Derive` writes it after the annotations followed the edit, so
+  keeps an existing label true. The label is a `label` operation of the
+  draft: `edit#Derive` writes it after the annotations followed the edit, so
   it lands on the chord's column wherever the lint put it, and in the same
-  undo step. The draft's `label` is the one way a chord name is written
+  undo step. That operation is the one way a chord name is written
   (`=`, `+`, `=<CR>`, `:SongwriterTabChord`): `annotations#Apply` replaces
   the column's chord label (a label starting on the column that is a chord),
   else places the name as spec 6 says.

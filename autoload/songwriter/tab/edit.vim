@@ -9,12 +9,10 @@
 "   'base':  with 'lines' and 'map', a snapshot (model#Snapshot) the edit
 "            started from instead of the block it was given (a carry renders
 "            from the tab it saved),
-"   'put':   with 'lines', annotation words the edit brings along, at columns
-"            of its lines (annotations#Follow),
-"   'label': with 'lines', {'col' (of its lines), 'text', 'add'}: the chord
-"            label of that column to write (annotations#Apply),
-"   'above': with 'lines', the annotation lines, in place of those that
-"            would follow the edit (`cap` clears them, 6.3.1),
+"   'annotations': with 'lines', the operations on the annotations above
+"            it, their columns of its lines (annotations#Apply): words it
+"            brings along ('put'), the chord label it writes ('label'), all
+"            of them cleared ('clear', `cap`, 6.3.1),
 "   'col':   the cursor column,
 "   'lin':   the cursor's 0-indexed line in the block (with 'col'; default:
 "            stays),
@@ -41,21 +39,18 @@
 " function. Its target is the cursor, or a visual selection it selects again.
 " `undojoin` is only here (s:write, JoinUndo).
 "
-" What an edit writes is a draft: {'lines', 'map', 'base' (optional), 'put'
-" (optional), 'label' (optional), 'above' (optional)}, the block's new lines
-" and where each column of `base` went in them; `base` is the snapshot the
-" edit started from, by default the block being written; `put` are annotation
-" words the edit brings along (annotations#Follow); `label` a chord label it
-" writes (annotations#Apply); `above` annotation lines replacing them all.
+" What an edit writes is a draft: {'lines', 'map', 'base' (optional),
+" 'annotations' (optional)}, the block's new lines and where each column of
+" `base` went in them; `base` is the snapshot the edit started from, by
+" default the block being written; `annotations` the operations on the
+" annotations (annotations#Apply).
 " s:write is the one way a draft reaches the buffer.
 
 " Pure. The snapshot of `lines`, made from the snapshot `base` by an edit
-" whose column map is `map`: the annotations follow the music, with the words
-" `put` (optional, [] for none) added, then the chord label `label`
-" (optional) written (annotations#Apply).
+" whose column map is `map`: the annotations follow the music, with the
+" operations `ops` (optional) done (annotations#Apply).
 function! songwriter#tab#edit#Derive(base, lines, map, ...) abort
-  let l:placed = songwriter#tab#annotations#Apply(s:rows(a:base), a:map,
-        \ a:0 ? a:1 : [], a:0 > 1 ? a:2 : {}, a:lines)
+  let l:placed = songwriter#tab#annotations#Apply(s:rows(a:base), a:map, a:0 ? a:1 : [], a:lines)
   return {'top': a:base.top, 'lines': copy(a:lines), 'above': songwriter#tab#annotations#Render(l:placed)}
 endfunction
 
@@ -70,12 +65,8 @@ function! s:snapshot(block, draft) abort
   if !has_key(a:draft, 'map')
     throw 'songwriter: a draft needs a map (tab/colmap.vim)'
   endif
-  let l:snapshot = songwriter#tab#edit#Derive(get(a:draft, 'base', songwriter#tab#model#Snapshot(a:block)),
-        \ a:draft.lines, a:draft.map, get(a:draft, 'put', []), get(a:draft, 'label', {}))
-  if has_key(a:draft, 'above')
-    let l:snapshot.above = copy(a:draft.above)
-  endif
-  return l:snapshot
+  return songwriter#tab#edit#Derive(get(a:draft, 'base', songwriter#tab#model#Snapshot(a:block)),
+        \ a:draft.lines, a:draft.map, get(a:draft, 'annotations', []))
 endfunction
 
 " Show a refusal, `msg` as a pure function gives it ({'error'}), prefixed
@@ -147,20 +138,12 @@ function! s:resolve(lines, lin, col, result, lint) abort
     let l:map = songwriter#tab#colmap#Then(l:map, l:linted.map)
   endif
   let l:r = {'lines': l:lines, 'lin': l:lin, 'col': l:col, 'map': l:map}
-  for l:key in ['base', 'above']
-    if has_key(a:result, l:key)
-      let l:r[l:key] = a:result[l:key]
-    endif
-  endfor
-  " The words' columns follow the lint, as the rest of the tab.
-  let l:lint = a:lint ? l:linted.map : []
-  if has_key(a:result, 'put')
-    let l:r.put = map(copy(a:result.put), {_, p -> extend(copy(p),
-          \ {'col': songwriter#tab#colmap#At(l:lint, p.col)})})
+  if has_key(a:result, 'base')
+    let l:r.base = a:result.base
   endif
-  if has_key(a:result, 'label')
-    let l:r.label = extend(copy(a:result.label),
-          \ {'col': songwriter#tab#colmap#At(l:lint, a:result.label.col)})
+  " The operations' columns follow the lint, as the rest of the tab.
+  if has_key(a:result, 'annotations')
+    let l:r.annotations = s:moved(a:result.annotations, a:lint ? l:linted.map : [])
   endif
   return l:r
 endfunction
@@ -273,34 +256,33 @@ function! s:write_result(edit, result) abort
   endif
 endfunction
 
+" Pure. The annotation operations `ops` (annotations#Apply), their columns
+" taken through column map `map`.
+function! s:moved(ops, map) abort
+  return map(copy(a:ops), {_, o -> has_key(o, 'col')
+        \ ? extend(copy(o), {'col': songwriter#tab#colmap#At(a:map, o.col)}) : o})
+endfunction
+
 " Pure. `draft` of `block` with the tab widened wherever an anchored word
 " would be pushed off its column (spec [Tablature][[Annotations]] 4.4,
-" annotations#Room): dashes inserted, the map, the cursor column, the words
-" put and the label following them. A draft replacing the annotations
-" ('above') is left as it is.
+" annotations#Room): dashes inserted, the map, the cursor column and the
+" annotation operations following them.
 function! s:make_room(block, draft) abort
-  if has_key(a:draft, 'above')
-    return a:draft
-  endif
   let l:rows = s:rows(get(a:draft, 'base', songwriter#tab#model#Snapshot(a:block)))
   let l:draft = copy(a:draft)
   for l:_ in range(100)
-    let l:placed = songwriter#tab#annotations#Apply(l:rows, l:draft.map, get(l:draft, 'put', []),
-          \ get(l:draft, 'label', {}), l:draft.lines)
+    let l:placed = songwriter#tab#annotations#Apply(l:rows, l:draft.map,
+          \ get(l:draft, 'annotations', []), l:draft.lines)
     let l:room = songwriter#tab#annotations#Room(l:placed, l:draft.lines)
     if empty(l:room)
       break
     endif
     let l:ins = songwriter#tab#model#InsertColumns(l:draft.lines, l:room.offset, l:room.n, '-')
-    let l:Map = {c -> songwriter#tab#colmap#At(l:ins.map, c)}
     let l:draft.lines = l:ins.lines
     let l:draft.map = songwriter#tab#colmap#Then(l:draft.map, l:ins.map)
-    let l:draft.col = l:Map(l:draft.col)
-    if has_key(l:draft, 'put')
-      let l:draft.put = map(copy(l:draft.put), {_, p -> extend(copy(p), {'col': l:Map(p.col)})})
-    endif
-    if has_key(l:draft, 'label')
-      let l:draft.label = extend(copy(l:draft.label), {'col': l:Map(l:draft.label.col)})
+    let l:draft.col = songwriter#tab#colmap#At(l:ins.map, l:draft.col)
+    if has_key(l:draft, 'annotations')
+      let l:draft.annotations = s:moved(l:draft.annotations, l:ins.map)
     endif
   endfor
   return l:draft

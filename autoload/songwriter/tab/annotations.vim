@@ -73,32 +73,38 @@ function! s:part(word, byte, text, fill) abort
 endfunction
 
 " Spec 4: annotation lines `above` once the edit of column map `map` is made
-" to the tab under them, with the words `put` (optional) added (see Apply):
-" Apply then Render, for annotations whose anchors do not matter.
+" to the tab under them, with the operations `ops` (optional) done (see
+" Apply): Apply then Render, for annotations whose anchors do not matter.
 function! songwriter#tab#annotations#Follow(above, map, ...) abort
   return songwriter#tab#annotations#Render(songwriter#tab#annotations#Apply(
-        \ songwriter#tab#annotations#Parse(a:above, []), a:map, a:0 ? a:1 : [], {}, []))
+        \ songwriter#tab#annotations#Parse(a:above, []), a:map, a:0 ? a:1 : [], []))
 endfunction
 
 " Spec 4: the annotation rows `rows` (Parse) once the edit of column map `map`
-" is made to the tab under them, its lines being `lines`: the words placed
-" where they want to go, before the layout, as rows, top first: {'text' (the
-" line before), 'moved', 'words': placed words (s:place) with 'anchored'}. A
-" label goes where its column goes, and with it; a span covers the columns it
-" still covers, its labels at its ends, and goes with the last of them.
-" `put` adds words: [{'row' (0 for the line right above the strings, 1 for
-" the one above it...), 'col' (in `lines`), 'text'}], anchored when they
-" start on a time column of `lines`; a row past the top makes a new line
-" there. `label` ({} for none) writes a chord label (s:label).
-function! songwriter#tab#annotations#Apply(rows, map, put, label, lines) abort
+" is made to the tab under them, its lines being `lines`, and the operations
+" `ops` done: the words placed where they want to go, before the layout, as
+" rows, top first: {'text' (the line before), 'moved', 'words': placed words
+" (s:place) with 'anchored'}. A label goes where its column goes, and with
+" it; a span covers the columns it still covers, its labels at its ends, and
+" goes with the last of them. The operations, their columns in `lines`, are
+"   {'op': 'clear'}: every word goes (`cap`),
+"   {'op': 'put', 'row' (0 for the line right above the strings, 1 for the
+"   one above it...), 'col', 'text'}: a word an edit brings along, anchored
+"   when it starts on a time column; a row past the top makes a new line,
+"   {'op': 'label', 'col', 'text', 'add'}: a chord label written (s:label).
+function! songwriter#tab#annotations#Apply(rows, map, ops, lines) abort
   let l:cols = songwriter#tab#model#NoteColumns(songwriter#tab#model#Parse(0, a:lines))
-  let l:n = max([len(a:rows)] + map(copy(a:put), 'v:val.row + 1'))
-  let l:rows = repeat([{'text': '', 'words': []}], l:n - len(a:rows)) + a:rows
+  let l:put = filter(copy(a:ops), 'v:val.op ==# "put"')
+  let l:label = filter(copy(a:ops), 'v:val.op ==# "label"')
+  let l:rows = empty(filter(copy(a:ops), 'v:val.op ==# "clear"')) ? a:rows
+        \ : map(copy(a:rows), {_, r -> {'text': r.text, 'words': [], 'cleared': !empty(r.words)}})
+  let l:n = max([len(l:rows)] + map(copy(l:put), 'v:val.row + 1'))
+  let l:rows = repeat([{'text': '', 'words': []}], l:n - len(l:rows)) + l:rows
   let l:out = []
   for l:i in range(l:n)
     let l:row = l:n - 1 - l:i
     let l:words = []
-    let l:moved = 0
+    let l:moved = get(l:rows[l:i], 'cleared', 0)
     for l:w in l:rows[l:i].words
       let l:p = s:place(l:w, a:map)
       if empty(l:p)
@@ -108,13 +114,13 @@ function! songwriter#tab#annotations#Apply(rows, map, put, label, lines) abort
         call add(l:words, extend(l:p, {'anchored': l:w.anchored}))
       endif
     endfor
-    for l:p in filter(copy(a:put), 'v:val.row == l:row')
+    for l:p in filter(copy(l:put), 'v:val.row == l:row')
       call add(l:words, s:word(l:p.text, l:p.col, index(l:cols, l:p.col) >= 0))
       let l:moved = 1
     endfor
     call add(l:out, {'text': l:rows[l:i].text, 'moved': l:moved, 'words': l:words})
   endfor
-  return empty(a:label) ? l:out : s:label(l:out, a:label, a:lines)
+  return empty(l:label) ? l:out : s:label(l:out, l:label[-1], a:lines)
 endfunction
 
 " A placed word (s:place) of `text` at column `col`.
@@ -234,13 +240,13 @@ function! s:last(word) abort
 endfunction
 
 " Spec 4.2, 4.5: the words of `above` that the edit of column map `map`
-" deletes, as `put` takes them (Follow), with their columns before the edit.
+" deletes, as `put` operations (Apply), with their columns before the edit.
 function! songwriter#tab#annotations#Cut(above, map) abort
   let l:cut = []
   for l:i in range(len(a:above))
     for l:w in songwriter#tab#annotations#Words(a:above[l:i])
       if empty(s:place(l:w, a:map))
-        call add(l:cut, {'row': len(a:above) - 1 - l:i, 'col': l:w.col, 'text': l:w.text})
+        call add(l:cut, {'op': 'put', 'row': len(a:above) - 1 - l:i, 'col': l:w.col, 'text': l:w.text})
       endif
     endfor
   endfor
@@ -366,13 +372,13 @@ function! songwriter#tab#annotations#Rows(words, col) abort
   return l:rows
 endfunction
 
-" Spec 5.2: the words of register rows `rows` (Rows), as Follow's `put` takes
-" them, at columns from `col`.
+" Spec 5.2: the words of register rows `rows` (Rows), as `put` operations
+" (Apply), at columns from `col`.
 function! songwriter#tab#annotations#FromRows(rows, col) abort
   let l:put = []
   for l:i in range(len(a:rows))
     for l:w in songwriter#tab#annotations#Words(a:rows[l:i])
-      call add(l:put, {'row': len(a:rows) - 1 - l:i, 'col': a:col + l:w.col - 1, 'text': l:w.text})
+      call add(l:put, {'op': 'put', 'row': len(a:rows) - 1 - l:i, 'col': a:col + l:w.col - 1, 'text': l:w.text})
     endfor
   endfor
   return l:put

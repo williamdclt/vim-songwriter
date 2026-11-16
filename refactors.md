@@ -13,23 +13,6 @@ more regular, as a question for the user.
 The safety net for all of them is `test/songwriter_invariants_*.vader`, on top of
 the per-feature tests: run `make test` after every step.
 
-## 4. One vocabulary for annotation changes in a draft
-
-**Now.** A draft changes annotations three ways (`put`, `label`, `above`),
-each handled in its own place in `edit.vim` (`Derive`, `s:snapshot`,
-`s:resolve` mapping their columns through the lint), plus the `s:make_room`
-pass that derives the snapshot twice. `actions.vim` `s:erase` follows and
-cuts annotations by hand at each step of a counted `x`.
-
-**Change.** A draft carries a list of annotation operations (add words, set a
-column's chord label, replace all), applied by one pure function,
-`annotations#Apply(rows, map, ops)`, which gives the new rows and the room
-they need (refactor 3). `edit.vim` inserts that room and writes; the special
-cases go.
-
-**Buys.** A new annotation feature is a new operation, not a new draft field
-threaded through `edit.vim`.
-
 ## 5. The cursor on an annotation line, inside the edit pipeline
 
 **Now.** `edit#Do`'s cursor is on the strings only. `=` on a label
