@@ -13,22 +13,6 @@ more regular, as a question for the user.
 The safety net for all of them is `test/songwriter_invariants_*.vader`, on top of
 the per-feature tests: run `make test` after every step.
 
-## 1. An invariant: every label stays over its column
-
-**Now.** A label stands for the time column under its first character, and
-the file being plain text, that position is the only link between them. The
-annotation invariants check that annotations follow particular edits, but not
-that a label is still over a note after any edit; spec [[Bugs]] 4 (a pushed
-label loses its column) went unnoticed.
-
-**Change.** An invariant test in the `test/songwriter_invariants_annotations_*`
-family: for each tablature-mode edit, on tabs with a label over each time
-column, every label that survives still starts on a time column, the one it
-stood for (the notes it was over, followed through the edit). It fails on
-[[Bugs]] 4 until refactor 3; mark that case as the known bug until then.
-
-**Buys.** The safety net for refactors 2 to 5, and for any new edit.
-
 ## 2. Annotations parsed once, with explicit anchors, and one layout
 
 **Now.** A block's `above` is raw strings, and `annotations#Words` re-parses

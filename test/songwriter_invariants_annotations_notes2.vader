@@ -9,5 +9,24 @@ Execute (the edits checked here):
   let g:inv_range_keys = ['D']
   " Spec [[Bugs]] 2: `yyp` joins the copied note with the note it copies.
   let g:inv_known = ['order: two-digit frets, 1:18, yyp', 'order: two-digit frets, 3:18, yyp']
+  " Spec [[Bugs]] 4: a label pushed off its column by the label before it.
+  let g:inv_known += [
+        \ 'moved e: spec example, 1:14, yyp', 'moved f: spec example, 1:14, yyp', 'moved g: spec example, 1:14, yyp', 'moved h: spec example, 1:14, yyp',
+        \ 'moved e: spec example, 1:14, <lt><lt>', 'moved f: spec example, 1:14, <lt><lt>', 'moved g: spec example, 1:14, <lt><lt>', 'moved h: spec example, 1:14, <lt><lt>',
+        \ 'moved d: spec example, 2:11, <lt><lt>', 'moved e: spec example, 2:11, <lt><lt>', 'moved f: spec example, 2:11, <lt><lt>', 'moved g: spec example, 2:11, <lt><lt>',
+        \ 'moved h: spec example, 2:11, <lt><lt>', 'moved g: spec example, 2:23, <lt><lt>', 'moved h: spec example, 2:23, <lt><lt>', 'moved d: spec example, 3:11, <lt><lt>',
+        \ 'moved e: spec example, 3:11, <lt><lt>', 'moved f: spec example, 3:11, <lt><lt>', 'moved g: spec example, 3:11, <lt><lt>', 'moved h: spec example, 3:11, <lt><lt>',
+        \ 'moved e: spec example, 3:14, yyp', 'moved f: spec example, 3:14, yyp', 'moved g: spec example, 3:14, yyp', 'moved h: spec example, 3:14, yyp',
+        \ 'moved e: spec example, 3:14, <lt><lt>', 'moved f: spec example, 3:14, <lt><lt>', 'moved g: spec example, 3:14, <lt><lt>', 'moved h: spec example, 3:14, <lt><lt>',
+        \ 'moved g: spec example, 3:23, <lt><lt>', 'moved h: spec example, 3:23, <lt><lt>', 'moved h: spec example, 3:26, <lt><lt>', 'moved d: spec example, 4:11, <lt><lt>',
+        \ 'moved e: spec example, 4:11, <lt><lt>', 'moved f: spec example, 4:11, <lt><lt>', 'moved g: spec example, 4:11, <lt><lt>', 'moved h: spec example, 4:11, <lt><lt>',
+        \ 'moved g: spec example, 4:23, <lt><lt>', 'moved h: spec example, 4:23, <lt><lt>', 'moved c: spec example, 5:8, <lt><lt>', 'moved d: spec example, 5:8, <lt><lt>',
+        \ 'moved e: spec example, 5:8, <lt><lt>', 'moved f: spec example, 5:8, <lt><lt>', 'moved g: spec example, 5:8, <lt><lt>', 'moved h: spec example, 5:8, <lt><lt>',
+        \ 'moved h: spec example, 5:26, <lt><lt>', 'moved c: two-digit frets, 2:8, yyp', 'moved d: two-digit frets, 2:8, yyp', 'moved e: two-digit frets, 2:8, yyp',
+        \ 'moved d: two-digit frets, 2:11, yyp', 'moved e: two-digit frets, 2:11, yyp', 'moved d: two-digit frets, 3:11, yyp', 'moved e: two-digit frets, 3:11, yyp',
+        \ 'moved c: separators, 1:7, yyp', 'moved d: separators, 1:7, yyp', 'moved e: separators, 1:7, yyp', 'moved f: separators, 1:7, yyp',
+        \ 'moved d: separators, 1:10, yyp', 'moved e: separators, 1:10, yyp', 'moved f: separators, 1:10, yyp', 'moved e: separators, 2:17, yyp',
+        \ 'moved f: separators, 2:17, yyp', 'moved b: empty bar between, 1:5, yyp', 'moved c: single string, 1:8, <lt><lt>', 'moved c: bass, 2:8, yyp',
+        \ 'moved d: bass, 2:8, yyp', 'moved c: bass, 2:8, <lt><lt>', 'moved d: bass, 2:8, <lt><lt>']
 
 Include: invariants/annotations.vader
