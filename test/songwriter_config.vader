@@ -1,0 +1,24 @@
+" The plugin's options (autoload/songwriter/config.vim): g:songwriter_<name>,
+" else its default.
+
+After:
+  unlet! g:songwriter_max_fret g:songwriter_play_bpm g:songwriter_strum_ms
+  unlet! g:songwriter_player g:songwriter_sound_cache
+
+Execute (an option not set is its default):
+  AssertEqual 24, songwriter#config#Get('max_fret')
+  AssertEqual 100, songwriter#config#Get('play_bpm')
+  AssertEqual 80, songwriter#config#Get('strum_ms')
+
+Execute (an option whose default is computed where it is used is v:null):
+  Assert songwriter#config#Get('player') is v:null
+  Assert songwriter#config#Get('sound_cache') is v:null
+
+Execute (an option set is its g: variable):
+  let g:songwriter_max_fret = 12
+  let g:songwriter_player = []
+  AssertEqual 12, songwriter#config#Get('max_fret')
+  AssertEqual [], songwriter#config#Get('player')
+
+Execute (a name that is not an option is an error):
+  AssertThrows call songwriter#config#Get('nope')

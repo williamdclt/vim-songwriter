@@ -76,10 +76,10 @@ endfunction
 
 " Spec 3.4.1.1: true when appending `digit` to the note `text` makes a fret:
 " `text` is a fret without a leading zero and the result is at most
-" g:songwriter_max_fret (24 by default).
+" g:songwriter_max_fret.
 function! s:extends(text, digit) abort
   return a:text =~# '^[1-9]' && songwriter#grammar#IsFretChar(a:digit)
-        \ && str2nr(a:text . a:digit) <= get(g:, 'songwriter_max_fret', 24)
+        \ && str2nr(a:text . a:digit) <= songwriter#config#Get('max_fret')
 endfunction
 
 " Spec 3.4.1.3: true straight after a note was typed (state#Continuing; not

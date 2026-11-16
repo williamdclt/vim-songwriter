@@ -92,7 +92,7 @@ function! songwriter#tab#carry#Step(carry, dlin, frets, keep_pitch) abort
         endif
         let l:fret += l:shift.frets
       endif
-      let l:max = get(g:, 'songwriter_max_fret', 24)
+      let l:max = songwriter#config#Get('max_fret')
       if l:fret < 0
         return {'error': a:frets < 0 ? 'the fret would go below 0'
               \ : printf('the fret would go below 0 on string %s', songwriter#tab#model#Name(a:carry.base[l:to]))}
