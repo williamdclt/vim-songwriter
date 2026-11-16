@@ -447,12 +447,7 @@ function! s:from_label(name) abort
     return
   endif
   let l:vcol = virtcol('.')
-  let l:word = {}
-  for l:w in songwriter#tab#annotations#Words(getline('.'))
-    if l:w.col <= l:vcol && l:vcol < l:w.col + l:w.width
-      let l:word = l:w
-    endif
-  endfor
+  let l:word = songwriter#tab#annotations#At(l:block.annotations[line('.') - l:block.top], l:vcol)
   let l:parsed = empty(l:word) || l:word.span ? [] : songwriter#grammar#ParseChord(l:word.text)
   if empty(l:parsed)
     return songwriter#tab#edit#Error('= on an annotation line goes on a chord name')

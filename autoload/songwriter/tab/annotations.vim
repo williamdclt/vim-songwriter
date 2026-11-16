@@ -2,9 +2,24 @@
 " [Tablature][[Annotations]]): their words, and how they follow the music
 " through an edit, given its column map (tab/colmap.vim). Pure.
 "
-" Columns here are display columns, which on a tab line are its byte columns.
+" Columns here are display columns, which on a tab line are its byte columns;
+" bytes are only reached from them where a line is read or written (Bytes).
 " A word is {'col', 'width' (display cells), 'text', 'span' (it has an
 " extender), 'parts': [{'col', 'width', 'text', 'fill' (an extender)}]}.
+" A block's annotation lines are parsed once (Parse) into rows, top first:
+" {'text' (the line), 'words'}, each word with 'anchored': whether it starts
+" on a time column, which it then stands for (spec 3).
+"
+" One layout (s:layout) turns words placed at the columns they want into a
+" line, left to right, one space at least between them: every line written
+" goes through it.
+
+" Spec 3: the annotation lines `above` as rows of words, top first, a word
+" anchored when its first column is one of `cols` (the tab's time columns).
+function! songwriter#tab#annotations#Parse(above, cols) abort
+  return map(copy(a:above), {_, l -> {'text': l, 'words': map(songwriter#tab#annotations#Words(l),
+        \ {_, w -> extend(w, {'anchored': index(a:cols, w.col) >= 0})})}})
+endfunction
 
 " The words of an annotation line, left to right.
 function! songwriter#tab#annotations#Words(line) abort
@@ -84,7 +99,7 @@ function! songwriter#tab#annotations#Follow(above, map, ...) abort
     if !l:moved
       call add(l:out, l:lines[l:i])
     elseif !empty(l:words)
-      call add(l:out, s:render(l:words))
+      call add(l:out, s:layout(l:words).text)
     endif
   endfor
   return l:out
@@ -165,12 +180,15 @@ function! s:survivor(map, cols) abort
   return 0
 endfunction
 
-" An annotation line of placed words (s:place), left to right by where they
-" want to start, one space at least between them, none before column 3.
-function! s:render(words) abort
+" The layout: the annotation line of placed words (s:place), left to right by
+" where they want to start, one space at least between them, none before
+" column 3. {'text', 'words': each placed word with 'at' and 'end', the
+" columns it got, in the order laid out}.
+function! s:layout(words) abort
   let l:words = sort(copy(a:words), {a, b -> s:start(a) - s:start(b)})
   let l:line = ''
   let l:next = songwriter#tab#model#BodyOffset() + 1
+  let l:out = []
   for l:w in l:words
     let l:text = ''
     let l:at = max([s:start(l:w), l:next])
@@ -191,9 +209,10 @@ function! s:render(words) abort
       endif
     endfor
     let l:line .= repeat(' ', l:at - 1 - strdisplaywidth(l:line)) . l:text
+    call add(l:out, extend(copy(l:w), {'at': l:at, 'end': l:pos - 1}))
     let l:next = l:pos + 1
   endfor
-  return l:line
+  return {'text': l:line, 'words': l:out}
 endfunction
 
 " Where a placed word wants to start.
@@ -274,12 +293,22 @@ function! songwriter#tab#annotations#Bytes(line, col, width) abort
   return [l:start + 1, (l:end < 0 ? len(a:line) : l:end) - l:start]
 endfunction
 
-" Spec 8: the `count`-th word of `above` covering column `col`, looking up from
-" the line right above the strings: {'i' (its line in `above`), 'word'}, or {}.
-function! songwriter#tab#annotations#Over(above, col, count) abort
+" The word of row `row` (Parse) under display column `col`, or {}.
+function! songwriter#tab#annotations#At(row, col) abort
+  for l:w in a:row.words
+    if l:w.col <= a:col && a:col < l:w.col + l:w.width
+      return l:w
+    endif
+  endfor
+  return {}
+endfunction
+
+" Spec 8: the `count`-th word of `rows` (Parse) covering column `col`, looking
+" up from the line right above the strings: {'i' (its row), 'word'}, or {}.
+function! songwriter#tab#annotations#Over(rows, col, count) abort
   let l:n = a:count
-  for l:i in range(len(a:above) - 1, 0, -1)
-    for l:w in songwriter#tab#annotations#Words(a:above[l:i])
+  for l:i in range(len(a:rows) - 1, 0, -1)
+    for l:w in a:rows[l:i].words
       if l:w.col <= a:col && a:col < l:w.col + l:w.width
         let l:n -= 1
         if l:n == 0

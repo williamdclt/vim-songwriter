@@ -9,6 +9,7 @@
 "     'top':     first buffer line number of the block, its first annotation
 "                line (its first string without annotations); Read only,
 "     'above':   the annotation lines; Read only,
+"     'annotations': them parsed (annotations#Parse); Read only,
 "     'start':   buffer line number of its first string,
 "     'end':     last buffer line number of the block,
 "     'lines':   the raw line strings of its strings,
@@ -173,8 +174,8 @@ function! songwriter#tab#model#Read(...) abort
   while l:top > 1 && songwriter#grammar#IsAnnotationLine(getline(l:top - 1))
     let l:top -= 1
   endwhile
-  return extend(songwriter#tab#model#Parse(l:start, getline(l:start, l:end)),
-        \ {'top': l:top, 'above': l:top < l:start ? getline(l:top, l:start - 1) : []})
+  return s:with_above(songwriter#tab#model#Parse(l:start, getline(l:start, l:end)),
+        \ l:top, l:top < l:start ? getline(l:top, l:start - 1) : [])
 endfunction
 
 " The block buffer line `lnum` belongs to: as Read, also from one of its
@@ -229,8 +230,14 @@ endfunction
 " The block of `snapshot`, parsed, as Read would give it once written.
 function! songwriter#tab#model#FromSnapshot(snapshot) abort
   let l:start = a:snapshot.top + len(a:snapshot.above)
-  return extend(songwriter#tab#model#Parse(l:start, a:snapshot.lines),
-        \ {'top': a:snapshot.top, 'above': copy(a:snapshot.above)})
+  return s:with_above(songwriter#tab#model#Parse(l:start, a:snapshot.lines),
+        \ a:snapshot.top, copy(a:snapshot.above))
+endfunction
+
+" The parsed strings `tab` with its top and annotation lines `above`.
+function! s:with_above(tab, top, above) abort
+  return extend(a:tab, {'top': a:top, 'above': a:above,
+        \ 'annotations': songwriter#tab#annotations#Parse(a:above, songwriter#tab#model#NoteColumns(a:tab))})
 endfunction
 
 " Write `snapshot` over `block` (from Read) in the buffer, annotation lines

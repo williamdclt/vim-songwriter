@@ -16,7 +16,7 @@ function! s:target(around, count) abort
   let l:note = songwriter#tab#model#NoteAt(l:c.line, l:c.col)
   let l:col = max([empty(l:note) ? l:c.col : l:note.col, songwriter#tab#model#BodyOffset() + 1])
   let l:block = l:c.block
-  let l:over = songwriter#tab#annotations#Over(l:block.above, l:col, a:count)
+  let l:over = songwriter#tab#annotations#Over(l:block.annotations, l:col, a:count)
   if empty(l:over)
     return {'lnum': empty(l:block.above) ? 0 : l:block.start - 1,
           \ 'line': empty(l:block.above) ? '' : l:block.above[-1], 'col': l:col, 'width': 0,
@@ -26,7 +26,7 @@ function! s:target(around, count) abort
   let l:w = l:over.word
   let [l:s, l:width] = [l:w.col, l:w.width]
   if a:around
-    let l:words = songwriter#tab#annotations#Words(l:line)
+    let l:words = l:block.annotations[l:over.i].words
     let l:k = index(map(copy(l:words), 'v:val.col'), l:w.col)
     if l:k + 1 < len(l:words)
       let l:width = l:words[l:k + 1].col - l:s
