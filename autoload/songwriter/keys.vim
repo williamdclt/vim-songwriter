@@ -209,6 +209,17 @@ function! songwriter#keys#ContextKeys(...) abort
         \ + keys(s:tabmode[l:mode]) + keys(s:tabline[l:mode]) + keys(s:annotation[l:mode])))
 endfunction
 
+" Every action of every table (for the test that their functions exist).
+function! songwriter#keys#Actions() abort
+  let l:actions = []
+  for l:table in [s:moving, s:typed, s:tabinsert, s:tabmode, s:tabline, s:annotation]
+    for l:mode in ['n', 'o', 'x']
+      call extend(l:actions, values(get(l:table, l:mode, {})))
+    endfor
+  endfor
+  return l:actions
+endfunction
+
 function! songwriter#keys#Dispatch(key, ...) abort
   let l:mode = a:0 ? a:1 : 'n'
   if songwriter#grammar#IsTabLine(getline('.'))

@@ -45,3 +45,16 @@ Execute (Every context key of every mode is mapped, and unmapped on leaving the 
   AssertEqual [], filter(copy(keys), 'empty(maparg(v:val[1], v:val[0]))')
   set filetype=text
   AssertEqual [], filter(copy(keys), '!empty(maparg(v:val[1], v:val[0]))')
+
+Execute (Every action of the key tables calls functions that exist):
+  let missing = []
+  for action in songwriter#keys#Actions()
+    for name in filter(split(action, '\ze\<songwriter#'), 'v:val =~# "^songwriter#"')
+      let name = matchstr(name, '^songwriter#[A-Za-z0-9_#]*\ze(')
+      execute 'runtime autoload/' . join(split(name, '#')[:-2], '/') . '.vim'
+      if !exists('*' . name)
+        call add(missing, name)
+      endif
+    endfor
+  endfor
+  AssertEqual [], missing

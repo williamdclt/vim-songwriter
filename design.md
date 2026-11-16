@@ -1021,7 +1021,10 @@ Highlighting stays permissive and accepts false positives such as the word "A"
 - Vader reuses one buffer across the cases of a file, so buffer state (the
   tablature-mode flag) is reset in a `Before:` block wherever keys are typed.
 - Key mappings are exercised end-to-end with `normal` where the result is
-  observable; `Dispatch` and `b:undo_ftplugin` have their own tests.
+  observable; `Dispatch` and `b:undo_ftplugin` have their own tests. The
+  actions of the key tables are strings, so a test checks that every function
+  they call exists (`keys#Actions`): a misspelt name fails the suite rather
+  than the key.
 - **Invariants** (`test/songwriter_invariants_*.vader`) are checked over a corpus
   of tabs and every relevant cursor position rather than one example: lint is
   idempotent and keeps each string's notes, the normal state never edits, an

@@ -13,14 +13,6 @@ more regular, as a question for the user.
 The safety net for all of them is `test/songwriter_invariants_*.vader`, on top of
 the per-feature tests: run `make test` after every step.
 
-## 8. Check the key tables
-
-**Now.** Every action in keys.vim is a string, so a misspelt function only
-shows when its key is pressed.
-
-**Change.** A Vader test that reads every action of every table and asserts
-that its function exists (after sourcing its autoload file).
-
 ## 9. `.` records a function and its arguments
 
 **Now.** An action records itself for `.` as a printf format string
