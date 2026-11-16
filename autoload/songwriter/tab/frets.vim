@@ -24,7 +24,7 @@ function! songwriter#tab#frets#Add(lines, lin, c, n) abort
   if l:fret < 0
     return {'error': 'the fret would go below 0'}
   endif
-  let l:max = get(g:, 'songwriter_max_fret', 24)
+  let l:max = songwriter#config#Get('max_fret')
   if l:fret > l:max
     return {'error': printf('the fret would go above %d', l:max)}
   endif

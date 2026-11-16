@@ -145,8 +145,9 @@ endfunction
 
 " Spec 12.5: the cache directory of the sounds.
 function! s:cache() abort
-  if exists('g:songwriter_sound_cache')
-    return g:songwriter_sound_cache
+  let l:cache = songwriter#config#Get('sound_cache')
+  if l:cache isnot v:null
+    return l:cache
   endif
   let l:base = empty($XDG_CACHE_HOME) ? expand('~/.cache') : $XDG_CACHE_HOME
   return l:base . '/vim-songwriter'
@@ -166,8 +167,9 @@ endfunction
 " Spec 12.5: the player command (a list, the file is appended):
 " g:songwriter_player, else the first of afplay, paplay, aplay found, else [].
 function! songwriter#sound#Player() abort
-  if exists('g:songwriter_player')
-    return g:songwriter_player
+  let l:player = songwriter#config#Get('player')
+  if l:player isnot v:null
+    return l:player
   endif
   for l:cmd in ['afplay', 'paplay', 'aplay']
     if executable(l:cmd)
@@ -181,8 +183,8 @@ endfunction
 " at g:songwriter_play_bpm per step, the notes of a step strummed in order,
 " g:songwriter_strum_ms apart.
 function! songwriter#sound#Schedule(steps) abort
-  let l:step_ms = 60000 / get(g:, 'songwriter_play_bpm', 100)
-  let l:strum_ms = get(g:, 'songwriter_strum_ms', 80)
+  let l:step_ms = 60000 / songwriter#config#Get('play_bpm')
+  let l:strum_ms = songwriter#config#Get('strum_ms')
   let l:res = []
   for l:i in range(len(a:steps))
     for l:k in range(len(a:steps[l:i]))
@@ -201,7 +203,7 @@ function! songwriter#sound#Play(steps) abort
   let s:last = a:steps
   let l:player = songwriter#sound#Player()
   if empty(l:player)
-    if !exists('g:songwriter_player')
+    if songwriter#config#Get('player') is v:null
       echohl WarningMsg
       echo 'songwriter: no audio player found (afplay, paplay, aplay); set g:songwriter_player'
       echohl None

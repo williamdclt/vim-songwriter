@@ -43,11 +43,13 @@ never relies on concealing or rendering.
 | `autoload/songwriter/tab/repeat.vim` | `.` for actions that are not operators. |
 | `autoload/songwriter/tab/voicings.vim` | Whole chords on a time column: voicings of a chord name in their cycle order, placing one (pure), and `=`/`==`. |
 | `autoload/songwriter/tab/chordname.vim` | Naming the chord on a time column (`=?<CR>`), and writing that name as its label (`=<CR>`): the column's pitches, named by `chord#Identify`. |
-| `autoload/songwriter/tab/play.vim` | Playing a tab: open string pitches, the steps a target plays (pure), handed to `sound.vim`. |
+| `autoload/songwriter/tab/play.vim` | Playing a tab: the steps a target plays (pure), handed to `sound.vim`. |
 | `autoload/songwriter/sound.vim` | Plucked-string synthesis into cached WAV files, the player command, and the timers and jobs that play steps. |
 | `autoload/songwriter/sound9.vim` | The synthesis loop in compiled Vim9 script, used on Vim 9. |
 | `autoload/songwriter/chord.vim` | Chord model, chord editing, and naming the chord of some pitches (`Identify`). |
-| `autoload/songwriter/pitch.vim` | Pitch classes: note names to semitones and back (sharp spelling). Shared by chords and tab string intervals. |
+| `autoload/songwriter/pitch.vim` | Pitch classes: note names to semitones and back (sharp spelling). Shared by chords and `tuning.vim`. |
+| `autoload/songwriter/tuning.vim` | What a tab's string names mean, pure: the open strings' pitches and whether they are standard tuning (`Of`), the interval in frets between two strings (`Interval`). The one place string names become pitches: carries (`S`), chords on a column (`=`), naming (`=?`) and playing use it. |
+| `autoload/songwriter/config.vim` | The plugin's options: one table of `g:songwriter_*` names and their defaults, read through `Get`. A default that depends on the system (the player found, the cache directory) is `v:null` there and computed where the option is used. |
 | `autoload/songwriter/keys.vim` | Context-dependent keys: tables per mode of tablature mode and `Dispatch()`, tablature-mode flag, `Mode()` for status lines, tab-line `w`/`b`/`W`/`B`. |
 | `plugin/songwriter.vim` | `:Songwriter*` commands and `<Plug>(songwriter-*)` maps. |
 | `ftplugin/songwriter.vim` | Buffer options and key bindings, with a complete `b:undo_ftplugin`. |
@@ -810,7 +812,8 @@ while transcribing, so it has right-hand keys (`<leader>k`/`<leader>j`, with a
   digits enter notes (spec 6.12), and carrying one string at a time, in runs,
   is what is needed.
 - **Pitch from the string names.** The interval between two neighbouring
-  strings is the difference of their pitch classes (`pitch.vim`), modulo 12.
+  strings is the difference of their pitch classes, modulo 12
+  (`tuning#Interval`).
   This assumes strings listed from the highest to the lowest and less than an
   octave apart, which covers standard and drop tunings, basses and 7-strings.
   String names are one letter, so an evenly lowered tuning (E flat standard
@@ -845,8 +848,9 @@ voicings in their cycle order out) and `Place()`, and the entry points.
   shapes are only playable as the familiar fingerings in standard tuning, so
   they are tables of fret offsets (CAGED: E, A, D at any fret; C and G in open
   position only, where they are actually used) and other tunings are refused.
-  A power chord is three strings and computes well from the string names, as
-  `S` does (spec 7.3), so drop D gets its one-finger shape for free.
+  A power chord is three strings and computes well from the intervals between
+  them, as `S` does (`tuning#Interval`, spec 7.3), so drop D gets its
+  one-finger shape for free.
 - **The chord replaces the column**, as a digit replaces a note: the notes
   starting on it go, and a two-digit fret gets room as a moved note does
   (`columns#PutNote`, spec 11.2). Unplayed strings stay dashes: muting marks are
@@ -911,7 +915,7 @@ voicings in their cycle order out) and `Place()`, and the entry points.
 ### Naming a column's chord (`=?<CR>`, spec [Tablature][[Editing]] 13)
 
 - **Computed from pitches, not looked up in the shapes.** The column's notes
-  become MIDI pitches through the string names (`play#OpenPitches`, as for
+  become MIDI pitches through the string names (`tuning#Of`, as for
   playing), so any tuning and any fingering is named, not only the CAGED
   voicings `=` writes. Matching the shapes first would add nothing: every
   shape is a root-position chord whose notes are exactly its quality's, so it
@@ -1014,7 +1018,8 @@ changes.
   previous job on its string (a string sounds one note at a time), and a new
   play stops everything first. Spacing is not read as rhythm: it is only a
   loose indication (spec 6), so every column gets the same length.
-- **Pitches from the string names**, as the `S` moves read them (7.3), with
+- **Pitches from the string names** (`tuning#Of`), as the `S` moves read
+  them (7.3), with
   the lowest string in [B1, A#2]: right for six- and seven-string guitars
   and drop tunings; a bass sounds an octave up, which is acceptable for
   checking notes by ear.
