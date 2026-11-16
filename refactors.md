@@ -83,37 +83,6 @@ without the model.
 having to know which guards to call; the known bugs go with the code that
 had them.
 
-## 6. Operators as one edit each
-
-**Now.** `operator.vim` goes around `edit#Do`'s result: it sets registers
-itself (`s:set_register`), moves the cursor with `cursor()` between steps,
-and `c` is two edits (`s:commit`, then `slots#OpenHere`), joined only
-because they run in the same command. The first lint is a separate `<Cmd>`
-before `g@`, whose undo step the operation joins (`s:join`, the tick in
-`s:pending`, `edit#JoinUndo`), and which consumes the count, so it is typed
-again after `g@` (`g@3w`). Results take 13 optional keys and `Do` 9
-options, none checked, and the cursor column is a byte column on a string
-but a display column on an annotation line (told apart by the sign of
-`lin`).
-
-**Change.** Each operator is one pure function returning lines, map,
-register and the side of the slot to open (a result key, so `c` is one
-edit); the cursor and the register are set by `Do` only. The first lint
-moves inside the operator function, the marks of `g@` following it through
-the lint's column map, so the separate `<Cmd>`, `s:join` and the count
-re-typed after `g@` go. In check mode, `Do` throws on a result key or
-option it does not know. Cursor columns are display columns everywhere (on
-a string, the same as bytes, tab lines being ASCII).
-
-**Behaviour, to check with the user.** With the lint inside the operator,
-a motion is computed on the tab before the lint and its range followed
-through it, rather than computed on the linted tab: `dw` on an unlinted tab
-may reach differently. A `c` that opens no slot in a lint would no longer
-leave an undo step of its own.
-
-**Buys.** Operators read like every other edit; one undo step per operator
-by construction instead of by joining; one unit for the cursor.
-
 ## 8. Later: the same layer for chords over lyrics
 
 **Now.** `[Chord annotations]` (chords above lyrics) has editing features to
