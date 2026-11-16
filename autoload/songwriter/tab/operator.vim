@@ -69,7 +69,15 @@ function! songwriter#tab#operator#Doubled(key) abort
   endif
 endfunction
 
+" The lint before g@ (Start). On a tab with no time columns, the operator is
+" refused (spec [Tablature][[Editing]] 4.5): g@ still takes its target, then
+" does nothing.
 function! songwriter#tab#operator#Prelint() abort
+  let l:block = songwriter#tab#model#Around(line('.'))
+  if !empty(l:block) && songwriter#tab#edit#Untimed(l:block)
+    let s:pending.cancel = 1
+    return
+  endif
   let l:tick = b:changedtick
   call songwriter#tab#edit#Do({_ -> {}})
   let s:pending.tick = b:changedtick != l:tick ? b:changedtick : -1

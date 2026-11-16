@@ -254,7 +254,7 @@ Expect songwriter:
 
 Given songwriter (3.3.3 on an empty string of a note column, l opens the slot on every string):
   e|--4--|
-  b|------|
+  b|-----|
 
 Execute (3.3.3 on an empty string of a note column, l opens the slot on every string):
   call cursor(2, 5)
@@ -410,7 +410,7 @@ Expect songwriter:
 
 Given songwriter (5 l on the closing pipe of the tab appends a new bar, linting first):
   e|--3-----|
-  B|--5--|
+  B|--5-----|
 
 Execute (5 l on the closing pipe of the tab appends a new bar, linting first):
   call cursor(1, 10)

@@ -77,6 +77,10 @@ a tab line act on **time columns** (the notes played together, across all
 strings) and keep the tab aligned. The current column is highlighted. Off a tab
 line, Vim behaves as usual.
 
+A tab whose pipes are not aligned, or whose frets overlap without starting
+together, has no time columns: its string names show on a red background, and
+edits of it are refused until `||` lints it.
+
 Like Vim itself, it has a normal state (moving never changes the tab) and an
 insert state, shown as `-- TAB INSERT --`, where moving opens room for new
 notes.
@@ -295,6 +299,8 @@ Remap the default keys through their `<Plug>` mappings:
   the current time column.
 - The `songwriterMoveColumn` highlight group (linked to `Search`) colors the
   current time column in its place in the move state (`m`).
+- The `songwriterUnlinted` highlight group (white on red) colors the string
+  names of a tab that needs `||` before it can be edited.
 - To show `TAB INSERT` in your status line:
 
   ```vim

@@ -31,10 +31,11 @@ function! s:insert_after_cursor(char) abort
 endfunction
 
 " Spec [Tablature][[Editing]] 1: lint the block around the cursor (the lint's
-" lines and map as the edit's result).
+" lines and map as the edit's result), the one edit of a tab with no time
+" columns (4.5).
 function! songwriter#tab#Lint() abort
-  call s:edit({ctx -> filter(songwriter#tab#lint#Lint(ctx.block.lines),
-        \ {k -> k ==# 'lines' || k ==# 'map'})})
+  call songwriter#tab#edit#Do({ctx -> filter(songwriter#tab#lint#Lint(ctx.block.lines),
+        \ {k -> k ==# 'lines' || k ==# 'map'})}, {'prelint': 0, 'lint': 0, 'untimed': 1})
 endfunction
 
 " Spec [Tablature][[Annotations]] 6: write `chord` above the block, aligned

@@ -9,9 +9,10 @@
 "     do, and no note has been joined to another one);
 "   - two of those notes that were in different chains of a string still
 "     are (a dash keeps `5` and `/7` apart);
-"   - once linted, the pipes of every string are aligned.
-" A tab whose pipes are not aligned has no time columns yet: of an edit of it
-" (a lint), only that each string keeps its notes in order is checked.
+"   - once linted, the tab has time columns (model#Timed).
+" A tab with no time columns cannot be edited but by `||`
+" (spec [Tablature][[Editing]] 4.5): of a lint of it, only that each string
+" keeps its notes in order is checked.
 " What an edit changes on purpose it says: the notes it erases, as
 " {'lin', 'col'} of the lines it was given (any column of the note), and the
 " notes it writes, as {'lin', 'col'} of the lines it gives (where the note
@@ -35,8 +36,8 @@ function! songwriter#tab#check#Edit(what, old, new, map, erased, written) abort
   endif
 endfunction
 
-" Throw, naming `what`, when the pipes of the linted `lines` are not aligned,
-" in check mode.
+" Throw, naming `what`, when the linted `lines` have no time columns, in
+" check mode.
 function! songwriter#tab#check#Lint(what, lines) abort
   if !songwriter#tab#check#On()
     return
@@ -111,16 +112,15 @@ function! songwriter#tab#check#Notes(lines) abort
   return l:res
 endfunction
 
-" Pure. The rules the linted tab `lines` breaks: its pipes are the same on
-" every string.
+" Pure. The rules the linted tab `lines` breaks: it has time columns
+" (model#Timed).
 function! songwriter#tab#check#Linted(lines) abort
-  let l:pipes = map(copy(a:lines), 'songwriter#tab#model#Pipes(v:val)')
-  return len(uniq(sort(l:pipes))) > 1 ? ['pipes not aligned'] : []
+  return songwriter#tab#model#Timed(a:lines) ? [] : ['no time columns']
 endfunction
 
-" Pure. The rules broken by an edit of `old`, whose pipes are not aligned:
-" its columns are not time columns, so a column map cannot say where the
-" music went (only lint gets such a tab, to align it). Each string keeps its
+" Pure. The rules broken by an edit of `old`, which has no time columns, so
+" that a column map cannot say where the music went (only lint gets such a
+" tab, to give it time columns). Each string keeps its
 " notes in order, when the edit erases and writes none.
 function! s:music_kept(old, new, erased, written) abort
   if !empty(a:erased) || !empty(a:written)

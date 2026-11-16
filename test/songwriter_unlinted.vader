@@ -1,0 +1,157 @@
+" Spec [Tablature][[Editing]] 4.5: a tab with no time columns (its pipes not
+" aligned, or a note starting inside a note of another string) is refused
+" every edit but `||`, with a message saying how to lint it; motions still
+" move. [[Rendering]] 5: its string names are shown on a red background.
+
+Before:
+  unlet! b:songwriter_tabmode b:songwriter_slot b:songwriter_typing b:songwriter_insert b:songwriter_move
+  let b:songwriter_tabmode = 1
+  call songwriter#tab#unlinted#Clear()
+
+After:
+  call songwriter#tab#unlinted#Clear()
+
+" --- what has time columns ---
+
+Execute (4.5 pure: aligned pipes and no overlapping notes give time columns):
+  Assert songwriter#tab#model#Timed(['e|--3--5--|', 'B|--1-----|'])
+  Assert songwriter#tab#model#Timed(['e|-3-5-|'])
+  Assert songwriter#tab#model#Timed(['e|--12--|', 'B|--3---|'])
+  Assert songwriter#tab#model#Timed(['e|--3--5--', 'B|--1-----'])
+
+Execute (4.5 pure: misaligned pipes or a note inside another string's note give none):
+  Assert !songwriter#tab#model#Timed(['e|-3-5-------|7|', 'B|---------x--|-|'])
+  Assert !songwriter#tab#model#Timed(['e|--12--|', 'B|---3--|'])
+  Assert !songwriter#tab#model#Timed(['e|--3--5--|', 'B|--1-----'])
+
+" --- edits refused ---
+
+Given songwriter (4.5 x on a tab with misaligned pipes is refused):
+  e|-3-5-------|7|
+  B|---------x--|-|
+
+Execute (4.5 x on a tab with misaligned pipes is refused):
+  call cursor(1, 5)
+  redir => g:messages
+  normal x
+  redir END
+  Assert g:messages =~# 'not linted.*||', g:messages
+  AssertEqual [1, 5], [line('.'), col('.')]
+
+Expect songwriter (4.5 x on a tab with misaligned pipes is refused):
+  e|-3-5-------|7|
+  B|---------x--|-|
+
+Given songwriter (4.5 a digit on overlapping frets is refused):
+  e|--12--|
+  B|---3--|
+
+Do (4.5 a digit on overlapping frets is refused):
+  0f37
+
+Expect songwriter (4.5 a digit on overlapping frets is refused):
+  e|--12--|
+  B|---3--|
+
+Given songwriter (4.5 a and the insert state are refused):
+  e|-3-5-------|7|
+  B|---------x--|-|
+
+Execute (4.5 a and the insert state are refused):
+  call cursor(1, 3)
+  normal a
+  AssertEqual '', songwriter#keys#Mode()
+
+Expect songwriter (4.5 a and the insert state are refused):
+  e|-3-5-------|7|
+  B|---------x--|-|
+
+Given songwriter (4.5 an operator is refused, its motion consumed):
+  e|-3-5-------|7|
+  B|---------x--|-|
+
+Do (4.5 an operator is refused, its motion consumed):
+  0f3dw
+
+Expect songwriter (4.5 an operator is refused, its motion consumed):
+  e|-3-5-------|7|
+  B|---------x--|-|
+
+Given songwriter (4.5 a carry is refused):
+  e|-3-5-------|7|
+  B|---------x--|-|
+
+Do (4.5 a carry is refused):
+  0f3\j
+
+Expect songwriter (4.5 a carry is refused):
+  e|-3-5-------|7|
+  B|---------x--|-|
+
+Given songwriter (4.5 _ is refused):
+  e|-3-5-------|7|
+  B|---------x--|-|
+
+Do (4.5 _ is refused):
+  0f3_
+
+Expect songwriter (4.5 _ is refused):
+  e|-3-5-------|7|
+  B|---------x--|-|
+
+Given songwriter (4.5 motions still move):
+  e|-3-5-------|7|
+  B|---------x--|-|
+
+Execute (4.5 motions still move):
+  call cursor(1, 4)
+  normal l
+  AssertEqual 6, col('.')
+
+Expect songwriter (4.5 motions still move):
+  e|-3-5-------|7|
+  B|---------x--|-|
+
+Given songwriter (4.5 || lints it, and the edit then goes through):
+  e|-3-5-------|7|
+  B|---------x--|-|
+
+Do (4.5 || lints it, and the edit then goes through):
+  ||0f5x
+
+Expect songwriter (4.5 || lints it, and the edit then goes through):
+  e|--3----|--7--|
+  B|----x--|-----|
+
+Given songwriter (4.5 an aligned tab with loose dashes is linted and edited in one key):
+  e|-3-5-|
+
+Do (4.5 an aligned tab with loose dashes is linted and edited in one key):
+  0f5x
+
+Expect songwriter (4.5 an aligned tab with loose dashes is linted and edited in one key):
+  e|--3--|
+
+" --- Rendering 5: red string names ---
+
+Given songwriter (Rendering 5 the string names of a tab with no time columns are red):
+  e|--3--5--|
+  B|--1-----|
+
+  e|-3-5-------|7|
+  B|---------x--|-|
+
+Execute (Rendering 5 the string names of a tab with no time columns are red):
+  call songwriter#tab#unlinted#Update()
+  let m = filter(getmatches(), 'v:val.group ==# "songwriterUnlinted"')
+  AssertEqual 1, len(m)
+  AssertEqual [[4, 1, 1], [5, 1, 1]], [m[0].pos1, m[0].pos2]
+
+Execute (Rendering 5 linting the tab clears it):
+  call cursor(4, 3)
+  normal ||
+  call songwriter#tab#unlinted#Update()
+  AssertEqual [], filter(getmatches(), 'v:val.group ==# "songwriterUnlinted"')
+
+Execute (Rendering 5 the group is red by default):
+  Assert synIDattr(synIDtrans(hlID('songwriterUnlinted')), 'bg', 'cterm') =~? 'red\|^1$\|^9$', synIDattr(synIDtrans(hlID('songwriterUnlinted')), 'bg', 'cterm')

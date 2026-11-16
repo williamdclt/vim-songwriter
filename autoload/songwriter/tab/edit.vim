@@ -58,7 +58,11 @@
 let s:result_keys = ['lines', 'map', 'base', 'annotations', 'erased', 'written', 'col', 'lin',
       \ 'sel', 'open', 'msg', 'error', 'state', 'register', 'side']
 let s:option_keys = ['lnum', 'selection', 'slot', 'join', 'prelint', 'lint', 'open', 'insert',
-      \ 'repeat']
+      \ 'repeat', 'untimed']
+
+" The refusal of an edit of a tab with no time columns
+" (spec [Tablature][[Editing]] 4.5).
+let s:untimed = 'tab not linted (pipes or notes not aligned): || lints it'
 
 " Pure. The snapshot of `lines`, made from the snapshot `base` by an edit
 " whose column map is `map`: the annotations follow the music, with the
@@ -89,6 +93,16 @@ function! songwriter#tab#edit#Error(msg) abort
   echohl ErrorMsg
   echo 'songwriter: ' . a:msg
   echohl None
+endfunction
+
+" True when `block` has no time columns (model#Timed), the refusal of an
+" edit of it then shown (spec [Tablature][[Editing]] 4.5).
+function! songwriter#tab#edit#Untimed(block) abort
+  if songwriter#tab#model#Timed(a:block.lines)
+    return 0
+  endif
+  call songwriter#tab#edit#Error(s:untimed)
+  return 1
 endfunction
 
 " Pure. `lines` linted, with column `col` of line `lin` (0-indexed) followed
@@ -190,6 +204,8 @@ endfunction
 
 " A whole edit, written once: the block is linted (in memory), Fn(ctx) gives a
 " result for it (see the top), and the result is linted again and written.
+" A tab with no time columns (model#Timed) is refused, with a message, unless
+" 'untimed' is given (spec [Tablature][[Editing]] 4.5).
 " ctx is {'block' (the linted block, as Read gives it), 'lin', 'col', 'line'
 " (as model#Cursor; 'line' is '' when the cursor is off the block's strings),
 " 'insert' (whether the insert state is on), 'sel' (the selection, when one
@@ -215,6 +231,7 @@ endfunction
 "   'insert':  keep the insert state when it is on (default: an edit ends it).
 "   'repeat':  [Fn, args] or [Fn, args, count index]: the call `.` repeats
 "              (repeat#Record).
+"   'untimed': the edit takes a tab with no time columns too (`||`).
 " Returns the written block, {} when nothing was done (off a tab line, a
 " refusal, nothing to do).
 function! songwriter#tab#edit#Do(Fn, ...) abort
@@ -271,6 +288,9 @@ function! s:prepare(opts) abort
   let l:block = has_key(a:opts, 'lnum') ? songwriter#tab#model#Around(a:opts.lnum)
         \ : songwriter#tab#model#Read()
   if empty(l:block)
+    return {}
+  endif
+  if !get(a:opts, 'untimed', 0) && songwriter#tab#edit#Untimed(l:block)
     return {}
   endif
   let l:edit.block = l:block

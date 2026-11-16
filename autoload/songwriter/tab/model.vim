@@ -142,6 +142,28 @@ function! songwriter#tab#model#Pipes(text) abort
   return l:res
 endfunction
 
+" Pure. True when the tab `lines` has time columns (spec [Tablature][[Editing]]
+" 4.5): its pipes are on the same columns on every string (1.1), and no note
+" starts inside a note of another string (1.3), so that a column is the same
+" moment on every string. A linted tab has them.
+function! songwriter#tab#model#Timed(lines) abort
+  if len(uniq(sort(map(copy(a:lines), 'songwriter#tab#model#Pipes(v:val)')))) > 1
+    return 0
+  endif
+  let l:notes = map(copy(a:lines), 'songwriter#tab#model#Notes(v:val)')
+  for l:lin in range(len(l:notes))
+    for l:n in filter(copy(l:notes[l:lin]), 'v:val.len > 1')
+      for l:other in range(len(l:notes))
+        if l:other != l:lin && !empty(filter(copy(l:notes[l:other]),
+              \ {_, m -> m.col > l:n.col && m.col < l:n.col + l:n.len}))
+          return 0
+        endif
+      endfor
+    endfor
+  endfor
+  return 1
+endfunction
+
 function! songwriter#tab#model#Parse(start, lines) abort
   let l:strings = []
   for l:text in a:lines
