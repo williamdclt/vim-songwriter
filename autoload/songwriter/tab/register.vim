@@ -2,6 +2,11 @@
 " 6.4): plain Vim registers, with the string names of their source tab, and
 " how many of their rows are annotations ([[Annotations]] 5), remembered
 " alongside while the register still holds what was written.
+"
+" They are kept in g:songwriter_register_names rather than as a state of
+" tab/state.vim: registers are global, not per buffer, and they hold while the
+" register's content is the one recorded with them (compared on each read),
+" which no buffer tick says.
 
 " Set register `reg` and remember the string names of its source tab, so a
 " paste can match strings by name (6.5.3) while the register is unchanged.

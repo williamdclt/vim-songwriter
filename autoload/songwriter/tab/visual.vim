@@ -2,10 +2,6 @@
 " [Tablature][[Editing]] 6.9): selections, their motions, and the operators on
 " them (tab/operator.vim).
 
-" The last selection made by VisualObject: while it is still the current one,
-" the selection is exact (no snapping) and the same object extends it.
-let s:vobj = {}
-
 function! s:selection() abort
   return [line('v'), col('v'), line('.'), col('.')]
 endfunction
@@ -16,10 +12,6 @@ function! s:select(vmode, l1, c1, l2, c2) abort
   call cursor(a:l1, a:c1)
   execute 'normal! ' . a:vmode
   call cursor(a:l2, a:c2)
-endfunction
-
-function! s:is_vobj() abort
-  return !empty(s:vobj) && mode() ==# get(s:vobj, 'mode', "\<C-V>") && s:selection() ==# s:vobj.sel
 endfunction
 
 " Spec 6.9.6: `in`/`an` (kind 'n') and `iw`/`aw` (kind 'w') in visual mode
@@ -35,22 +27,23 @@ function! songwriter#tab#visual#StringObject(kind, around) abort
   endif
   let l:lnum = line('.')
   call s:select('v', l:lnum, l:range[0], l:lnum, l:range[1])
-  let s:vobj = {'kind': 'n', 'mode': 'v', 'sel': [l:lnum, l:range[0], l:lnum, l:range[1]]}
+  call songwriter#tab#state#Set('vobj', {'kind': 'n', 'mode': 'v', 'sel': [l:lnum, l:range[0], l:lnum, l:range[1]]})
 endfunction
 
 " Spec 6.9.1: select the object as a blockwise rectangle over every string,
-" cursor on the bottom string. Again on our own selection: one more column /
-" bar, counted from where the first one started.
+" cursor on the bottom string. Again on our own selection (the 'vobj' state,
+" while it is still the current one): one more column / bar, counted from
+" where the first one started.
 function! songwriter#tab#visual#Object(kind, around) abort
   let l:block = songwriter#tab#model#Read()
   if empty(l:block)
     return
   endif
-  if s:is_vobj() && s:vobj.kind ==# a:kind && s:vobj.around == a:around
-    let l:o = s:vobj
+  let l:o = songwriter#tab#state#Get('vobj')
+  if !empty(l:o) && l:o.kind ==# a:kind && l:o.around == a:around
     let l:o.count += 1
   else
-    let l:o = {'kind': a:kind, 'around': a:around, 'count': v:count1,
+    let l:o = {'kind': a:kind, 'around': a:around, 'count': v:count1, 'mode': "\<C-V>",
           \ 'lin': songwriter#tab#model#CursorLin(l:block), 'col': col('.')}
   endif
   let l:range = songwriter#tab#objects#Object(a:kind, l:block.lines, l:o.lin, l:o.col, l:o.count, a:around)
@@ -60,7 +53,7 @@ function! songwriter#tab#visual#Object(kind, around) abort
   let l:last = l:block.end
   call s:select("\<C-V>", l:block.start, l:range[0], l:last, l:range[1])
   let l:o.sel = [l:block.start, l:range[0], l:last, l:range[1]]
-  let s:vobj = l:o
+  call songwriter#tab#state#Set('vobj', l:o)
 endfunction
 
 " Spec 6.9.3: `V` starts a blockwise selection of the cursor's column over
@@ -116,9 +109,10 @@ endfunction
 function! s:take_selection() abort
   let l:mode = mode()
   let [l:l1, l:c1, l:l2, l:c2] = s:selection()
-  let l:exact = s:is_vobj()
-  let l:note = l:exact && s:vobj.kind ==# 'n'
-  let s:vobj = {}
+  let l:vobj = songwriter#tab#state#Get('vobj')
+  let l:exact = !empty(l:vobj)
+  let l:note = l:exact && l:vobj.kind ==# 'n'
+  call songwriter#tab#state#Clear('vobj')
   execute "normal! \<Esc>"
   if l:mode ==# 'V'
     return [min([l:l1, l:l2]), max([l:l1, l:l2])]
