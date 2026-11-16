@@ -142,17 +142,17 @@ Execute (3.8.2 back where it started with its fret, the tab is as it was):
 Expect songwriter (3.8.2 back where it started with its fret, the tab is as it was):
   e|--9--7--|
 
-Given songwriter (3.8.2 a narrower fret closes up its chain, as ] / [ do (11.2)):
+Given songwriter (3.8.2 a narrower fret leaves dashes after it, as ] / [ do (11.2)):
   e|--10h7--|
   B|--1-----|
 
-Execute (3.8.2 a narrower fret closes up its chain, as ] / [ do (11.2)):
+Execute (3.8.2 a narrower fret leaves dashes after it, as ] / [ do (11.2)):
   call cursor(1, 5)
   normal mh
 
-Expect songwriter (3.8.2 a narrower fret closes up its chain, as ] / [ do (11.2)):
-  e|--9h7--|
-  B|--1----|
+Expect songwriter (3.8.2 a narrower fret leaves dashes after it, as ] / [ do (11.2)):
+  e|--9-h7--|
+  B|--1-----|
 
 Given songwriter (3.8.2 a fret after a separator stays attached to it, as with ] / [ (11.2)):
   e|--5h7--|
@@ -164,17 +164,17 @@ Execute (3.8.2 a fret after a separator stays attached to it, as with ] / [ (11.
 Expect songwriter (3.8.2 a fret after a separator stays attached to it, as with ] / [ (11.2)):
   e|--5h8--|
 
-Given songwriter (3.6.1 a note carried onto a wider one takes its place in its chain):
+Given songwriter (3.6.1 a note carried onto a wider one takes its column, the next note keeps its own):
   e|--5------|
   B|--12h7---|
 
-Execute (3.6.1 a note carried onto a wider one takes its place in its chain):
+Execute (3.6.1 a note carried onto a wider one takes its column, the next note keeps its own):
   call cursor(1, 5)
   execute "normal \\j"
 
-Expect songwriter (3.6.1 a note carried onto a wider one takes its place in its chain):
-  e|-------|
-  B|--5h7--|
+Expect songwriter (3.6.1 a note carried onto a wider one takes its column, the next note keeps its own):
+  e|--------|
+  B|--5-h7--|
 
 Given songwriter (3.8.2 a fret out of range, or no fret, is refused):
   e|--0--x--|

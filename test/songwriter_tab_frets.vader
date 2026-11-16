@@ -118,29 +118,53 @@ Expect songwriter (11.2 a narrower fret leaves a dash):
   e|--9--7--|
   B|--9--7--|
 
-Given songwriter (11.2 a separator after a wider fret stays attached to it):
+Given songwriter (11.2 the separator of the next note stays with it before a wider fret):
   e|--9h7--|
   B|--5-7--|
 
-Execute (11.2 a separator after a wider fret stays attached to it):
+Execute (11.2 the separator of the next note stays with it before a wider fret):
   call cursor(1, 5)
   execute "normal \<C-A>"
 
-Expect songwriter (11.2 a separator after a wider fret stays attached to it):
+Expect songwriter (11.2 the separator of the next note stays with it before a wider fret):
   e|--10h7--|
   B|--5--7--|
 
-Given songwriter (11.2 a narrower fret closes up its chain):
+Given songwriter (11.2 a wider fret takes its separators with it):
+  e|--9~-7--|
+  B|--5--7--|
+
+Execute (11.2 a wider fret takes its separators with it):
+  call cursor(1, 5)
+  execute "normal \<C-A>"
+
+Expect songwriter (11.2 a wider fret takes its separators with it):
+  e|--10~-7--|
+  B|--5---7--|
+
+Given songwriter (11.2 a narrower fret leaves dashes after it, the next note keeps its column):
   e|--10h7--|
   B|--5--7--|
 
-Execute (11.2 a narrower fret closes up its chain):
+Execute (11.2 a narrower fret leaves dashes after it, the next note keeps its column):
   call cursor(1, 5)
   execute "normal \<C-X>"
 
-Expect songwriter (11.2 a narrower fret closes up its chain):
-  e|--9h7---|
+Expect songwriter (11.2 a narrower fret leaves dashes after it, the next note keeps its column):
+  e|--9-h7--|
   B|--5--7--|
+
+Given songwriter (11.2 a narrower fret leaves dashes after its separators):
+  e|--10~-7--|
+  B|--5---7--|
+
+Execute (11.2 a narrower fret leaves dashes after its separators):
+  call cursor(1, 5)
+  execute "normal \<C-X>"
+
+Expect songwriter (11.2 a narrower fret leaves dashes after its separators):
+  e|--9~--7--|
+  B|--5---7--|
 
 " === 11.3 Refusals ===
 

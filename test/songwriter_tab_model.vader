@@ -42,11 +42,11 @@ Execute (FollowColumn: on a note, follow it; between notes, keep the gap within 
   AssertEqual 10, songwriter#tab#lint#FollowColumn(lines, r, 1, 13)
   AssertEqual 13, songwriter#tab#lint#FollowColumn(lines, r, 1, 15)
 
-Execute (NoteSpan: a note with the separators of its chain that belong to it, 3.1.3):
+Execute (NoteSpan: a note with the separators that belong to it, the next note's or the last's):
   let g:line = 'e|--/5--5h7~--(12)--x--|'
   let Span = {col -> songwriter#tab#model#NoteSpan(g:line, songwriter#tab#model#NoteAt(g:line, col))}
   AssertEqual {'col': 5, 'pre': '/', 'text': '5', 'post': ''}, Span(6)
   AssertEqual {'col': 9, 'pre': '', 'text': '5', 'post': ''}, Span(9)
-  AssertEqual {'col': 11, 'pre': '', 'text': '7', 'post': '~'}, Span(11)
+  AssertEqual {'col': 10, 'pre': 'h', 'text': '7', 'post': '~'}, Span(11)
   AssertEqual {'col': 15, 'pre': '(', 'text': '12', 'post': ')'}, Span(17)
   AssertEqual {'col': 21, 'pre': '', 'text': 'x', 'post': ''}, Span(21)

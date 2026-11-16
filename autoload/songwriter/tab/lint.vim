@@ -27,8 +27,8 @@ function! songwriter#tab#lint#Lint(lines) abort
   let l:empty = []
   for l:j in range(l:nbars)
     " This bar's notes and separators, left to right on each line ({lin, c0,
-    " text, note}, c0 = 0-indexed offset in the bar region), kept verbatim. And
-    " its leftmost offset.
+    " text, pre, note}, c0 = 0-indexed offset in the bar region), kept
+    " verbatim. And its leftmost offset.
     let l:atoms = []
     for l:lin in range(l:nl)
       if l:j < len(l:regions[l:lin])
@@ -46,7 +46,7 @@ function! songwriter#tab#lint#Lint(lines) abort
       continue
     endif
 
-    let l:mincol = min(map(copy(l:atoms), 'v:val.c0'))
+    let l:mincol = min(map(copy(l:atoms), 'v:val.c0 - len(v:val.pre)'))
     let l:work = s:relax_bar(l:atoms, l:mincol)
     let l:rendered = s:render_bar(l:work, l:nl)
     for l:lin in range(l:nl)
@@ -101,13 +101,20 @@ function! s:map_at(lint, col) abort
 endfunction
 
 " The notes and separators of bar region `row` of line `lin`, left to right.
+" A note carries the separators before it that belong to it ('pre', spec 1.5);
+" the others are atoms of their own.
 function! s:region_atoms(lin, row) abort
   let l:atoms = []
-  for l:n in songwriter#tab#model#RowNotes(a:row)
-    call add(l:atoms, {'lin': a:lin, 'c0': l:n.col - 1, 'text': l:n.text, 'note': 1})
+  let l:pre = {}
+  for l:sp in songwriter#tab#model#RowSpans(a:row)
+    call add(l:atoms, {'lin': a:lin, 'c0': l:sp.col - 1 + len(l:sp.pre), 'text': l:sp.text,
+          \ 'pre': l:sp.pre, 'note': 1})
+    let l:pre[l:sp.col] = !empty(l:sp.pre)
   endfor
   for l:n in songwriter#tab#model#RowSeparators(a:row)
-    call add(l:atoms, {'lin': a:lin, 'c0': l:n.col - 1, 'text': l:n.text, 'note': 0})
+    if !get(l:pre, l:n.col, 0)
+      call add(l:atoms, {'lin': a:lin, 'c0': l:n.col - 1, 'text': l:n.text, 'pre': '', 'note': 0})
+    endif
   endfor
   return sort(l:atoms, {a, b -> a.c0 - b.c0})
 endfunction
@@ -142,7 +149,9 @@ endfunction
 "   - a note starting inside a different string's number is pushed right to
 "     leave one dash after it (spec 1.3), and the notes starting on its time
 "     column with it: a time column moves as a whole, so aligned starts are
-"     never split. Separators take no part in this: they occupy no time.
+"     never split. Separators take no part in this: they occupy no time. A
+"     note's own separators before it ('pre') are written right before it,
+"     wherever it goes.
 function! s:relax_bar(atoms, mincol) abort
   let l:work = []
   for l:a in a:atoms
@@ -150,6 +159,7 @@ function! s:relax_bar(atoms, mincol) abort
           \ 'lin': l:a.lin,
           \ 'c0': l:a.c0,
           \ 'num': l:a.text,
+          \ 'pre': l:a.pre,
           \ 'note': l:a.note,
           \ 'len': len(l:a.text),
           \ 'start': l:a.c0 - a:mincol + 2})
@@ -208,8 +218,10 @@ function! s:render_bar(work, nl) abort
 
   let l:cells = map(range(a:nl), "repeat(['-'], l:width)")
   for l:a in a:work
-    for l:k in range(l:a.len)
-      let l:cells[l:a.lin][l:a.start + l:k] = l:a.num[l:k]
+    let l:text = l:a.pre . l:a.num
+    let l:from = l:a.start - len(l:a.pre)
+    for l:k in range(len(l:text))
+      let l:cells[l:a.lin][l:from + l:k] = l:text[l:k]
     endfor
   endfor
   return map(l:cells, "join(v:val, '')")

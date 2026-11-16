@@ -33,10 +33,10 @@ endfunction
 
 " Pure. The `a` slot: the anchor is the rightmost note end, on any string,
 " among notes of the cursor's bar that start at or before the cursor (so the
-" anchor is the note column under or left of the cursor), past any separator
-" trailing it with no note after (`7b`). Dashes are inserted after the anchor so
-" that the slot sits one dash from it and the next note, on
-" any string, stays one dash away (the next pipe, two dashes).
+" anchor is the note column under or left of the cursor), past the separators
+" that belong to it (`7b`, spec 3.1.3). Dashes are inserted after the anchor so
+" that the slot sits one dash from it and the next note with its separators
+" (`h7`), on any string, stays one dash away (the next pipe, two dashes).
 " Returns {'lines', 'col', 'map'}, or {} when there is no anchor note.
 function! songwriter#tab#slots#Append(block, lin, col) abort
   let l:bar = songwriter#tab#model#BarAt(a:block.lines[a:lin], a:col)
@@ -50,12 +50,13 @@ function! songwriter#tab#slots#Append(block, lin, col) abort
     return {}
   endif
   let l:e += s:loose_separators(a:block, l:e, 1)
-  " Wanted column of the nearest next note (e + 4) or pipe (e + 5), any string.
+  " Wanted column of the nearest next note with its separators (e + 4) or
+  " pipe (e + 5), any string.
   let l:n = 0
   for l:s in a:block.strings
-    for l:note in l:s.notes
-      if l:note.col > l:e
-        let l:n = max([l:n, l:e + 4 - l:note.col])
+    for l:sp in songwriter#tab#model#Spans(l:s.text)
+      if l:sp.col + len(l:sp.pre) > l:e
+        let l:n = max([l:n, l:e + 4 - l:sp.col])
       endif
     endfor
     for l:p in l:s.pipes
@@ -69,9 +70,10 @@ endfunction
 
 " Pure. The `i` slot, mirror of Append: the anchor is the leftmost note
 " start, on any string, among notes of the cursor's bar that end at or after
-" the cursor, before any separator leading it with no note before (`/5`). Dashes are inserted before it so that the slot sits one dash left
-" of it and the previous note, on any string, stays one dash away (the
-" previous pipe, two dashes).
+" the cursor, before the separators that belong to it (`/5`, the h of `5h7`,
+" spec 3.1.3). Dashes are inserted before it so that the slot sits one dash
+" left of it and the previous note with its separators (`7~`), on any string,
+" stays one dash away (the previous pipe, two dashes).
 " Returns {'lines', 'col', 'map'}, or {} when there is no anchor note.
 function! songwriter#tab#slots#Prepend(block, lin, col) abort
   let l:bar = songwriter#tab#model#BarAt(a:block.lines[a:lin], a:col)
@@ -85,11 +87,12 @@ function! songwriter#tab#slots#Prepend(block, lin, col) abort
     return {}
   endif
   let l:s -= s:loose_separators(a:block, l:s, -1)
-  " Dashes needed so the previous note end (s - 4) or pipe (s - 5) is far enough.
+  " Dashes needed so the previous note's end, with its separators (s - 4),
+  " or pipe (s - 5) is far enough.
   let l:n = 0
   for l:str in a:block.strings
-    for l:note in l:str.notes
-      let l:end = l:note.col - 1 + l:note.len
+    for l:sp in songwriter#tab#model#Spans(l:str.text)
+      let l:end = l:sp.col - 1 + len(l:sp.pre . l:sp.text . l:sp.post)
       if l:end < l:s
         let l:n = max([l:n, l:end + 4 - l:s])
       endif

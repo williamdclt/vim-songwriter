@@ -115,13 +115,15 @@ endfunction
 " that belong to it (6.7.4, model#NoteSpan). Shared column (6.7.1): the note
 " and its separators become dashes. Lone column (6.7.2): the separators before
 " it become dashes (they are in the previous note's gap), and the column and
-" its gap, the separators after it included, go on every string, as far as
-" another string's notes stay apart: the end of the removed range comes back
-" until no other string loses a note or separator there, nor has two of its
-" notes or chains joined. When not even the note's own columns can go, the
+" its gap, the separators after it included, go on every string, up to the
+" separators of the next note of its string, and as far as another string's
+" notes stay apart: the end of the removed range comes back until no other
+" string loses a note or separator there, nor has two of its notes or chains
+" joined. When not even the note's own columns can go, the
 " note and its separators become dashes, as on a shared column. Returns
-" {'lines', 'col', 'rows', 'map', 'erased' (check.vim)} where rows is what `ac` would yank with the
-" other strings as dashes (6.7.3), or {} off a note.
+" {'lines', 'col', 'rows', 'map', 'erased' (check.vim)} where rows is the note
+" with its separators and its gap, the other strings as dashes (6.7.3), or {}
+" off a note.
 function! songwriter#tab#columns#EraseNote(lines, lin, col) abort
   let l:note = songwriter#tab#model#NoteAt(a:lines[a:lin], a:col)
   if empty(l:note)
@@ -131,7 +133,14 @@ function! songwriter#tab#columns#EraseNote(lines, lin, col) abort
   let l:c = l:note.col
   let l:shared = songwriter#tab#model#IsShared(l:tab, a:lin, l:c)
   let l:e = songwriter#tab#model#GapEnd(l:tab, a:lin, songwriter#tab#model#BarColumns(l:tab, a:lin, l:c), l:c)
-  let l:rows = songwriter#tab#columns#Extract(a:lines, l:c, l:e)
+  for l:sp in songwriter#tab#model#Spans(a:lines[a:lin])
+    if l:sp.col > l:c
+      let l:e = min([l:e, l:sp.col - 1])
+      break
+    endif
+  endfor
+  let l:span = songwriter#tab#model#NoteSpan(a:lines[a:lin], l:note)
+  let l:rows = songwriter#tab#columns#Extract(a:lines, l:span.col, l:e)
   for l:i in range(len(l:rows))
     if l:i != a:lin
       let l:rows[l:i] = repeat('-', len(l:rows[l:i]))
@@ -143,7 +152,6 @@ function! songwriter#tab#columns#EraseNote(lines, lin, col) abort
       let l:end -= 1
     endwhile
   endif
-  let l:span = songwriter#tab#model#NoteSpan(a:lines[a:lin], l:note)
   let l:out = copy(a:lines)
   if l:shared || l:end < songwriter#tab#model#NoteEnd(l:note)
     let l:out[a:lin] = songwriter#tab#model#Blank(a:lines[a:lin],
@@ -176,9 +184,10 @@ function! s:removable(lines, lin, s, e) abort
 endfunction
 
 " Spec 6.13: move the time column at `col` of line `lin` one dash later (dir
-" +1: a dash inserted before it on every string) or earlier (dir -1: a column
-" of dashes before it removed, keeping at least one dash after the previous note
-" on any string; a separator is never removed). Returns {'lines', 'col',
+" +1: a dash inserted before it on every string, before the separators of its
+" notes) or earlier (dir -1: a column of dashes before it and its separators
+" removed, keeping at least one dash after the previous note and its
+" separators on any string; a separator is never removed). Returns {'lines', 'col',
 " 'map'}, or {} when nothing changes, including on a bar's first column (lint
 " keeps two dashes after the pipe there).
 function! songwriter#tab#columns#ShiftColumn(lines, lin, col, dir) abort
@@ -191,19 +200,36 @@ function! songwriter#tab#columns#ShiftColumn(lines, lin, col, dir) abort
   if l:c == 0 || l:c == l:bc.cols[0]
     return {}
   endif
-  if a:dir > 0
-    return extend(songwriter#tab#model#InsertColumns(a:lines, l:c - 1, 1, '-'), {'col': l:c + 1})
-  endif
+  " The column's notes with their separators: where they start, and the
+  " widest separators before a note (`pre`).
+  let l:first = l:c
   let l:prev_end = 0
-  for l:a in songwriter#tab#model#BarNotes(l:tab, l:bc.bar)
-    if l:a.col < l:c
-      let l:prev_end = max([l:prev_end, songwriter#tab#model#NoteEnd(l:a)])
-    endif
+  let l:pre = map(copy(a:lines), "''")
+  for l:i in range(len(a:lines))
+    for l:sp in songwriter#tab#model#Spans(a:lines[l:i])
+      let l:at = l:sp.col + len(l:sp.pre)
+      if l:at == l:c
+        let [l:first, l:pre[l:i]] = [min([l:first, l:sp.col]), l:sp.pre]
+      elseif l:at < l:c && songwriter#tab#model#InBar(l:at, l:bc.bar)
+        let l:prev_end = max([l:prev_end, l:sp.col - 1 + len(l:sp.pre . l:sp.text . l:sp.post)])
+      endif
+    endfor
   endfor
-  if l:c - l:prev_end - 1 < 2
+  if a:dir > 0
+    let l:ins = songwriter#tab#model#InsertColumns(a:lines, l:c - 1, 1, '-')
+    " The separators before a note stay with it.
+    for l:i in range(len(l:pre))
+      if !empty(l:pre[l:i])
+        let l:ins.lines[l:i] = songwriter#tab#model#Splice(l:ins.lines[l:i],
+              \ l:c - len(l:pre[l:i]), len(l:pre[l:i]) + 1, '-' . l:pre[l:i])
+      endif
+    endfor
+    return extend(l:ins, {'col': l:c + 1})
+  endif
+  if l:first - l:prev_end - 1 < 2
     return {}
   endif
-  let l:o = l:c - 1
+  let l:o = l:first - 1
   while l:o > l:prev_end && !s:all_dashes(a:lines, l:o)
     let l:o -= 1
   endwhile
@@ -225,19 +251,20 @@ endfunction
 " One rule for a note that changes width, keeping it on its time column:
 " - on dashes, it must not join a chain ending right before it: a dash is
 "   inserted there on every string (refused when that would cut a note in
-"   two), and it may not start inside a chain;
-" - narrower than what it replaces, the rest of its chain closes up, the
-"   dashes going after the chain (`10-7` -> `9--7`, `10h7` -> `9h7-`): the
-"   rest of its chain moves with it, every other note stays;
+"   two), and it may not start inside a chain. Separators written before it
+"   may follow a note (`5` and `h7` give `5h7`), since each keeps its own;
+"   not another separator, which would become the note's;
+" - narrower than what it replaces, the dashes go after it and the separators
+"   that belong to it (`10-7` -> `9--7`, `10~` -> `9~-`, `10h7` -> `9-h7`);
 " - wider, it takes the dashes after it, as long as one stays before the
 "   next chain on its string (none is needed before a pipe) and it covers no
 "   other string's time column; the rest of the room is dashes inserted on
 "   every string between it and the next time column, so all that follows
-"   moves together. A separator right after it stays attached to it.
+"   moves together. The separators right after it stay attached to it.
 " Returns {'lines', 'col' (where it went), 'map', 'erased' (the note it
 " rewrites), 'written' (the note), check.vim}, or {'error'} when the room
 " would cut a note in two on another string. Only the dashes inserted move
-" time columns.
+" time columns: every other note keeps its column.
 function! songwriter#tab#columns#WriteNote(lines, lin, c, old, text) abort
   let l:lines = copy(a:lines)
   let l:map = []
@@ -248,7 +275,8 @@ function! songwriter#tab#columns#WriteNote(lines, lin, c, old, text) abort
     if s:in_chain(l:t, l:c)
       return {'error': printf('string %s already has a note there', songwriter#tab#model#Name(l:t))}
     endif
-    if l:c > 1 && s:in_chain(l:t, l:c - 1)
+    if l:c > 1 && s:in_chain(l:t, l:c - 1) && !(songwriter#grammar#IsSeparatorChar(a:text[0])
+          \ && !songwriter#grammar#IsSeparatorChar(l:t[l:c - 2]))
       if s:splits(l:lines, l:c - 1)
         return {'error': printf('no room on string %s', songwriter#tab#model#Name(l:t))}
       endif
@@ -261,16 +289,16 @@ function! songwriter#tab#columns#WriteNote(lines, lin, c, old, text) abort
   let l:w = len(a:text)
   let l:end = l:c + a:old - 1
   if l:w <= a:old
-    let l:chain = songwriter#tab#model#ChainAt(l:t, l:end + 1)
-    let l:rest = empty(l:chain) ? '' : strpart(l:t, l:end, songwriter#tab#model#NoteEnd(l:chain) - l:end)
-    let l:lines[a:lin] = songwriter#tab#model#Splice(l:t, l:c, a:old + len(l:rest),
-          \ a:text . l:rest . repeat('-', a:old - l:w))
-    " The notes of the rest of the chain move with it.
-    let l:moved = a:old > l:w ? songwriter#tab#model#RowNotes(l:rest) : []
-    return {'lines': l:lines, 'col': l:c, 'map': l:map,
-          \ 'erased': l:erased + map(copy(l:moved), {_, n -> {'lin': a:lin, 'col': l:end + n.col}}),
-          \ 'written': [{'lin': a:lin, 'col': l:c + s:note_offset(a:text)}]
-          \   + map(copy(l:moved), {_, n -> {'lin': a:lin, 'col': l:c + l:w - 1 + n.col}})}
+    " The separators after it that belong to it (no note after them in its
+    " chain) close up with it.
+    let l:post = matchstr(l:t, '^' . songwriter#grammar#Separator(), l:end)
+    if s:in_chain(l:t, l:end + len(l:post) + 1)
+      let l:post = ''
+    endif
+    let l:lines[a:lin] = songwriter#tab#model#Splice(l:t, l:c, a:old + len(l:post),
+          \ a:text . l:post . repeat('-', a:old - l:w))
+    return {'lines': l:lines, 'col': l:c, 'map': l:map, 'erased': l:erased,
+          \ 'written': [{'lin': a:lin, 'col': l:c + s:note_offset(a:text)}]}
   endif
   let l:free = len(matchstr(l:t, songwriter#grammar#DashRun(), l:end))
   let l:next = l:t[l:end + l:free : l:end + l:free]

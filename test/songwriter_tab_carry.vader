@@ -38,17 +38,17 @@ Expect songwriter (3.6 <leader>j carries the note down, keeping its digit under 
   e|------|
   B|--12--|
 
-Given songwriter (3.6.1 a separator joining the note to another stays):
+Given songwriter (3.6.1 the note takes the separator before it):
   e|--5h7--|
   B|-------|
 
-Execute (3.6.1 a separator joining the note to another stays):
+Execute (3.6.1 the note takes the separator before it):
   call cursor(1, 7)
   execute "normal \\j"
 
-Expect songwriter (3.6.1 a separator joining the note to another stays):
-  e|--5h---|
-  B|----7--|
+Expect songwriter (3.6.1 the note takes the separator before it):
+  e|--5----|
+  B|---h7--|
 
 Given songwriter (3.6.1 a note carried onto is replaced, and comes back when the carried note moves on):
   e|-----|
