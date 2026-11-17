@@ -12,21 +12,6 @@ Ordered by importance: how many bugs a behaviour can cause, and how much it
 gets in the way of new features. Each entry says why it stands where it
 does.
 
-## 3. `gp` can add time
-
-**Why third.** A spec decision with no bug risk either way: the code is the
-same, only the outcome differs.
-
-**Now.** Spec 6.14 says `gp` writes a column register "without adding
-time". To stop it joining a note to the one before it (`12` and `4` giving
-`124`), it writes each note as a carry does (`columns#PutNote`), which
-inserts a dash on every string when a note would touch the one before it:
-time is added.
-
-**Alternative.** Refuse instead (`gp would join a note on string e`),
-keeping the promise of 6.14. The dash was chosen to match carries and
-chords.
-
 ## 4. Smaller oddities
 
 - **Column ranges leave a note's separators behind.** A separator belongs

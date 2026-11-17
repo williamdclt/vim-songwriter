@@ -229,6 +229,18 @@ Expect songwriter:
   e|--3--5--|
   B|-----7--|
 
+Given songwriter (6.14 gp keeps a note apart from the one before it, adding a dash on every string):
+  e|--3--5--|
+  B|---12---|
+
+Execute (6.14 gp keeps a note apart from the one before it, adding a dash on every string):
+  call setreg('"', ['---', '4--'], 'b')
+  call cursor(1, 8)
+  normal gp
+Expect songwriter:
+  e|--3---5--|
+  B|---12-4--|
+
 Given songwriter (6.14 gp refuses to replace a note):
   e|--3--|
   B|--1--|
