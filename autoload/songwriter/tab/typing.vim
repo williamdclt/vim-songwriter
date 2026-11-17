@@ -103,7 +103,10 @@ endfunction
 " Spec 3.4.1.3: write the separator `char` right after the note under the
 " cursor, inserting a column on every string so that what follows keeps its
 " gap, in the same undo step as the note. The cursor lands on it, and the next
-" digit goes right after it (EnterNote).
+" digit goes right after it (EnterNote). The column goes after the widest note
+" starting with this one (a `6` over a `12`), never inside a note of another
+" string; on the cursor's string, what lies between (dashes, separators)
+" moves one right, after the separator.
 function! songwriter#tab#typing#EnterSeparator(char) abort
   call songwriter#tab#edit#Do(function('s:enter_separator', [a:char]),
         \ {'join': 1, 'prelint': 0, 'lint': 0, 'insert': 1})
@@ -115,7 +118,17 @@ function! s:enter_separator(char, ctx) abort
     return {}
   endif
   let l:end = songwriter#tab#model#NoteEnd(l:note)
-  let l:res = songwriter#tab#model#InsertColumns(a:ctx.block.lines, l:end, 1, '-')
-  let l:res.lines[a:ctx.lin] = songwriter#tab#model#Splice(l:res.lines[a:ctx.lin], l:end + 1, 1, a:char)
+  let l:at = l:end
+  for l:line in a:ctx.block.lines
+    for l:n in songwriter#tab#model#Notes(l:line)
+      if l:n.col <= l:end && songwriter#tab#model#NoteEnd(l:n) > l:at
+        let l:at = songwriter#tab#model#NoteEnd(l:n)
+      endif
+    endfor
+  endfor
+  let l:res = songwriter#tab#model#InsertColumns(a:ctx.block.lines, l:at, 1, '-')
+  let l:line = l:res.lines[a:ctx.lin]
+  let l:res.lines[a:ctx.lin] = strpart(l:line, 0, l:end) . a:char
+        \ . strpart(l:line, l:end, l:at - l:end) . strpart(l:line, l:at + 1)
   return extend(l:res, {'col': l:end + 1, 'state': {'typing': {'separator': 1}}})
 endfunction
