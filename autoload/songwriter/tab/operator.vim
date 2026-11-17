@@ -166,8 +166,8 @@ endfunction
 function! s:columnwise(op, reg, lnum, s, e, ctx) abort
   let l:block = a:ctx.block
   let l:lin = a:lnum - l:block.start
-  let l:res = songwriter#tab#columns#DeleteRange(l:block.lines, a:s, a:e)
-  let l:register = s:register(a:reg, l:block, l:res.rows, l:res.map, a:s)
+  let l:res = songwriter#tab#columns#DeleteColumns(l:block.lines, a:s, a:e)
+  let l:register = s:register(a:reg, l:block, l:res.rows, l:res.map, l:res.start)
   if a:op ==# 'y'
     return {'register': l:register, 'lin': l:lin, 'col': a:s}
   endif

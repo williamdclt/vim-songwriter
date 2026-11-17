@@ -237,8 +237,11 @@ their content is the one recorded, which no buffer tick says.
   takes them, 1.5), the slots (a slot goes past them and keeps a dash from
   those of the next note, 3.1.3), carries and `x` (they go with the note,
   6.7.4), `>>`/`<<` (the dash goes before them, 6.13) and `WriteNote` (a
-  narrower fret leaves its dashes after them, 11.2). Column ranges (`ac`,
-  `dd`) are time columns and do not take the separators of their notes.
+  narrower fret leaves its dashes after them, 11.2) and column ranges
+  (`ac`, `dd`, `dW`: `columns#DeleteColumns` turns the separators before
+  their notes into dashes, as `x` does, and ends before those of the next
+  note, 6.2.3), which stay time columns rather than start at the separators
+  so that no range is refused where another string has a note under them.
 - **Bar**: the region between two pipes. On a line, the bar around column `c` is
   bounded by the nearest pipes strictly left and right of `c`
   (`model#BarAt`).

@@ -14,13 +14,6 @@ does.
 
 ## 4. Smaller oddities
 
-- **Column ranges leave a note's separators behind.** A separator belongs
-  to a note and goes where it goes (spec [Tablature]), but `ac`, `dd` and
-  the other column ranges are time columns, from the column's first fret to
-  the next column: `dac` on the 7 of `5h7--9` gives `5h-9`, the `h` passing
-  to the 5. Should a column range start at the separators of its notes
-  (refused, or shrunk, where another string has a note under them)?
-
 - **`cap` on several tabs is several edits.** An edit touches one block, so
   each tab is cleared in an edit of its own, joined into one undo step by
   hand (`operator#ApplyLines`). Could an edit cover several blocks?

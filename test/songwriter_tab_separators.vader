@@ -209,6 +209,38 @@ Expect songwriter:
   e|--5----|
   B|----3--|
 
+Given songwriter (6.2.3 a column range takes the separator before its note, as x):
+  e|--5h7--9--|
+
+Execute (6.2.3 a column range takes the separator before its note, as x):
+  call cursor(1, 7)
+  normal dac
+  AssertEqual ['h7--'], getreg('"', 1, 1)
+Expect songwriter:
+  e|--5-9--|
+
+Given songwriter (6.2.3 a column range leaves the separator of the next note with it):
+  e|--5h7--9--|
+
+Execute (6.2.3 a column range leaves the separator of the next note with it):
+  call cursor(1, 5)
+  normal dd
+  AssertEqual ['5'], getreg('"', 1, 1)
+Expect songwriter:
+  e|--h7--9--|
+
+Given songwriter (6.2.3 the separators of a column range are dashes on the strings without one):
+  e|--5h7--9--|
+  B|----7--9--|
+
+Execute (6.2.3 the separators of a column range are dashes on the strings without one):
+  call cursor(1, 7)
+  normal dac
+  AssertEqual ['h7--', '-7--'], getreg('"', 1, 1)
+Expect songwriter:
+  e|--5-9--|
+  B|----9--|
+
 Given songwriter (<< removes a dash, never a separator):
   e|--5--h7--|
 
