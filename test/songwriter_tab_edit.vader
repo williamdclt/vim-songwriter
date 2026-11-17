@@ -96,6 +96,31 @@ Execute (3.4 a digit on a pipe or a string name does nothing):
     unlet! b:songwriter_typing
   endfor
 
+Given songwriter (3.4 a digit on the one dash between two notes keeps apart from both):
+  e|--3-5--|
+  B|--1-2--|
+
+Execute (3.4 a digit on the one dash between two notes keeps apart from both):
+  let b:songwriter_tabmode = 1
+  call cursor(1, 6)
+  normal 7
+  AssertEqual 7, col('.')
+
+Expect songwriter (3.4 a digit on the one dash between two notes keeps apart from both):
+  e|--3-7-5--|
+  B|--1---2--|
+
+Given songwriter (3.4.3 x on the one dash between two notes keeps apart from both):
+  e|--3-5--|
+
+Execute (3.4.3 x on the one dash between two notes keeps apart from both):
+  let b:songwriter_tabmode = 1
+  call cursor(1, 6)
+  normal x
+
+Expect songwriter (3.4.3 x on the one dash between two notes keeps apart from both):
+  e|--3-x-5--|
+
 " --- 3.1 AddNote: a opens a 1-dash-gap slot to the right, i mirrors to the
 " left, on every string of the block. The new-note slot sits one dash from the
 " current note; the following/preceding pipe stays 2 dashes away. `a` lands on

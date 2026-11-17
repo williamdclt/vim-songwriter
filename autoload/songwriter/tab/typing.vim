@@ -52,8 +52,9 @@ endfunction
 
 " Pure. The digit of EnterNote written at the cursor of `ctx`: right after the
 " separator just typed, in a new column (`after_separator`); appended to the
-" fret just typed (`here`, on a digit); over the note there; else over the
-" cell.
+" fret just typed (`here`, on a digit); over the note there; else on the
+" dash, kept apart from the notes on either side as a carried note is
+" (columns#PutNote, spec 7.5).
 function! s:enter_note(digit, here, after_separator, ctx) abort
   let l:lines = copy(a:ctx.block.lines)
   let l:line = a:ctx.line
@@ -76,7 +77,11 @@ function! s:enter_note(digit, here, after_separator, ctx) abort
     let [l:lines, l:map, l:erased] = [l:res.lines, l:res.map, l:res.erased]
     let l:col = l:note.col + (l:append ? len(l:text) - 1 : 0)
   else
-    let l:lines[a:ctx.lin] = l:line[0 : l:col - 2] . a:digit . l:line[l:col :]
+    let l:res = songwriter#tab#columns#PutNote(l:lines, a:ctx.lin, l:col, a:digit)
+    if has_key(l:res, 'error')
+      return l:res
+    endif
+    let [l:lines, l:map, l:col] = [l:res.lines, l:res.map, l:res.col]
   endif
   let l:written = songwriter#tab#model#NoteAt(l:lines[a:ctx.lin], l:col)
   return {'lines': l:lines, 'col': l:col, 'map': l:map, 'state': {'typing': {}},
