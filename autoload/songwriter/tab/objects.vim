@@ -90,27 +90,29 @@ endfunction
 " Spec 6.2.3: snap a motion's range [s, e] outward so it never cuts a note: s
 " goes to the start of the note it is in, or, in a gap, to the previous column
 " of its bar; e goes to the end of the note it is in, and a range ending on a
-" note takes that note's gap too.
+" note takes that note's gap too. A range starting on the string name starts
+" on the first pipe instead, so that the string names are never edited.
 function! songwriter#tab#objects#Snap(lines, lin, s, e) abort
   let l:tab = songwriter#tab#model#Parse(0, a:lines)
-  let l:s = a:s
-  let l:e = a:e
+  let l:first = songwriter#tab#model#BodyOffset()
+  let [l:s, l:e] = [max([a:s, l:first]), max([a:e, l:first])]
+  let [l:s0, l:e0] = [l:s, l:e]
   let l:covered = 0
   let l:ends = 0
   for l:str in l:tab.strings
     for l:a in l:str.notes
       let l:aend = songwriter#tab#model#NoteEnd(l:a)
-      if l:a.col <= a:s && a:s <= l:aend
+      if l:a.col <= l:s0 && l:s0 <= l:aend
         let l:s = min([l:s, l:a.col])
         let l:covered = 1
       endif
-      if l:a.col <= a:e && a:e <= l:aend
+      if l:a.col <= l:e0 && l:e0 <= l:aend
         let l:e = max([l:e, l:aend])
       endif
     endfor
   endfor
-  if !l:covered && !songwriter#tab#columns#OnPipeOrName(a:lines[a:lin], a:s)
-    let l:left = filter(songwriter#tab#model#BarColumns(l:tab, a:lin, a:s).cols, 'v:val < a:s')
+  if !l:covered && !songwriter#tab#columns#OnPipeOrName(a:lines[a:lin], l:s0)
+    let l:left = filter(songwriter#tab#model#BarColumns(l:tab, a:lin, l:s0).cols, 'v:val < l:s0')
     if !empty(l:left)
       let l:s = l:left[-1]
     endif
