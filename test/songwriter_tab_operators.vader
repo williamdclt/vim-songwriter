@@ -114,6 +114,26 @@ Expect songwriter:
   e|--3--|
   B|-----|
 
+Execute (6.2.3 column keys on the string name never edit it):
+  " D, C, Vx: their range ends before the first pipe, so it is empty.
+  " d$, Vp: their range starts on the first pipe, as from there.
+  call setreg('a', ['5--', '---'], "\<C-V>")
+  let tab = ['e|--3--5--|--7--|', 'B|--1-----|-----|']
+  for [keys, from] in [['D', 0], ['C', 0], ['Vx', 0], ['Vd', 0], ['d$', 2], ['"aVp', 2], ['"aVP', 2]]
+    let after = []
+    for col in [from, 1]
+      silent! %d _
+      call setline(1, tab)
+      unlet! b:songwriter_typing b:songwriter_slot b:songwriter_insert
+      if col
+        call cursor(1, col)
+        execute "normal " . keys . "\<Esc>"
+      endif
+      call add(after, getline(1, '$'))
+    endfor
+    AssertEqual after[0], after[1], keys
+  endfor
+
 Given songwriter (6.2.3 d$ deletes to the end of the tab and closes the bar):
   e|--3--5--|--7--|
 

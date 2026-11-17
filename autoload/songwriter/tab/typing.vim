@@ -15,7 +15,8 @@
 " fills any open slot, in the same undo step as the slot, as is a digit typed
 " straight after a digit or separator; after a move it is its own undo step
 " (3.4.1.1, 4.3.1). The state (normal or insert) is kept. No-op off a tab line
-" and on a separator (3.4.2).
+" and anywhere but on a dash or a note: a separator (3.4.2), a pipe, the
+" string name.
 function! songwriter#tab#typing#EnterNote(digit) abort
   let l:line = getline('.')
   if !songwriter#grammar#IsTabLine(l:line)
@@ -33,12 +34,16 @@ function! songwriter#tab#typing#EnterNote(digit) abort
   if !l:after_separator && l:here && (get(l:typing, 'chord', 0) || !empty(l:note)
         \ && !s:extends(strpart(l:line, l:note.col - 1, l:note.len), l:digit))
     call songwriter#tab#slots#AddNote(1)
+    if !empty(songwriter#tab#state#Get('typing'))
+      " No slot opened: the digit would go on the same note again.
+      return
+    endif
     call songwriter#tab#typing#EnterNote(a:digit)
     if !l:insert
       call songwriter#tab#mode#Enter(l:mode)
     endif
     return
-  elseif !l:after_separator && songwriter#grammar#IsSeparatorChar(l:ch)
+  elseif !l:after_separator && empty(l:note) && l:ch !~# '^' . songwriter#grammar#Dash() . '$'
     return
   endif
   call songwriter#tab#edit#Do(function('s:enter_note', [l:digit, l:here, l:after_separator]),
@@ -47,8 +52,9 @@ endfunction
 
 " Pure. The digit of EnterNote written at the cursor of `ctx`: right after the
 " separator just typed, in a new column (`after_separator`); appended to the
-" fret just typed (`here`, on a digit); over the note there; else over the
-" cell.
+" fret just typed (`here`, on a digit); over the note there; else on the
+" dash, kept apart from the notes on either side as a carried note is
+" (columns#PutNote, spec 7.5).
 function! s:enter_note(digit, here, after_separator, ctx) abort
   let l:lines = copy(a:ctx.block.lines)
   let l:line = a:ctx.line
@@ -71,7 +77,11 @@ function! s:enter_note(digit, here, after_separator, ctx) abort
     let [l:lines, l:map, l:erased] = [l:res.lines, l:res.map, l:res.erased]
     let l:col = l:note.col + (l:append ? len(l:text) - 1 : 0)
   else
-    let l:lines[a:ctx.lin] = l:line[0 : l:col - 2] . a:digit . l:line[l:col :]
+    let l:res = songwriter#tab#columns#PutNote(l:lines, a:ctx.lin, l:col, a:digit)
+    if has_key(l:res, 'error')
+      return l:res
+    endif
+    let [l:lines, l:map, l:col] = [l:res.lines, l:res.map, l:res.col]
   endif
   let l:written = songwriter#tab#model#NoteAt(l:lines[a:ctx.lin], l:col)
   return {'lines': l:lines, 'col': l:col, 'map': l:map, 'state': {'typing': {}},
@@ -98,7 +108,10 @@ endfunction
 " Spec 3.4.1.3: write the separator `char` right after the note under the
 " cursor, inserting a column on every string so that what follows keeps its
 " gap, in the same undo step as the note. The cursor lands on it, and the next
-" digit goes right after it (EnterNote).
+" digit goes right after it (EnterNote). The column goes after the widest note
+" starting with this one (a `6` over a `12`), never inside a note of another
+" string; on the cursor's string, what lies between (dashes, separators)
+" moves one right, after the separator.
 function! songwriter#tab#typing#EnterSeparator(char) abort
   call songwriter#tab#edit#Do(function('s:enter_separator', [a:char]),
         \ {'join': 1, 'prelint': 0, 'lint': 0, 'insert': 1})
@@ -110,7 +123,17 @@ function! s:enter_separator(char, ctx) abort
     return {}
   endif
   let l:end = songwriter#tab#model#NoteEnd(l:note)
-  let l:res = songwriter#tab#model#InsertColumns(a:ctx.block.lines, l:end, 1, '-')
-  let l:res.lines[a:ctx.lin] = songwriter#tab#model#Splice(l:res.lines[a:ctx.lin], l:end + 1, 1, a:char)
+  let l:at = l:end
+  for l:line in a:ctx.block.lines
+    for l:n in songwriter#tab#model#Notes(l:line)
+      if l:n.col <= l:end && songwriter#tab#model#NoteEnd(l:n) > l:at
+        let l:at = songwriter#tab#model#NoteEnd(l:n)
+      endif
+    endfor
+  endfor
+  let l:res = songwriter#tab#model#InsertColumns(a:ctx.block.lines, l:at, 1, '-')
+  let l:line = l:res.lines[a:ctx.lin]
+  let l:res.lines[a:ctx.lin] = strpart(l:line, 0, l:end) . a:char
+        \ . strpart(l:line, l:end, l:at - l:end) . strpart(l:line, l:at + 1)
   return extend(l:res, {'col': l:end + 1, 'state': {'typing': {'separator': 1}}})
 endfunction

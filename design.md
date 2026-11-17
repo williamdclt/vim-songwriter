@@ -572,7 +572,10 @@ strings").
   closing a slot) record it again (`mode#Keep`), and any other change (`u`,
   `x`, an operator) ends it without the other code having to know about it.
   Opening a slot enters it (`slots#Open`), so `a`/`i`, `c`, `o`/`O` and
-  `:SongwriterNewTab` all do; leaving it closes the slot (`<Esc>`). The move
+  `:SongwriterNewTab` all do; leaving it closes the slot (`<Esc>`). The
+  state is entered before the slot is recorded: a slot that needed no room
+  leaves the buffer unchanged, so the insert state still holds, and entering
+  it again closes the open slot, which must be the previous one. The move
   mode holds while the cursor is on a note, edits included (`on-note`). Entering a state
   leaves the current one, so `m` leaves the insert state; a digit run in the
   normal or move state borrows the insert state to open its slot (3.4.1.1) and
@@ -712,7 +715,10 @@ Tablature-mode edits lint the block:
     bar as `|-----|`.
 - **4.3.1**: a digit typed into a slot, or appended to a fret being typed, is
   joined to the previous undo step (`:undojoin`), so `a7` or `a12` is one undo
-  step and `u` gives back the tab as it was before `a`.
+  step and `u` gives back the tab as it was before `a`. Straight after an
+  undo nothing is joined (`edit.vim`'s `s:join`, the undo tree's current
+  sequence not its last): the step to join was undone, or never made (a slot
+  that changed nothing), and Vim refuses to join (E790).
 
 **Tabs with no time columns are refused** (spec 4.5). A column is a moment
 only once the pipes are aligned and no note starts inside a note of another
@@ -893,10 +899,12 @@ afterwards.
   and the next time column, so all that follows moves together. No dash goes
   before a rewritten note, and its separators right after it are not pushed
   off.
-- **On dashes, apart from the previous chain.** A note written where there
-  was none (a carry to another string, a chord's fret) is its own chain: when
-  a note ends right before its column, a dash is inserted there on every
-  string, rather than merging the two (`123`), which lint cannot undo. Its
+- **On dashes, apart from the chains around it.** A note written where there
+  was none (a carry to another string, a chord's fret, a digit or `x` typed
+  on a dash) is its own chain: when a note ends right before its column, a
+  dash is inserted there on every string, rather than merging the two
+  (`123`), which lint cannot undo; one starting right after it is kept apart
+  as a wider note's next chain is (`3-5`, `7` on the dash: `3-7-5`). Its
   separators before it may follow a note (`5` and `h7` give `5h7`, each
   note keeping its own separators), not another separator (`5~h7` would give
   the `~` to the 7).
@@ -923,7 +931,11 @@ while transcribing, so it has right-hand keys (`<leader>k`/`<leader>j`, with a
   result is what puts back a note the carried one replaced, with no
   bookkeeping of what was overwritten; when the notes are back where they
   started with their texts, the render is the origin itself, so coming back
-  leaves no trace. Steps after the first are joined to its undo step: a run is
+  leaves no trace. Back on their strings with other frets, the render is
+  checked (check mode) as an edit of the origin, the notes erased there and
+  written again, as a fret changed in place: against the base, the 1 of
+  `4h1h9` written back would look like a note joining the 4 and the 9.
+  Steps after the first are joined to its undo step: a run is
   "the buffer unchanged since the last step and the cursor where it left it".
 - **Strings only, never time.** Carries change strings and frets, never time
   columns, so the base keeps every column of the tab: lifting blanks the notes,

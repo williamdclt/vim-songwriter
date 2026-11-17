@@ -278,6 +278,28 @@ Execute (3.6.5 back where it started with its fret, the tab is as it was):
 Expect songwriter (3.6.5 back where it started with its fret, the tab is as it was):
   e|--9--7--|
 
+Given songwriter (3.6.5 a note in the middle of its chain stays in it):
+  e|--4h1h9--|
+
+Execute (3.6.5 a note in the middle of its chain stays in it):
+  call cursor(1, 7)
+  execute "normal \\h"
+  AssertEqual ['e|--4h0h9--|'], getline(1, '$')
+  execute "normal \\l\\l"
+
+Expect songwriter (3.6.5 a note in the middle of its chain stays in it):
+  e|--4h2h9--|
+
+Given songwriter (3.6.5 in the move state, a note in the middle of a chain):
+  e|--4h1h9--|
+
+Execute (3.6.5 in the move state, a note in the middle of a chain):
+  call cursor(1, 7)
+  call feedkeys('mlll', 'xt')
+
+Expect songwriter (3.6.5 in the move state, a note in the middle of a chain):
+  e|--4h4h9--|
+
 Given songwriter (3.6.5 a fret out of range, or no fret, is refused):
   e|--0--x--|
 

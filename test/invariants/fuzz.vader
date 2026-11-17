@@ -125,26 +125,6 @@ Execute (random keys of the tables keep the tab parsing and the music checked):
   " for it. When a bug is fixed and renumbered away, its branch goes.
   function! FuzzKnown(failure) abort
     let [l:step, l:error] = [a:failure.step, a:failure.error]
-    if l:step ==# '+' && l:error =~# 'E727:'
-      return '1: + on one string'
-    elseif l:step =~# '^\d$' && l:error =~# 'enter_note.*: written \S\+ 2: no note'
-      return '2: a digit on the first pipe'
-    elseif index(['D', 'C', 'x', 'd', 'c', 'p', 'P'], l:step) >= 0
-          \ && l:error =~# "^not a tab line: '[^a-zA-Z]\\|note | "
-      return '3: a column key on the string name'
-    elseif l:step =~# '^\d$' && l:error =~# 'E132:'
-      return '4: digits rewriting a note in the insert state'
-    elseif l:error =~# 'E790:'
-      return '5: a note typed after an undo'
-    elseif l:error =~# "enter_separator.*: note \\S\\+ \\d\\+ (\\d\\d\\+) -> "
-      return '6: a separator splitting a two-digit fret'
-    elseif l:step ==# 'gp' && l:error =~# '^songwriter: check:'
-      return '7: gp past the closing pipe'
-    elseif l:error =~# "_step', .*: chains \\S\\+ \\d\\+, \\d\\+ joined"
-      return '8: a fret changed in a chain'
-    elseif l:step =~# '^[0-9x]$' && l:error =~# 'enter_note.*: chains \S\+ \d\+, \d\+ joined'
-      return '9: a note typed between two notes'
-    endif
     return ''
   endfunction
   " Walk `tab` from `pos` with `steps`: a list of steps (a replay), or a

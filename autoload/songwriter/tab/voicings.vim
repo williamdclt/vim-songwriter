@@ -274,7 +274,7 @@ endfunction
 " both intervals give none.
 function! s:power(names, pc) abort
   let l:all = []
-  for l:lin in range(2, len(a:names) - 1)
+  for l:lin in range(len(a:names))[2 :]
     let l:up1 = songwriter#tuning#Interval(a:names, l:lin, l:lin - 1)
     let l:up2 = songwriter#tuning#Interval(a:names, l:lin - 1, l:lin - 2)
     if has_key(l:up1, 'error') || has_key(l:up2, 'error')

@@ -498,6 +498,9 @@ Execute (10.8 + refusals):
   " No two strings above the note.
   let lines = ['e|-----|', 'B|--3--|', 'G|-----|', 'D|-----|', 'A|-----|', 'E|-----|']
   Assert has_key(songwriter#tab#voicings#Extend(lines, 1, 5), 'error')
+  " A tab of one string, or of two.
+  Assert has_key(songwriter#tab#voicings#Extend(['e|--3--5--|'], 0, 5), 'error')
+  Assert has_key(songwriter#tab#voicings#Extend(['e|--3--|', 'B|--3--|'], 1, 5), 'error')
   " No chord shape rooted on the G string.
   let lines = ['e|--8--|', 'B|--8--|', 'G|--5--|', 'D|-----|', 'A|-----|', 'E|-----|']
   Assert has_key(songwriter#tab#voicings#Extend(lines, 2, 5), 'error')

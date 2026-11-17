@@ -284,7 +284,11 @@ function! s:saved(block, carry) abort
   return {'origin': l:origin, 'base': songwriter#tab#edit#Derive(l:origin, a:carry.base, [])}
 endfunction
 
-" The edit result of rendering `carry` (or its refusal).
+" The edit result of rendering `carry` (or its refusal). Its notes back on
+" their strings (only their frets changed), it is an edit of the origin, which
+" has the columns of the base: the notes erased there and written again, as a
+" fret changed in place (spec 11.2), so that a note back in its chain (the 1
+" of `4h1h9`) is not taken for one joining the notes around it.
 function! s:result(carry) abort
   if has_key(a:carry, 'error')
     return a:carry
@@ -293,9 +297,14 @@ function! s:result(carry) abort
   if has_key(l:res, 'error')
     return l:res
   endif
+  let l:erased = get(l:res, 'erased', [])
+  let l:back = !l:res.home && a:carry.dlin == 0
+  if l:back
+    let l:erased += map(copy(a:carry.notes), {_, n -> {'lin': n.lin, 'col': n.col + len(n.pre)}})
+  endif
   return {'lines': l:res.lines, 'map': l:res.map, 'lin': l:res.lin, 'col': l:res.col,
-        \ 'erased': get(l:res, 'erased', []), 'written': get(l:res, 'written', []),
-        \ 'base': l:res.home ? a:carry.saved.origin : a:carry.saved.base,
+        \ 'erased': l:erased, 'written': get(l:res, 'written', []),
+        \ 'base': l:res.home || l:back ? a:carry.saved.origin : a:carry.saved.base,
         \ 'state': {'carry': a:carry}}
 endfunction
 

@@ -45,7 +45,7 @@
 " the undo step), then the follow-ups (the selection, the state for the next
 " key, the register, a slot opened, `.`, the insert state), each a small
 " function. Its target is the cursor, or a visual selection it selects again.
-" `undojoin` is only here (s:write, JoinUndo).
+" `undojoin` is only here (s:join).
 "
 " What an edit writes is a draft: {'lines', 'map', 'base' (optional),
 " 'annotations' (optional)}, the block's new lines and where each column of
@@ -126,7 +126,7 @@ function! s:write(block, draft, lin, col, join) abort
   let l:block = a:block
   if l:snapshot !=# songwriter#tab#model#Snapshot(a:block)
     if a:join
-      silent! undojoin
+      call s:join()
     endif
     let l:block = songwriter#tab#model#Write(a:block, l:snapshot)
   endif
@@ -162,7 +162,18 @@ endfunction
 " annotation line retyped once Vim's insert mode is left) made in a later
 " command than the change it belongs with.
 function! songwriter#tab#edit#JoinUndo() abort
-  silent! undojoin
+  call s:join()
+endfunction
+
+" Join the next change to the previous undo step. Straight after an undo (or
+" a redo, or a move in the undo tree), the step it belongs with is not the
+" last one (undone, or never made: a slot that changed nothing has no step of
+" its own), and Vim refuses to join (E790): the change is a step of its own.
+function! s:join() abort
+  let l:tree = undotree()
+  if l:tree.seq_cur == l:tree.seq_last
+    silent! undojoin
+  endif
 endfunction
 
 " Pure. Where `result` takes `lines`, the cursor being on line `lin` (0-indexed)

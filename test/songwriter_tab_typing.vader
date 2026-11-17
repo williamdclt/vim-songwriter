@@ -195,6 +195,28 @@ Do (3.4.1.1 in the normal state a digit that makes no fret is the next note):
 Expect songwriter (3.4.1.1 in the normal state a digit that makes no fret is the next note):
   e|--5-7--|
 
+Given songwriter (3.4.1.1 in the insert state, the next note where its slot needs no room):
+  e|--xp-12---3--|
+
+Execute (3.4.1.1 in the insert state, the next note where its slot needs no room):
+  call cursor(1, 7)
+  call feedkeys('il56', 'xt')
+
+Expect songwriter (3.4.1.1 in the insert state, the next note where its slot needs no room):
+  e|--xp-5-6--3--|
+
+Given songwriter (3.4.1.1 in the insert state, a note rewritten then the next one):
+  e|--12-----|
+  B|-------12--|
+
+Execute (3.4.1.1 in the insert state, a note rewritten then the next one):
+  call cursor(1, 3)
+  call feedkeys('||il56', 'xt')
+
+Expect songwriter (3.4.1.1 in the insert state, a note rewritten then the next one):
+  e|--5-6------|
+  B|-------12--|
+
 Given songwriter (3.4.1.1 in the normal state a run of notes on a dash):
   e|-----|
 
@@ -260,6 +282,20 @@ Do (3.4.1.3 room is made on every string):
 Expect songwriter (3.4.1.3 room is made on every string):
   e|--4-5/7-9--|
   B|--4-----9--|
+
+Given songwriter (3.4.1.3 after a note narrower than its column, the room goes after the column):
+  G|--0---|
+  D|--12--|
+
+Execute (3.4.1.3 after a note narrower than its column, the room goes after the column):
+  call cursor(1, 5)
+  call feedkeys('il6p', 'xt')
+  AssertEqual 6, col('.')
+  call feedkeys('7', 'xt')
+
+Expect songwriter (3.4.1.3 after a note narrower than its column, the room goes after the column):
+  G|--6p7--|
+  D|--12---|
 
 Given songwriter (3.4.1.3 a chain with two-digit frets):
   e|--4--|
