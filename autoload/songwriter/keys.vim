@@ -78,7 +78,7 @@ let s:tabmode.n = {
       \ '>>': 'call songwriter#tab#actions#Shift(1, v:count1)',
       \ '<<': 'call songwriter#tab#actions#Shift(-1, v:count1)',
       \ 'gp': 'call songwriter#tab#actions#Overlay(v:register)',
-      \ 'x': 'call songwriter#tab#actions#EraseOrMute(v:count1, v:register)',
+      \ 'x': 'call songwriter#tab#actions#EraseOrMute(v:register)',
       \ 'p': 'call songwriter#tab#actions#Put(0, v:count1, v:register)',
       \ 'P': 'call songwriter#tab#actions#Put(1, v:count1, v:register)',
       \ '.': '=songwriter#tab#repeat#Repeat()',

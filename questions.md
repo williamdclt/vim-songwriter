@@ -12,22 +12,6 @@ Ordered by importance: how many bugs a behaviour can cause, and how much it
 gets in the way of new features. Each entry says why it stands where it
 does.
 
-## 2. `x` with a count lints between erasures
-
-**Why second.** Local to one function, but it is a second rule for something
-`d3l` already does, and it needed the most special handling in check mode.
-
-**Now.** `3x` erases a note, lints, then erases the next one
-(`actions.vim` `s:erase`), while `d3l` erases them all and lints once
-(`columns#EraseSet`). The lint in between made it the hardest edit to
-declare for check mode: each erased note is found back in the tab as it was
-by search (`colmap#Before`). It also showed that what `x` writes to the
-register for each note depended on the order of the erasures, until
-`EraseSet` read each note's row from the tab as it was.
-
-**Alternative.** `3x` is `d3l`: one rule, one function, and `colmap#Before`
-goes.
-
 ## 3. `gp` can add time
 
 **Why third.** A spec decision with no bug risk either way: the code is the

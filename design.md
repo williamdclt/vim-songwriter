@@ -139,9 +139,9 @@ tab with time columns (`model#Timed`); a broken rule throws, naming the edit. Wh
 on purpose it says in its result: `erased` (notes of the lines it was given)
 and `written` (where the notes it writes start, in its lines; a written note
 must be a note of its own, so a note written right after another one is
-caught). Composed edits carry them: positions of later steps' input are
-mapped back with `colmap#Before`, written ones forward with
-`colmap#Positions`. A tab with no time columns cannot be edited but by
+caught). Composed edits carry written positions forward with
+`colmap#Positions`; erasures are declared on the input lines, so an edit
+erases first and lints after, rather than lint between erasures. A tab with no time columns cannot be edited but by
 `||` (see "Tabs with no time columns"), so of that lint only each string's
 notes in order are checked. The
 lint's fixed point and the room made for labels throw in check mode when
@@ -844,8 +844,9 @@ The spec items carry the behaviour; this records why, and how it is built.
   record themselves the same way.
 - **No counts in front of a command.** Digits enter notes in tablature mode
   (spec 3.4), so `3x` types a 3. Counts work after an operator (`d2ac`, `d3w`)
-  and in visual mode, where digits are not mapped. The entry points still take
-  a count.
+  and in visual mode, where digits are not mapped. `x` takes no count, not
+  even through `.`: erasing several notes is `d3l`, one erasure and one lint.
+  The other entry points still take a count.
 - **Visual mode.** Text objects show the real (full-height) extent as a
   blockwise selection, and extend when repeated while the selection is still
   theirs; a plain `v` selection is widened at operator time instead, so `v`
