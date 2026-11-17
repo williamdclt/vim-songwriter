@@ -102,9 +102,8 @@ its selection (`selection`, `selection.vim`), which is selected again once
 written, its ends where the edit says they went (`sel`), followed through the
 column map: visual carries are a step like any other. `undojoin` is only in
 `edit.vim`; `JoinUndo` is there for the changes that are not edits of a tab
-but belong with one made in an earlier command: whole tabs deleted by a
-line-wise operator after its first lint, and the trailing spaces trimmed when
-Vim's insert mode is left after `cia` typed somewhere unexpected.
+but belong with one made in an earlier command: the trailing spaces trimmed
+when Vim's insert mode is left after `cia` typed somewhere unexpected.
 
 **The cursor may be on an annotation line.** `Do`'s cursor line counts from
 the block's first string, so an annotation line is a negative one (-1 right
@@ -113,7 +112,10 @@ follows the edit's column map (and the lint's, and the room made) like a
 string's, so a cursor on a label stays on it, and it becomes bytes only when
 written back. An edit started from an annotation line (`=` on a label, the
 end of `cia`) is thus an ordinary edit, with its undo step, state and `.`,
-and no moving of the cursor to a string and back.
+and no moving of the cursor to a string and back. The two units stay
+(display columns on annotation lines, bytes on strings): unifying them was
+judged to give no simpler code, since labels are placed by display column
+and strings are cut by byte.
 
 **Drafts and snapshots.** What reaches the buffer is a draft: the block's new
 lines, and where each column of its base went in them (`{'lines', 'map',
@@ -197,7 +199,10 @@ the ones the features need:
 Tying a state to `b:changedtick` rather than clearing it at each place that
 changes the buffer means any change, `u` included, ends it without the other
 code having to know. `Expire` drops a state that no longer holds, for the
-one place that shows its end (the move state's message).
+one place that shows its end (the move state's message). Each read names
+the lifetime it means; a new "straight after" behaviour should be checked
+against both `change` and `continuation`, since reading one state with two
+lifetimes once hid an undo bug.
 
 Two states are not there, because Vim puts them elsewhere: the pending
 operator (`s:pending` in `operator.vim`), since `'operatorfunc'`
@@ -774,7 +779,8 @@ The spec items carry the behaviour; this records why, and how it is built.
   function with no lines in its result. Line-wise targets are not edits of a
   tab (`dap` deletes buffer lines), except `cap`: each tab is cleared in an
   edit of its own, then a last edit opens the slot (`open` alone) on the
-  cursor's tab.
+  cursor's tab. An edit stays one block: letting it cover several would
+  complicate every edit for `cap` across tabs, which is rare.
 - **Spacing is rhythm.** The gap after a note belongs to it: `ac`, a snapped
   motion range and `x` on a lone note remove it with the note, so the
   previous note keeps its length and what follows moves earlier. Rests exist

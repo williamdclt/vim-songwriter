@@ -12,15 +12,4 @@ Ordered by importance: how many bugs a behaviour can cause, and how much it
 gets in the way of new features. Each entry says why it stands where it
 does.
 
-## 4. Smaller oddities
-
-- **`cap` on several tabs is several edits.** An edit touches one block, so
-  each tab is cleared in an edit of its own, joined into one undo step by
-  hand (`operator#ApplyLines`). Could an edit cover several blocks?
-- **Two units for the cursor column.** On an annotation line it is a display
-  column, on a string a byte column, told apart by the sign of `lin` in
-  `edit#Do`. Unifying them was judged not to simplify (refactor 6).
-- **Lifetimes used loosely.** The `typing` state was read with two lifetimes,
-  which hid an undo bug (fixed). The table of lifetimes in `state.vim` now
-  makes each read say which one it means; worth watching whether other
-  "straight after" behaviours really mean "until the buffer changes".
+None open.
