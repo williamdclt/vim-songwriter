@@ -171,13 +171,16 @@ endfunction
 " Remember the slot under the cursor and enter the insert state (spec 3.1).
 " With a `mark` (from Mark), closing it restores the tab; without one, the slot
 " is part of a bigger edit (`c`, `o`, :SongwriterNewTab) and closing lints.
+" The insert state is entered first: in it already, with the buffer unchanged
+" (a slot that needed no room), entering it closes the open slot, which must
+" not be this one.
 function! songwriter#tab#slots#Open(...) abort
   let l:slot = {'line': line('.'), 'col': col('.')}
   if a:0
     call extend(l:slot, a:1)
   endif
-  call songwriter#tab#state#Set('slot', l:slot)
   call songwriter#tab#mode#Enter('insert')
+  call songwriter#tab#state#Set('slot', l:slot)
 endfunction
 
 function! songwriter#tab#slots#Forget() abort

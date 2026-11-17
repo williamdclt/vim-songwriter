@@ -34,6 +34,10 @@ function! songwriter#tab#typing#EnterNote(digit) abort
   if !l:after_separator && l:here && (get(l:typing, 'chord', 0) || !empty(l:note)
         \ && !s:extends(strpart(l:line, l:note.col - 1, l:note.len), l:digit))
     call songwriter#tab#slots#AddNote(1)
+    if !empty(songwriter#tab#state#Get('typing'))
+      " No slot opened: the digit would go on the same note again.
+      return
+    endif
     call songwriter#tab#typing#EnterNote(a:digit)
     if !l:insert
       call songwriter#tab#mode#Enter(l:mode)

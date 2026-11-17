@@ -125,18 +125,16 @@ Execute (random keys of the tables keep the tab parsing and the music checked):
   " for it. When a bug is fixed and renumbered away, its branch goes.
   function! FuzzKnown(failure) abort
     let [l:step, l:error] = [a:failure.step, a:failure.error]
-    if l:step =~# '^\d$' && l:error =~# 'E132:'
-      return '1: digits rewriting a note in the insert state'
-    elseif l:error =~# 'E790:'
-      return '2: a note typed after an undo'
+    if l:error =~# 'E790:'
+      return '1: a note typed after an undo'
     elseif l:error =~# "enter_separator.*: note \\S\\+ \\d\\+ (\\d\\d\\+) -> "
-      return '3: a separator splitting a two-digit fret'
+      return '2: a separator splitting a two-digit fret'
     elseif l:step ==# 'gp' && l:error =~# '^songwriter: check:'
-      return '4: gp past the closing pipe'
+      return '3: gp past the closing pipe'
     elseif l:error =~# "_step', .*: chains \\S\\+ \\d\\+, \\d\\+ joined"
-      return '5: a fret changed in a chain'
+      return '4: a fret changed in a chain'
     elseif l:step =~# '^[0-9x]$' && l:error =~# 'enter_note.*: chains \S\+ \d\+, \d\+ joined'
-      return '6: a note typed between two notes'
+      return '5: a note typed between two notes'
     endif
     return ''
   endfunction
