@@ -264,6 +264,20 @@ Execute (4.3 an earlier change is kept when a slot is closed):
 Expect songwriter:
   e|--7--|
 
+Given songwriter (4.3.1 a note typed in a slot opened after an undo is an undo step):
+  e|--3--5--7--|
+
+Execute (4.3.1 a note typed in a slot opened after an undo is an undo step):
+  let &undolevels = &undolevels
+  call cursor(1, 5)
+  call feedkeys("ccPu", 'xt')
+  let lines = getline(1, '$')
+  let v:errmsg = ''
+  call feedkeys("i2", 'xt')
+  AssertEqual '', v:errmsg
+  call feedkeys("u", 'xt')
+  AssertEqual lines, getline(1, '$')
+
 " --- 4.3.1 a note typed into a slot is one undo step with it ---
 
 Given songwriter (4.3.1 u after a and a digit gives back the tab as before a):
