@@ -145,7 +145,8 @@ endfunction
 " a note on dashes is (columns#PutNote), so it never joins a note ending
 " right before it: a dash is inserted there on every string. Returns
 " {'lines', 'col', 'msg', 'map', 'written'}, or {'error'} for a bar register,
-" no column there, or a note that would replace anything but dashes.
+" no column there, a note that would reach the bar's closing pipe or beyond,
+" or one that would replace anything but dashes.
 function! songwriter#tab#paste#Overlay(lines, lin, col, rows, regnames) abort
   if !empty(filter(copy(a:rows), "stridx(v:val, '|') >= 0"))
     return {'error': 'gp pastes a column, not a bar'}
@@ -171,11 +172,14 @@ function! songwriter#tab#paste#Overlay(lines, lin, col, rows, regnames) abort
     return {'lines': copy(a:lines), 'col': l:c, 'msg': l:m.msg, 'map': []}
   endif
   let l:qmin = min(l:starts)
+  let l:pipe = min(filter(songwriter#tab#model#Pipes(a:lines[a:lin]), 'v:val > l:c'))
   for l:i in range(len(a:lines))
     for l:a in l:atoms[l:i]
       let l:s = l:c + l:a.col - l:qmin
-      let l:line = songwriter#tab#model#Pad(a:lines[l:i], l:s + l:a.len)
-      if strpart(l:line, l:s - 1, l:a.len) !~# songwriter#grammar#OnlyDashes()
+      if l:s + l:a.len > l:pipe
+        return {'error': printf('gp would write past the end of the bar on string %s', songwriter#tab#model#Name(a:lines[l:i]))}
+      endif
+      if strpart(a:lines[l:i], l:s - 1, l:a.len) !~# songwriter#grammar#OnlyDashes()
         return {'error': printf('gp would replace a note on string %s', songwriter#tab#model#Name(a:lines[l:i]))}
       endif
     endfor
