@@ -15,7 +15,8 @@
 " fills any open slot, in the same undo step as the slot, as is a digit typed
 " straight after a digit or separator; after a move it is its own undo step
 " (3.4.1.1, 4.3.1). The state (normal or insert) is kept. No-op off a tab line
-" and on a separator (3.4.2).
+" and anywhere but on a dash or a note: a separator (3.4.2), a pipe, the
+" string name.
 function! songwriter#tab#typing#EnterNote(digit) abort
   let l:line = getline('.')
   if !songwriter#grammar#IsTabLine(l:line)
@@ -38,7 +39,7 @@ function! songwriter#tab#typing#EnterNote(digit) abort
       call songwriter#tab#mode#Enter(l:mode)
     endif
     return
-  elseif !l:after_separator && songwriter#grammar#IsSeparatorChar(l:ch)
+  elseif !l:after_separator && empty(l:note) && l:ch !~# '^' . songwriter#grammar#Dash() . '$'
     return
   endif
   call songwriter#tab#edit#Do(function('s:enter_note', [l:digit, l:here, l:after_separator]),

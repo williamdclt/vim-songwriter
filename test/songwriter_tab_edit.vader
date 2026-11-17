@@ -83,6 +83,19 @@ Then:
 Expect:
   I walk a
 
+Given songwriter (3.4 a digit on a pipe or a string name does nothing):
+  e|--3--5--|--7--|
+  B|--1-----|-----|
+
+Execute (3.4 a digit on a pipe or a string name does nothing):
+  let b:songwriter_tabmode = 1
+  for col in [1, 2, 11, 17]
+    call cursor(1, col)
+    execute "normal 4"
+    AssertEqual ['e|--3--5--|--7--|', 'B|--1-----|-----|'], getline(1, '$'), 'column ' . col
+    unlet! b:songwriter_typing
+  endfor
+
 " --- 3.1 AddNote: a opens a 1-dash-gap slot to the right, i mirrors to the
 " left, on every string of the block. The new-note slot sits one dash from the
 " current note; the following/preceding pipe stays 2 dashes away. `a` lands on
