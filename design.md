@@ -92,7 +92,7 @@ of another block than the cursor's (`lnum`: a slot closed from elsewhere,
 each tab of a line-wise `cap`, each block of a visual `<C-A>`), one that keeps
 the tab as it is (`prelint` and `lint` off: `_`, `:SongwriterAddBar`, the
 slot of a line-wise `cap`), an operator's edit (no first lint: `g@` runs
-after the lint of its own `<Cmd>`, whose undo step it joins; no lint after:
+after the lint of its own `<Cmd>`; no lint after:
 the operator lints its own result, to put the cursor on what the lint left),
 a lint alone (`||`, the operators' first lint: an edit that does nothing).
 A slot that is part of a bigger edit (`c`, 6.6) is the result's `open` (the
@@ -750,10 +750,14 @@ The spec items carry the behaviour; this records why, and how it is built.
 - **Vim's grammar rather than one command per operation.** Operators (`d`, `y`,
   `c`) times targets (columns, bars, motions) give every combination, plus
   registers and `.`, for free. They run through `operatorfunc`/`g@`. A `<Cmd>`
-  before `g@` lints the block first (its undo step is joined to the
-  operation's with `:undojoin`), so that the motion is computed on the linted
-  tab: a motion on an unlinted tab could reach other notes than the user
-  sees it reach once linted. The `<Cmd>` consumes the count, so the count is
+  before `g@` lints the block first, so that the motion is computed on the
+  linted tab: a motion on an unlinted tab could reach other notes than the
+  user sees it reach once linted. That lint is an undo step of its own
+  (spec 6.10): joining it to the operation's would take a changedtick check
+  in every path an operator can end in, for a lint that is a no-op on a tab
+  being worked on. Refusing operators on unlinted tabs was rejected: a tab
+  pasted in or edited outside tablature mode would need `||` first. The
+  `<Cmd>` consumes the count, so the count is
   given again after `g@` (`g@3w`). `v:register` is not reliable inside the
   operatorfunc, so the operator, register and "exact target" flag are kept in
   `s:pending`, a script variable since the operatorfunc takes no arguments.

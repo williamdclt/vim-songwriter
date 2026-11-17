@@ -12,23 +12,6 @@ Ordered by importance: how many bugs a behaviour can cause, and how much it
 gets in the way of new features. Each entry says why it stands where it
 does.
 
-## 1. Operators lint in a command of their own
-
-**Why first.** Every operator and target goes through the joined undo step
-and the re-typed count; a new operator or text object has to fit that, and
-getting the join wrong leaves two undo steps.
-
-**Now.** Operators work on a linted tab (decided: a motion must never reach
-differently because the tab was not linted). The lint is a separate `<Cmd>`
-before `g@` (`operator#Start`, `Prelint`), whose undo step the operation
-joins through the changedtick, and which consumes the count, typed again
-after `g@` (`g@3w`).
-
-**Alternative.** Lint at other moments so that a tab being worked on is
-almost always linted already (leaving the insert state, entering tablature
-mode on a tab), and the operator's lint becomes a rare no-op. The rule that
-operators see a linted tab stays.
-
 ## 2. `x` with a count lints between erasures
 
 **Why second.** Local to one function, but it is a second rule for something

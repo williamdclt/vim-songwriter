@@ -21,7 +21,7 @@
 " Fn) returning one result: the lines, linted, the register, the cursor and,
 " for `c`, the slot to open ('open'); edit#Do sets the register and the cursor.
 
-let s:pending = {'op': 'd', 'reg': '"', 'exact': 0, 'note': 0, 'across': {}, 'cancel': 0, 'tick': -1}
+let s:pending = {'op': 'd', 'reg': '"', 'exact': 0, 'note': 0, 'across': {}, 'cancel': 0}
 
 " === Operators ===
 
@@ -31,12 +31,12 @@ function! songwriter#tab#operator#Pending() abort
   return {'op': s:pending.op, 'reg': s:pending.reg}
 endfunction
 
-" `d`/`y`/`c` in tablature mode: lint first (own undo step, joined to the
-" operation's), then g@. The <Cmd> that lints consumes the count, so it is
+" `d`/`y`/`c` in tablature mode: lint first (its own undo step, spec 6.10),
+" then g@. The <Cmd> that lints consumes the count, so it is
 " given again after g@ (`3dw` runs as `g@3w`). `play` (spec 12) changes
 " nothing, not even with a lint: just g@.
 function! songwriter#tab#operator#Start(op) abort
-  let s:pending = {'op': a:op, 'reg': v:register, 'exact': 0, 'note': 0, 'across': {}, 'cancel': 0, 'tick': -1}
+  let s:pending = {'op': a:op, 'reg': v:register, 'exact': 0, 'note': 0, 'across': {}, 'cancel': 0}
   set operatorfunc=songwriter#tab#operator#Opfunc
   if a:op ==# 'play'
     return 'g@'
@@ -78,9 +78,7 @@ function! songwriter#tab#operator#Prelint() abort
     let s:pending.cancel = 1
     return
   endif
-  let l:tick = b:changedtick
   call songwriter#tab#edit#Do({_ -> {}})
-  let s:pending.tick = b:changedtick != l:tick ? b:changedtick : -1
 endfunction
 
 function! songwriter#tab#operator#Opfunc(type) abort
@@ -92,18 +90,13 @@ function! songwriter#tab#operator#Opfunc(type) abort
   if l:p.cancel
     return
   endif
-  " The edit joins the undo step of the lint before g@ (Start).
-  call s:apply(a:type, l:p, l:p.tick == b:changedtick)
+  call s:apply(a:type, l:p)
 endfunction
 
-" Apply the pending operator `p` to the marks of g@ ('operatorfunc' `type`),
-" joining the previous undo step when `join` is set.
-function! s:apply(type, p, join) abort
+" Apply the pending operator `p` to the marks of g@ ('operatorfunc' `type`).
+function! s:apply(type, p) abort
   let l:p = a:p
   if a:type ==# 'line'
-    if a:join
-      call songwriter#tab#edit#JoinUndo()
-    endif
     call songwriter#tab#operator#ApplyLines(l:p.op, l:p.reg, line("'["), line("']"))
     return
   endif
@@ -124,18 +117,18 @@ function! s:apply(type, p, join) abort
     return
   endif
   if !empty(l:p.across)
-    call s:apply_across(l:p.op, l:p.reg, l:lnum, l:p.across, a:join)
+    call s:apply_across(l:p.op, l:p.reg, l:lnum, l:p.across)
   else
-    call songwriter#tab#operator#ApplyRange(l:p.op, l:p.reg, l:lnum, l:s, l:e, l:p.note, a:join)
+    call songwriter#tab#operator#ApplyRange(l:p.op, l:p.reg, l:lnum, l:s, l:e, l:p.note)
   endif
 endfunction
 
 " Apply `op` to columns [s, e] of the block of line `lnum`, as an edit of that
-" line (edit#Do) joining the previous undo step when `join` (optional) is set.
+" line (edit#Do).
 " `note` is the reach: 0 the time columns (6.2.3), 1 the notes of that string,
 " a string object (6.1.4, 6.1.5), 2 the notes of that string, a string motion
 " (6.2.2). `play` plays the notes of that reach (12.1), the cursor on s.
-function! songwriter#tab#operator#ApplyRange(op, reg, lnum, s, e, note, ...) abort
+function! songwriter#tab#operator#ApplyRange(op, reg, lnum, s, e, note) abort
   if a:op ==# 'play'
     let l:block = songwriter#tab#model#Read(a:lnum)
     call cursor(a:lnum, a:s)
@@ -143,28 +136,28 @@ function! songwriter#tab#operator#ApplyRange(op, reg, lnum, s, e, note, ...) abo
           \ a:note ? [a:lnum - l:block.start] : range(len(l:block.lines)), a:s, a:e]])
     return
   endif
-  call s:edit(a:op, a:lnum, a:0 && a:1, a:note
+  call s:edit(a:op, a:lnum, a:note
         \ ? function('s:noteop', [a:op, a:reg, a:lnum, a:s, a:e, a:note == 1])
         \ : function('s:columnwise', [a:op, a:reg, a:lnum, a:s, a:e]))
 endfunction
 
 " Spec 6.2.4: apply `op` to the notes starting on time column `a.col` of the
 " strings `a.lins` ([first, last], 0-indexed) of the block of line `lnum`.
-function! s:apply_across(op, reg, lnum, a, join) abort
+function! s:apply_across(op, reg, lnum, a) abort
   if a:op ==# 'play'
     let l:block = songwriter#tab#model#Read(a:lnum)
     call cursor(a:lnum, a:a.col)
     call songwriter#tab#play#Play([[l:block.lines, range(a:a.lins[0], a:a.lins[1]), a:a.col, a:a.col]])
     return
   endif
-  call s:edit(a:op, a:lnum, a:join, function('s:across', [a:op, a:reg, a:lnum, a:a]))
+  call s:edit(a:op, a:lnum, function('s:across', [a:op, a:reg, a:lnum, a:a]))
 endfunction
 
 " Fn(ctx), the edit of operator `op` (s:columnwise, s:noteop, s:across),
 " applied to the block of line `lnum` as it is: it lints its own result, and
 " a yank changes nothing.
-function! s:edit(op, lnum, join, Fn) abort
-  call songwriter#tab#edit#Do(a:Fn, {'lnum': a:lnum, 'prelint': 0, 'lint': 0, 'join': a:join})
+function! s:edit(op, lnum, Fn) abort
+  call songwriter#tab#edit#Do(a:Fn, {'lnum': a:lnum, 'prelint': 0, 'lint': 0})
 endfunction
 
 " Pure. Spec 6.2.3, 6.4, 6.6: `op` on columns [s, e] of `ctx.block`, the
