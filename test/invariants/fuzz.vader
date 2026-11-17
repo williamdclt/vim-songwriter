@@ -125,10 +125,8 @@ Execute (random keys of the tables keep the tab parsing and the music checked):
   " for it. When a bug is fixed and renumbered away, its branch goes.
   function! FuzzKnown(failure) abort
     let [l:step, l:error] = [a:failure.step, a:failure.error]
-    if l:error =~# "_step', .*: chains \\S\\+ \\d\\+, \\d\\+ joined"
-      return '1: a fret changed in a chain'
-    elseif l:step =~# '^[0-9x]$' && l:error =~# 'enter_note.*: chains \S\+ \d\+, \d\+ joined'
-      return '2: a note typed between two notes'
+    if l:step =~# '^[0-9x]$' && l:error =~# 'enter_note.*: chains \S\+ \d\+, \d\+ joined'
+      return '1: a note typed between two notes'
     endif
     return ''
   endfunction

@@ -221,8 +221,7 @@ e|--0--0--0--|--0-------------|
 
 [[Bugs]]
 These are known bugs that need fixing.
-1. `<leader>h` / `<leader>l` (3.6.5), and `h` / `l` in the move state (3.8.2), on a note between two others of its chain give the right tab but fail in check mode, as if the chain had been joined: `<leader>h` on the 1 of `e|--4h1h9--|` gives `e|--4h0h9--|` and throws `chains e 5, 9 joined`. ✗
-2. A digit or `x` typed on the one dash between two notes joins the three (3.4, 3.4.3): `7` on the dash of `e|--3-5--|` gives `e|--375--|`, and `x` gives `e|--3x5--|`. The note written should keep apart from both, dashes inserted as for a carried note (7.5). ✗
+1. A digit or `x` typed on the one dash between two notes joins the three (3.4, 3.4.3): `7` on the dash of `e|--3-5--|` gives `e|--375--|`, and `x` gives `e|--3x5--|`. The note written should keep apart from both, dashes inserted as for a carried note (7.5). ✗
 
 [Chords]
 
