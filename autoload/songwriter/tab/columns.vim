@@ -91,6 +91,41 @@ function! songwriter#tab#columns#DeleteRange(lines, s, e) abort
   return {'lines': l:apart.lines, 'rows': l:rows, 'map': songwriter#tab#colmap#Then(l:map, l:apart.map)}
 endfunction
 
+" Spec [Tablature][[Editing]] 6.2.3: a column range [s, e] deleted (or
+" yanked) with the separators of its notes ([Tablature]: a note's separators
+" go where it goes). Separators before a note of the range, left of s, become
+" dashes, as `x` does (6.7.4); those of a note after the range that lie in it
+" stay with that note: the range ends before them (unless that would leave
+" none of it). Returns DeleteRange's {'lines', 'rows', 'map'}, rows starting
+" with the separators taken, and 'start': the column of the rows' first byte.
+function! songwriter#tab#columns#DeleteColumns(lines, s, e) abort
+  let l:e = a:e
+  let l:spans = map(copy(a:lines), 'songwriter#tab#model#Spans(v:val)')
+  for l:line_spans in l:spans
+    for l:sp in l:line_spans
+      if l:sp.col > a:s && l:sp.col <= l:e && l:sp.col + len(l:sp.pre) > l:e
+        let l:e = l:sp.col - 1
+      endif
+    endfor
+  endfor
+  let l:out = copy(a:lines)
+  let l:pre = map(copy(a:lines), "''")
+  for l:i in range(len(a:lines))
+    for l:sp in l:spans[l:i]
+      let l:c = l:sp.col + len(l:sp.pre)
+      if l:sp.col < a:s && l:c >= a:s && l:c <= l:e
+        let l:pre[l:i] = strpart(l:sp.pre, 0, a:s - l:sp.col)
+        let l:out[l:i] = songwriter#tab#model#Blank(l:out[l:i], {'col': l:sp.col, 'len': len(l:pre[l:i])})
+      endif
+    endfor
+  endfor
+  let l:k = max(map(copy(l:pre), 'len(v:val)'))
+  let l:del = songwriter#tab#columns#DeleteRange(l:out, a:s, l:e)
+  let l:del.rows = map(l:del.rows, {i, r -> repeat('-', l:k - len(l:pre[i])) . l:pre[i] . r})
+  let l:del.start = a:s - l:k
+  return l:del
+endfunction
+
 " Two chains of a string must never meet between byte `o` and `o + 1` (0 =
 " line start) of `lines` once an edit has removed or inserted columns there:
 " when a string has a chain on both sides, a dash is inserted after `o` on

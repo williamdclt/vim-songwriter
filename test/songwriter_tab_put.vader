@@ -8,6 +8,16 @@ Before:
 
 " --- 6.7 x ---
 
+Given songwriter (6.7 x takes no count, not even through `.`):
+  e|--3--5--7--9--|
+
+Execute (6.7 x takes no count, not even through `.`):
+  call cursor(1, 5)
+  normal x
+  call songwriter#tab#repeat#Run(2)
+Expect songwriter:
+  e|--7--9--|
+
 Given songwriter (6.7.1 x on a shared column turns the note into dashes):
   e|--3--5--|
   B|-----5--|

@@ -92,7 +92,7 @@ of another block than the cursor's (`lnum`: a slot closed from elsewhere,
 each tab of a line-wise `cap`, each block of a visual `<C-A>`), one that keeps
 the tab as it is (`prelint` and `lint` off: `_`, `:SongwriterAddBar`, the
 slot of a line-wise `cap`), an operator's edit (no first lint: `g@` runs
-after the lint of its own `<Cmd>`, whose undo step it joins; no lint after:
+after the lint of its own `<Cmd>`; no lint after:
 the operator lints its own result, to put the cursor on what the lint left),
 a lint alone (`||`, the operators' first lint: an edit that does nothing).
 A slot that is part of a bigger edit (`c`, 6.6) is the result's `open` (the
@@ -102,9 +102,8 @@ its selection (`selection`, `selection.vim`), which is selected again once
 written, its ends where the edit says they went (`sel`), followed through the
 column map: visual carries are a step like any other. `undojoin` is only in
 `edit.vim`; `JoinUndo` is there for the changes that are not edits of a tab
-but belong with one made in an earlier command: whole tabs deleted by a
-line-wise operator after its first lint, and the trailing spaces trimmed when
-Vim's insert mode is left after `cia` typed somewhere unexpected.
+but belong with one made in an earlier command: the trailing spaces trimmed
+when Vim's insert mode is left after `cia` typed somewhere unexpected.
 
 **The cursor may be on an annotation line.** `Do`'s cursor line counts from
 the block's first string, so an annotation line is a negative one (-1 right
@@ -113,7 +112,10 @@ follows the edit's column map (and the lint's, and the room made) like a
 string's, so a cursor on a label stays on it, and it becomes bytes only when
 written back. An edit started from an annotation line (`=` on a label, the
 end of `cia`) is thus an ordinary edit, with its undo step, state and `.`,
-and no moving of the cursor to a string and back.
+and no moving of the cursor to a string and back. The two units stay
+(display columns on annotation lines, bytes on strings): unifying them was
+judged to give no simpler code, since labels are placed by display column
+and strings are cut by byte.
 
 **Drafts and snapshots.** What reaches the buffer is a draft: the block's new
 lines, and where each column of its base went in them (`{'lines', 'map',
@@ -139,9 +141,9 @@ tab with time columns (`model#Timed`); a broken rule throws, naming the edit. Wh
 on purpose it says in its result: `erased` (notes of the lines it was given)
 and `written` (where the notes it writes start, in its lines; a written note
 must be a note of its own, so a note written right after another one is
-caught). Composed edits carry them: positions of later steps' input are
-mapped back with `colmap#Before`, written ones forward with
-`colmap#Positions`. A tab with no time columns cannot be edited but by
+caught). Composed edits carry written positions forward with
+`colmap#Positions`; erasures are declared on the input lines, so an edit
+erases first and lints after, rather than lint between erasures. A tab with no time columns cannot be edited but by
 `||` (see "Tabs with no time columns"), so of that lint only each string's
 notes in order are checked. The
 lint's fixed point and the room made for labels throw in check mode when
@@ -197,7 +199,10 @@ the ones the features need:
 Tying a state to `b:changedtick` rather than clearing it at each place that
 changes the buffer means any change, `u` included, ends it without the other
 code having to know. `Expire` drops a state that no longer holds, for the
-one place that shows its end (the move state's message).
+one place that shows its end (the move state's message). Each read names
+the lifetime it means; a new "straight after" behaviour should be checked
+against both `change` and `continuation`, since reading one state with two
+lifetimes once hid an undo bug.
 
 Two states are not there, because Vim puts them elsewhere: the pending
 operator (`s:pending` in `operator.vim`), since `'operatorfunc'`
@@ -237,8 +242,11 @@ their content is the one recorded, which no buffer tick says.
   takes them, 1.5), the slots (a slot goes past them and keeps a dash from
   those of the next note, 3.1.3), carries and `x` (they go with the note,
   6.7.4), `>>`/`<<` (the dash goes before them, 6.13) and `WriteNote` (a
-  narrower fret leaves its dashes after them, 11.2). Column ranges (`ac`,
-  `dd`) are time columns and do not take the separators of their notes.
+  narrower fret leaves its dashes after them, 11.2) and column ranges
+  (`ac`, `dd`, `dW`: `columns#DeleteColumns` turns the separators before
+  their notes into dashes, as `x` does, and ends before those of the next
+  note, 6.2.3), which stay time columns rather than start at the separators
+  so that no range is refused where another string has a note under them.
 - **Bar**: the region between two pipes. On a line, the bar around column `c` is
   bounded by the nearest pipes strictly left and right of `c`
   (`model#BarAt`).
@@ -750,10 +758,14 @@ The spec items carry the behaviour; this records why, and how it is built.
 - **Vim's grammar rather than one command per operation.** Operators (`d`, `y`,
   `c`) times targets (columns, bars, motions) give every combination, plus
   registers and `.`, for free. They run through `operatorfunc`/`g@`. A `<Cmd>`
-  before `g@` lints the block first (its undo step is joined to the
-  operation's with `:undojoin`), so that the motion is computed on the linted
-  tab: a motion on an unlinted tab could reach other notes than the user
-  sees it reach once linted. The `<Cmd>` consumes the count, so the count is
+  before `g@` lints the block first, so that the motion is computed on the
+  linted tab: a motion on an unlinted tab could reach other notes than the
+  user sees it reach once linted. That lint is an undo step of its own
+  (spec 6.10): joining it to the operation's would take a changedtick check
+  in every path an operator can end in, for a lint that is a no-op on a tab
+  being worked on. Refusing operators on unlinted tabs was rejected: a tab
+  pasted in or edited outside tablature mode would need `||` first. The
+  `<Cmd>` consumes the count, so the count is
   given again after `g@` (`g@3w`). `v:register` is not reliable inside the
   operatorfunc, so the operator, register and "exact target" flag are kept in
   `s:pending`, a script variable since the operatorfunc takes no arguments.
@@ -767,7 +779,8 @@ The spec items carry the behaviour; this records why, and how it is built.
   function with no lines in its result. Line-wise targets are not edits of a
   tab (`dap` deletes buffer lines), except `cap`: each tab is cleared in an
   edit of its own, then a last edit opens the slot (`open` alone) on the
-  cursor's tab.
+  cursor's tab. An edit stays one block: letting it cover several would
+  complicate every edit for `cap` across tabs, which is rare.
 - **Spacing is rhythm.** The gap after a note belongs to it: `ac`, a snapped
   motion range and `x` on a lone note remove it with the note, so the
   previous note keeps its length and what follows moves earlier. Rests exist
@@ -840,8 +853,9 @@ The spec items carry the behaviour; this records why, and how it is built.
   record themselves the same way.
 - **No counts in front of a command.** Digits enter notes in tablature mode
   (spec 3.4), so `3x` types a 3. Counts work after an operator (`d2ac`, `d3w`)
-  and in visual mode, where digits are not mapped. The entry points still take
-  a count.
+  and in visual mode, where digits are not mapped. `x` takes no count, not
+  even through `.`: erasing several notes is `d3l`, one erasure and one lint.
+  The other entry points still take a count.
 - **Visual mode.** Text objects show the real (full-height) extent as a
   blockwise selection, and extend when repeated while the selection is still
   theirs; a plain `v` selection is widened at operator time instead, so `v`

@@ -6,67 +6,40 @@
 
 " `x` in normal mode: on a dash, enter a muted note as a digit would (spec 3.4.3);
 " elsewhere, erase (6.7).
-function! songwriter#tab#actions#EraseOrMute(count, reg) abort
+function! songwriter#tab#actions#EraseOrMute(reg) abort
   if getline('.')[col('.') - 1] ==# '-'
     call songwriter#tab#typing#EnterNote('x')
   else
-    call songwriter#tab#actions#Erase(a:count, a:reg)
+    call songwriter#tab#actions#Erase(a:reg)
   endif
 endfunction
 
-" Spec 6.7: `x`, `count` times on the cursor's string (after the first, from
-" the next note on the string). Writes what was erased to `reg` (6.7.3).
-function! songwriter#tab#actions#Erase(count, reg) abort
-  call songwriter#tab#edit#Do(function('s:erase', [a:count, a:reg]), {
-        \ 'repeat': [function('songwriter#tab#actions#Erase'), [a:count, a:reg], 0]})
+" Spec 6.7: `x` on the note under the cursor, on its string. Takes no count
+" (a digit types a note, 6.12). Writes what was erased to `reg` (6.7.3).
+function! songwriter#tab#actions#Erase(reg) abort
+  call songwriter#tab#edit#Do(function('s:erase', [a:reg]), {
+        \ 'repeat': [function('songwriter#tab#actions#Erase'), [a:reg]]})
 endfunction
 
-function! s:erase(count, reg, ctx) abort
-  let l:lines = a:ctx.block.lines
-  let l:map = []
-  let l:col = a:ctx.col
-  let l:rows = []
-  " The annotations erased with the notes ([[Annotations]] 5.1), at their
-  " offsets in the register's rows.
-  let l:above = a:ctx.block.above
-  let l:words = []
-  let l:lone = 0
-  let l:erased = []
-  for l:i in range(max([a:count, 1]))
-    if l:i > 0 && empty(songwriter#tab#model#NoteAt(l:lines[a:ctx.lin], l:col))
-      let l:next = filter(map(songwriter#tab#model#Notes(l:lines[a:ctx.lin]), 'v:val.col'), 'v:val > l:col')
-      if empty(l:next)
-        break
-      endif
-      let l:col = l:next[0]
-    endif
-    let l:res = songwriter#tab#columns#EraseNote(l:lines, a:ctx.lin, l:col)
-    if empty(l:res)
-      break
-    endif
-    let l:erased += [{'lin': a:ctx.lin, 'col': songwriter#tab#colmap#Before(l:map, l:res.col,
-          \ len(a:ctx.block.lines[a:ctx.lin]))}]
-    let l:lone = len(l:res.lines[a:ctx.lin]) < len(l:lines[a:ctx.lin])
-    let l:width = empty(l:rows) ? 0 : len(l:rows[0])
-    for l:w in songwriter#tab#annotations#Cut(l:above, l:res.map)
-      call add(l:words, extend(l:w, {'col': l:w.col - l:res.col + 1 + l:width}))
-    endfor
-    let l:rows = empty(l:rows) ? l:res.rows : map(l:rows, 'v:val . l:res.rows[v:key]')
-    let l:linted = songwriter#tab#edit#Linted(l:res.lines, a:ctx.lin,
-          \ max([1, min([l:res.col, len(l:res.lines[a:ctx.lin])])]))
-    let [l:lines, l:col] = [l:linted.lines, l:linted.col]
-    let l:step = songwriter#tab#colmap#Then(l:res.map, l:linted.map)
-    let l:above = songwriter#tab#annotations#Follow(l:above, l:step)
-    let l:map = songwriter#tab#colmap#Then(l:map, l:step)
-  endfor
-  if empty(l:rows)
+function! s:erase(reg, ctx) abort
+  let l:lin = a:ctx.lin
+  let l:res = songwriter#tab#columns#EraseNote(a:ctx.block.lines, l:lin, a:ctx.col)
+  if empty(l:res)
     return {}
   endif
+  " The annotations erased with the note ([[Annotations]] 5.1), at their
+  " offsets in the register's rows.
+  let l:words = map(songwriter#tab#annotations#Cut(a:ctx.block.above, l:res.map),
+        \ {_, w -> extend(w, {'col': w.col - l:res.col + 1})})
+  let l:linted = songwriter#tab#edit#Linted(l:res.lines, l:lin,
+        \ max([1, min([l:res.col, len(l:res.lines[l:lin])])]))
+  let l:lone = len(l:res.lines[l:lin]) < len(a:ctx.block.lines[l:lin])
   let l:annotations = songwriter#tab#annotations#Rows(l:words, 1)
-  return {'lines': l:lines, 'map': l:map, 'erased': l:erased,
-        \ 'col': l:lone ? songwriter#tab#columns#NextColumn(l:lines, l:col) : l:col,
-        \ 'register': {'name': a:reg, 'rows': l:annotations + l:rows, 'type': 'b',
-        \   'names': songwriter#tab#model#Names(l:lines), 'above': len(l:annotations)}}
+  return {'lines': l:linted.lines, 'map': songwriter#tab#colmap#Then(l:res.map, l:linted.map),
+        \ 'erased': l:res.erased,
+        \ 'col': l:lone ? songwriter#tab#columns#NextColumn(l:linted.lines, l:linted.col) : l:linted.col,
+        \ 'register': {'name': a:reg, 'rows': l:annotations + l:res.rows, 'type': 'b',
+        \   'names': songwriter#tab#model#Names(l:linted.lines), 'above': len(l:annotations)}}
 endfunction
 
 " Spec 6.5 / 6.3.2: `p` (before 0) / `P` (before 1) from register `reg`.

@@ -272,27 +272,47 @@ Execute (6.10 . repeats dac):
 Expect songwriter:
   e|--7--|
 
-Given songwriter (6.10 one undo step, including the lint before and after):
+Given songwriter (6.10 the lint before an operator is its own undo step):
   e|-----3--5--|
 
-Execute (6.10 one undo step, including the lint before and after):
+Execute (6.10 the lint before an operator is its own undo step):
+  let &undolevels = &undolevels
+  let seq = undotree().seq_cur
   call cursor(1, 11)
-  normal dac
+  call feedkeys('dac', 'xt')
   AssertEqual 'e|--3--|', getline(1)
-  normal u
+  AssertEqual seq + 2, undotree().seq_cur
+  call feedkeys('u', 'xt')
+  AssertEqual 'e|--3--5--|', getline(1)
+  call feedkeys('u', 'xt')
 Expect songwriter:
   e|-----3--5--|
 
-Given songwriter (6.10 cac is one undo step, the lints and the slot included):
+Given songwriter (6.10 an operation on a linted tab is one undo step):
+  e|--3--5--7--|
+
+Execute (6.10 an operation on a linted tab is one undo step):
+  let &undolevels = &undolevels
+  let seq = undotree().seq_cur
+  call cursor(1, 8)
+  call feedkeys('dac', 'xt')
+  AssertEqual 'e|--3--7--|', getline(1)
+  AssertEqual seq + 1, undotree().seq_cur
+  call feedkeys('u', 'xt')
+Expect songwriter:
+  e|--3--5--7--|
+
+Given songwriter (6.10 cac is one undo step after its lint, the slot included):
   e|-----3--5--7--|
 
-Execute (6.10 cac is one undo step, the lints and the slot included):
+Execute (6.10 cac is one undo step after its lint, the slot included):
+  let &undolevels = &undolevels
   call cursor(1, 11)
-  normal cac
+  call feedkeys('cac', 'xt')
   AssertEqual 'e|--3---7--|', getline(1)
-  undo
+  call feedkeys("\<Esc>u", 'xt')
 Expect songwriter:
-  e|-----3--5--7--|
+  e|--3--5--7--|
 
 " --- scope ---
 
